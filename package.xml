@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>whole_body_posture_optimization</name>
+  <version>0.0.0</version>
+  <description>Optimization of the robot posture for robustness (stability, traction, ..) while following a path.</description>
+
+  <maintainer email="ros@martinoehler.de">Martin Oehler</maintainer>
+
+
+  <license>BSD</license>
+
+
+  <author email="ros@martinoehler.de">Martin Oehler</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>nav_msgs</depend>
+  <depend>sdf_contact_estimation</depend>
+  <depend>rbdl</depend>
+
+</package>
