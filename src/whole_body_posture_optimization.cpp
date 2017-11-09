@@ -8,16 +8,6 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const std::string &ro
   // load urdf
 }
 
-std::vector<std::vector<double>> findOptimalPosture(const nav_msgs::Path& path)
-{
-  for (const geometry_msgs::PoseStamped& pose_msg: path.poses) {
-    Eigen::Affine3d pose;
-    tf::poseMsgToEigen(pose_msg.pose, pose);
-    
-    
-  }
-}
-
 
 
 void WholeBodyPostureOptimization::updateWorldModel(const std::shared_ptr<voxblox::TsdfMap> &tsdf)
@@ -28,6 +18,25 @@ void WholeBodyPostureOptimization::updateWorldModel(const std::shared_ptr<voxblo
 void WholeBodyPostureOptimization::setDefaultJointPositions(const std::vector<double> &default_joint_positions)
 {
   default_joint_positions_ = default_joint_positions;
+}
+
+std::vector<std::vector<double>> WholeBodyPostureOptimization::findOptimalPostures(const nav_msgs::Path& path)
+{
+  std::vector<std::vector<double>> postures;
+  for (const geometry_msgs::PoseStamped& pose_msg: path.poses) {
+    Eigen::Affine3d pose;
+    tf::poseMsgToEigen(pose_msg.pose, pose);
+
+    std::vector<double> posture = findOptimalPosture(pose);
+    postures.push_back(posture);
+  }
+
+  return postures;
+}
+
+std::vector<double> WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d &pose)
+{
+
 }
 
 }

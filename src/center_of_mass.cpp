@@ -6,6 +6,11 @@ CenterOfMass::CenterOfMass(const std::string &robot_description)
 {
   rbdl::Addons::URDFReadFromString(robot_description.c_str(), model_ptr_.get(), true, false);
   ad_model_ptr_ = std::make_shared<ADModel>(*model_ptr_);
+  ROS_INFO_STREAM("Loaded model:");
+  ROS_INFO_STREAM(" -- dof: " << model_ptr_->dof_count);
+  for (unsigned int body_id = 0; body_id < model_ptr_->mBodies.size(); body_id++) {
+    ROS_INFO_STREAM("Body id: " << body_id << ", name: " << model_ptr_->GetBodyName(body_id));
+  }
 }
 
 void CenterOfMass::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com, Eigen::MatrixXd &jacobian)
