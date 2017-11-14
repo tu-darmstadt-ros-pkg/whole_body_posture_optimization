@@ -37,4 +37,9 @@ void CenterOfMass::computeCenterOfMass(const std::vector<double> &joint_angles, 
   rbdl::AD::CalcCenterOfMass(*model_ptr_, *ad_model_ptr_, q, q_dirs, qdot, qdot_dirs, mass, com2, jacobian, 0, 0, 0, 0, true);
 }
 
+void CenterOfMass::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com)
+{
+
+}
+
 }

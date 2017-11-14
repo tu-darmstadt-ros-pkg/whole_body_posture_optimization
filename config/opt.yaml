@@ -1,0 +1,10 @@
+optimization_parameters:
+  arm_joints:
+    - arm_joint_0
+    - arm_joint_1
+    - arm_joint_2
+  flipper_joints:
+    - flipper_joint_1
+  default_joint_state: [0, 0, 0, 0, 0, 0, 0, 0, 0] # default for all joints
+  max_iterations: 50
+  ftol_rel: 0.5

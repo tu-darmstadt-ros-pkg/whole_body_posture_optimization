@@ -1,5 +1,5 @@
-#ifndef STABILITY_ERROR
-#define STABILITY_ERROR
+#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__STABILITY_ERROR_H
+#define WHOLE_BODY_POSTURE_OPTIMIZATION__STABILITY_ERROR_H
 
 #include <whole_body_posture_optimization/center_of_mass.h>
 #include <ceres/ceres.h>
@@ -17,19 +17,19 @@ using Affine3T = Eigen::Transform<T, 3, Eigen::Affine>;
 
 class StabilityError {
 public:
-  StabilityError(const std::string& robot_description);
+  StabilityError(const std::shared_ptr<CenterOfMass> &com_calculation);
   template <typename T> bool operator()(const T* const parameters, T* cost) const {
 
   }
 
-  static ceres::CostFunction* Create(const std::string& robot_description);
+  static ceres::CostFunction* Create(const std::shared_ptr<CenterOfMass> &com_calculation);
 
 private:
   template <typename T> T computeForceAngleStability(const std::vector<Vector3T<T>>& contact_points) {
 
   }
 
-  CenterOfMass com_calculation_;
+  std::shared_ptr<CenterOfMass> com_calculation_;
 };
 
 }
