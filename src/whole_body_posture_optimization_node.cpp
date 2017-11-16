@@ -6,21 +6,11 @@
 int main(int argc, char** argv) {
   ros::init(argc, argv, "whole_body_posture_optimization_node");
   ros::NodeHandle nh;
+  ros::NodeHandle param_nh("~");
 
-  std::string robot_description;
-  if(!nh.getParam("/robot_description", robot_description)) {
-    ROS_ERROR_STREAM("Failed to load /robot_description.");
-    return 0;
-  }
-
+  // Create robot shape
   argo_tracker::ArgoTrackerShape tracker_shape;
-  whole_body_posture_optimization::WholeBodyPostureOptimization po(robot_description, tracker_shape.getShape());
-
-  ros::NodeHandle param_nh("~/optimization_parameters");
-  if (!po.loadOptimizationParameters(param_nh)) {
-    ROS_ERROR_STREAM("Failed to load optimization parameters");
-    return 0;
-  }
+  whole_body_posture_optimization::WholeBodyPostureOptimization po(param_nh, tracker_shape.getShape());
 
   // create environment
   auto cloud = sdf_contact_estimation::generateStep();
@@ -52,7 +42,9 @@ int main(int argc, char** argv) {
   path.poses.push_back(pose);
 
   // Compute optimal postures
-  po.findOptimalPostures(path);
+//  po.findOptimalPostures(path);
+
+  ros::spin();
 
   return 0;
 }

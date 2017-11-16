@@ -61,10 +61,12 @@ public:
       double **jacobian_ptr = &gradient_ptr;
 
       if (!cost_function_->Evaluate(parameters_ptr, cost, jacobian_ptr)) {
+        ROS_ERROR_STREAM("Failed to evaluate cost function");
         return 0.0;
       }
     } else {
       if (!cost_function_->Evaluate(parameters_ptr, cost, NULL)) {
+        ROS_ERROR_STREAM("Failed to evaluate cost function");
         return 0.0;
       }
     }

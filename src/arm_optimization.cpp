@@ -2,15 +2,24 @@
 
 namespace whole_body_posture_optimization {
 
-ArmOptimization::ArmOptimization(const std::string &robot_description)
-  : robot_description_(robot_description)
+ArmOptimization::ArmOptimization(const ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model)
 {
-  com_calculation_ = std::make_shared<CenterOfMass>(robot_description_);
-  stability_cost_ = std::make_shared<CeresCostFunctionWrapper>(StabilityError::Create(com_calculation_));
+  ROS_INFO_STREAM("Creating arm optimization");
+  loadParameters(nh);
+  robot_model_ = robot_model;
+}
+
+bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
+{
+  if(!nh.getParam("joints", free_joints_)) {
+    ROS_ERROR_STREAM("Failed to find free joints.");
+    return false;
+  }
 }
 
 ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d> &contact_points)
 {
+  ROS_INFO_STREAM("Starting optimization");
   nlopt::opt opt(nlopt::LD_SLSQP,  3);
 
   // Define parameter bounds
@@ -19,6 +28,7 @@ ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, 
   opt.set_upper_bounds(upper_bounds_);
 
   // Add objective function
+  CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points));
   opt.set_min_objective(CeresCostFunctionWrapper::wrap, &stability_cost_);
 
   // Set convergence criterion
@@ -54,7 +64,7 @@ ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, 
 
   ArmOptResult result;
   result.joint_angles = parameters;
-  com_calculation_->computeCenterOfMass(parameters, result.center_of_mass);
+  robot_model_->computeCenterOfMass(parameters, result.center_of_mass);
 
   return result;
 }

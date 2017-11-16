@@ -8,8 +8,8 @@
 namespace whole_body_posture_optimization {
 class WholeBodyPostureOptimization {
 public:
-  WholeBodyPostureOptimization(const std::string& robot_description, const sdf_contact_estimation::RobotShape& robot_shape);
-  bool loadOptimizationParameters(ros::NodeHandle& nh); // set free parameters, etc
+  WholeBodyPostureOptimization(const ros::NodeHandle &nh, const sdf_contact_estimation::RobotShape& robot_shape);
+  bool loadParameters(const ros::NodeHandle &nh); // set free parameters, etc
   void updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf);
   void updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud);
   void setDefaultJointPositions(const std::vector<double>& default_joint_positions);
@@ -17,9 +17,11 @@ public:
   std::vector<double> findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &joint_state);
 private:
   sdf_contact_estimation::SDFContactEstimation contact_estimation_;
-  ArmOptimization arm_optimization_;
+  std::shared_ptr<ArmOptimization> arm_optimization_;
+  std::string robot_description_;
   std::vector<double> default_joint_state_;
   std::shared_ptr<voxblox::TsdfMap> tsdf_;
+  std::shared_ptr<RobotModel> robot_model_;
 
 };
 }

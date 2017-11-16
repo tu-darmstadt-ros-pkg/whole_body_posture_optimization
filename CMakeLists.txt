@@ -114,7 +114,7 @@ catkin_package(
 
 set(HEADERS
   include/${PROJECT_NAME}/whole_body_posture_optimization.h
-  include/${PROJECT_NAME}/center_of_mass.h
+  include/${PROJECT_NAME}/robot_model.h
   include/${PROJECT_NAME}/stability_error.h
   include/${PROJECT_NAME}/arm_optimization.h
   include/${PROJECT_NAME}/flipper_optimization.h
@@ -123,7 +123,7 @@ set(HEADERS
 
 set(SOURCES
   src/whole_body_posture_optimization.cpp
-  src/center_of_mass.cpp
+  src/robot_model.cpp
   src/stability_error.cpp
   src/arm_optimization.cpp
   src/flipper_optimization.cpp

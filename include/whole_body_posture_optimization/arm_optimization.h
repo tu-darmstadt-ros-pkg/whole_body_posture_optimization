@@ -19,13 +19,13 @@ struct ArmOptResult {
 
 class ArmOptimization {
 public:
-  ArmOptimization(const std::string& robot_description);
-  ArmOptResult optimize(const std::vector<double> &initial_pose, const std::vector<Eigen::Vector3d>& contact_points);
+  ArmOptimization(const ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model);
+  bool loadParameters(const ros::NodeHandle &nh);
+  ArmOptResult optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d>& contact_points);
 private:
-  std::string robot_description_;
-  std::shared_ptr<CeresCostFunctionWrapper> stability_cost_;
-  std::shared_ptr<CenterOfMass> com_calculation_;
+  std::shared_ptr<RobotModel> robot_model_;
 
+  std::vector<std::string> free_joints_;
   std::vector<double> lower_bounds_;
   std::vector<double> upper_bounds_;
 };

@@ -2,18 +2,29 @@
 
 namespace whole_body_posture_optimization {
 
-WholeBodyPostureOptimization::WholeBodyPostureOptimization(const std::string &robot_description, const sdf_contact_estimation::RobotShape &robot_shape)
-  : contact_estimation_(robot_shape), arm_optimization_(robot_description)
+WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle& nh, const sdf_contact_estimation::RobotShape &robot_shape)
+  : contact_estimation_(robot_shape)
 {
-  // load urdf
+  loadParameters(nh);
+  robot_model_ = std::make_shared<RobotModel>(robot_description_);
+  ros::NodeHandle arm_nh(nh, "arm_optimization");
+  arm_optimization_ = std::make_shared<ArmOptimization>(arm_nh, robot_model_);
 }
 
-bool WholeBodyPostureOptimization::loadOptimizationParameters(ros::NodeHandle &nh)
+bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 {
+  if(!nh.getParam("/robot_description", robot_description_)) {
+    ROS_ERROR_STREAM("Failed to load /robot_description.");
+    return false;
+  }
+
+  ROS_INFO_STREAM("Loading optimization parameters..");
   if (!nh.getParam("default_joint_state", default_joint_state_)) {
     ROS_ERROR_STREAM("No default joint state found.");
     return false;
   }
+
+  return true;
 }
 
 
@@ -52,9 +63,12 @@ std::vector<std::vector<double>> WholeBodyPostureOptimization::findOptimalPostur
 
 std::vector<double> WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double>& joint_state)
 {
-  Eigen::Affine3d base_to_com; //TODO compute from default arm posture
+  Eigen::Vector3d com;
+  robot_model_->computeCenterOfMass(joint_state, com);
+  Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity();
+  base_to_com.translation() = com;
   std::vector<Eigen::Vector3d> contact_points = contact_estimation_.estimateSupportPolygon(pose, base_to_com);
-  ArmOptResult result = arm_optimization_.optimize(joint_state, contact_points);
+  ArmOptResult result = arm_optimization_->optimize(joint_state, contact_points);
 
   return result.joint_angles;
 }

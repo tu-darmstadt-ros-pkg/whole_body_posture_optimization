@@ -2,18 +2,21 @@
 
 namespace whole_body_posture_optimization {
 
-StabilityError::StabilityError(const std::shared_ptr<CenterOfMass>& com_calculation)
-  : com_calculation_(com_calculation)
+StabilityError::StabilityError(const std::shared_ptr<RobotModel>& robot_model, const std::vector<std::string> &free_joints, const std::vector<Eigen::Vector3d> &contact_points)
+  : robot_model_(robot_model), compute_com_(new ComputeCenterOfMass(robot_model)), contact_points_(contact_points)
 {
-
+  param_idx_to_joint_idx_ = robot_model_->getBodyIndices(free_joints);
 }
 
-ceres::CostFunction* StabilityError::Create(const std::shared_ptr<CenterOfMass>& com_calculation)
+ceres::CostFunction* StabilityError::Create(const std::shared_ptr<RobotModel>& robot_model, const std::vector<std::string> &free_joints, const std::vector<Eigen::Vector3d> &contact_points)
 {
-  ceres::CostFunction* cost_function = new ceres::AutoDiffCostFunction<StabilityError, 1, 3>(
-        new StabilityError(com_calculation));
+  ceres::DynamicAutoDiffCostFunction<StabilityError, 4>* cost_function = new ceres::DynamicAutoDiffCostFunction<StabilityError, 4>(
+        new StabilityError(robot_model, free_joints, contact_points));
 
-  return cost_function;
+  cost_function->AddParameterBlock(free_joints.size());
+  cost_function->SetNumResiduals(1);
+
+  return static_cast<ceres::CostFunction*>(cost_function);
 }
 
 }
