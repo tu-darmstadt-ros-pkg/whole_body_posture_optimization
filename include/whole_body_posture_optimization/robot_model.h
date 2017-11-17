@@ -2,6 +2,7 @@
 #define WHOLE_BODY_POSTURE_OPTIMIZATION__ROBOT_MODEL_H
 
 #include <ros/ros.h>
+#include <urdf/model.h>
 #include <Eigen/Eigen>
 
 #undef LOG // of course everyone names their logging macro the same
@@ -19,11 +20,14 @@ public:
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com);
 
   std::vector<unsigned int> getBodyIndices(const std::vector<std::string>& bodies);
+  std::string getParentJointName(const std::string& link_name);
+  bool getJointLimits(const std::string& link_name, double& lower_limit, double& upper_limit);
   unsigned int getNumJoints() const;
 
 private:
   std::shared_ptr<rbdl::Model> model_ptr_;
   std::shared_ptr<ADModel> ad_model_ptr_;
+  urdf::Model urdf_model_;
   unsigned int num_joints;
 };
 

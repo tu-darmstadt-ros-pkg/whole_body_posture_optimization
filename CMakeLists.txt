@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   sdf_contact_estimation
   rbdl
+  urdf
 )
 
 ## System dependencies are found with CMake's conventions
@@ -104,7 +105,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl
+  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf
 #  DEPENDS system_lib
 )
 

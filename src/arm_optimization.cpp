@@ -28,7 +28,7 @@ ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, 
   opt.set_upper_bounds(upper_bounds_);
 
   // Add objective function
-  CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points));
+  CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points, initial_pose));
   opt.set_min_objective(CeresCostFunctionWrapper::wrap, &stability_cost_);
 
   // Set convergence criterion
@@ -38,7 +38,11 @@ ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, 
 //  opt.set_ftol_abs(0.01);
 
   // Fill in initial joint state (from previous time step)
-  std::vector<double> parameters = initial_pose;
+  std::vector<double> parameters(free_joints_.size());
+  std::vector<unsigned int> param_idx_to_jnt_idx = robot_model_->getBodyIndices(free_joints_);
+  for (unsigned int i = 0; i < parameters.size(); i++) {
+    parameters[i] = initial_pose[param_idx_to_jnt_idx[i]];
+  }
 
   double minf;
   auto start = std::chrono::high_resolution_clock::now();

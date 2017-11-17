@@ -32,20 +32,18 @@ public:
     }
 
     Eigen::Vector3d com;
-    Eigen::MatrixXd jacobian;
-    robot_model_->computeCenterOfMass(joint_positions, com, jacobian);
+    Eigen::MatrixXd ad_com;
+    robot_model_->computeCenterOfMass(joint_positions, com, ad_com);
 
     for (unsigned int i = 0; i < 3; i++) {
       residuals[i] = com(i);
     }
 
     // Compute the Jacobian if asked for.
-    if (jacobians != NULL) {
-      for (unsigned int i = 0; i < 3; i++) {
-        if (jacobians[i] != NULL) {
-          for (unsigned int j = 0; j < joint_positions.size(); j++) {
-            jacobians[i][j] = jacobian(i, j); // TODO check!!!
-          }
+    if (jacobians != NULL && jacobians[0] != NULL) {
+      for (unsigned int r = 0; r < 3; r++) {
+        for (unsigned int p = 0; p < joint_positions.size(); p++) {
+          jacobians[0][r * this->num_residuals() + p] = ad_com(r, p);
         }
       }
     }
@@ -69,15 +67,11 @@ template <typename T> std::vector<T> computeForceAngleStabilities(const std::vec
     Vector3T<T> axis_normal_norm = axis_normal / axis_normal.norm();
     Vector3T<T> force_component = p1 * external_force; // f_i -> can be precomputed
     Vector3T<T> force_component_norm = force_component / force_component.norm(); // \hat{f}_i
-    Vector3T<T> distance = -axis_normal + (axis_normal.transpose() * force_component_norm) * force_component_norm; // d_i
+    Vector3T<T> distance = -axis_normal + (axis_normal.dot(force_component_norm)) * force_component_norm; // d_i
 
-    T sign = T(1);
-//    if (force_component_norm.cross(axis_normal_norm) * axis_norm > 0) { // not differentiable
-//      sign = 1;
-//    } else {
-//      sign = -1;
-//    }
-    T angle = sign * acos(force_component_norm.dot(axis_normal_norm));
+
+    // TODO: differentiable signed angle: https://stackoverflow.com/a/33920320
+    T angle = acos(axis_normal_norm.dot(force_component_norm));
     T stability = angle * distance.norm() * force_component.norm();
     stabilities.push_back(stability);
   }
@@ -88,10 +82,23 @@ template <typename T> std::vector<T> computeForceAngleStabilities(const std::vec
 
 class StabilityError {
 public:
-  StabilityError(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<Eigen::Vector3d>& contact_points);
+  StabilityError(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints,
+                 const std::vector<Eigen::Vector3d>& contact_points, const std::vector<double>& initial_pose);
+
   template <typename T> bool operator()(T const* const* parameters, T* cost) const {
+    // Convert complete state to T
+    T* joint_angles = new T[initial_pose_.size()];
+    for (unsigned int i = 0; i < initial_pose_.size(); i++) {
+      joint_angles[i] = T(initial_pose_[i]);
+    }
+    // Override free joints with parameters
+    for (unsigned int i = 0; i < param_idx_to_joint_idx_.size(); i++) {
+      joint_angles[param_idx_to_joint_idx_[i]] = parameters[0][i];
+    }
+
+    T** param_vec = &joint_angles;
     T* com = new T[3];
-    compute_com_(parameters, com);
+    compute_com_(param_vec, com);
     Vector3T<T> com_vec(com[0], com[1], com[2]); // TODO use eigen map to eliminate copy
     std::vector<Vector3T<T>> contact_points_t;
     for (const Eigen::Vector3d& contact_point: contact_points_) {
@@ -107,13 +114,15 @@ public:
     return true;
   }
 
-  static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string> &free_joints, const std::vector<Eigen::Vector3d> &contact_points);
+  static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string> &free_joints,
+                                     const std::vector<Eigen::Vector3d> &contact_points, const std::vector<double>& initial_pose);
 
 private:
   ceres::DynamicCostFunctionToFunctor compute_com_;
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<unsigned int> param_idx_to_joint_idx_;
   std::vector<Eigen::Vector3d> contact_points_;
+  std::vector<double> initial_pose_;
 };
 
 }

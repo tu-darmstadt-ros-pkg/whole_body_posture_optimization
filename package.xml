@@ -16,5 +16,6 @@
   <depend>nav_msgs</depend>
   <depend>sdf_contact_estimation</depend>
   <depend>rbdl</depend>
+  <depend>urdf</depend>
 
 </package>

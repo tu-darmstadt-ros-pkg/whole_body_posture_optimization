@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
   path.poses.push_back(pose);
 
   // Compute optimal postures
-//  po.findOptimalPostures(path);
+  po.findOptimalPostures(path);
 
   ros::spin();
 
