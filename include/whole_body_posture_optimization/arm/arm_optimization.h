@@ -8,7 +8,7 @@
 #include <chrono>
 
 #include <whole_body_posture_optimization/ceres_wrapper.h>
-#include <whole_body_posture_optimization/stability_error.h>
+#include <whole_body_posture_optimization/arm/stability_error.h>
 
 namespace whole_body_posture_optimization {
 

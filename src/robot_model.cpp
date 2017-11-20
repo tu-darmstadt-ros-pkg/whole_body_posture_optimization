@@ -21,6 +21,7 @@ RobotModel::RobotModel(const std::string &robot_description)
     std::string body_name = model_ptr_->GetBodyName(body_id);
     ROS_INFO_STREAM("Body id: " << body_id << ", name: " << body_name);
     ROS_INFO_STREAM("-- Parent joint: " << getParentJointName(body_name));
+    ROS_INFO_STREAM("-- Joint type: " << model_ptr_->mJoints[body_id].mJointType);
   }
 }
 

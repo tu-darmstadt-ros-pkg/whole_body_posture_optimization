@@ -9,8 +9,8 @@ int main(int argc, char** argv) {
   ros::NodeHandle param_nh("~");
 
   // Create robot shape
-  argo_tracker::ArgoTrackerShape tracker_shape;
-  whole_body_posture_optimization::WholeBodyPostureOptimization po(param_nh, tracker_shape.getShape());
+  sdf_contact_estimation::RobotShapeGeneratorBasePtr tracker_shape = std::make_shared<argo_tracker::ArgoTrackerShape>();
+  whole_body_posture_optimization::WholeBodyPostureOptimization po(param_nh, tracker_shape);
 
   // create environment
   auto cloud = sdf_contact_estimation::generateStep();
@@ -34,9 +34,9 @@ int main(int argc, char** argv) {
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = "world";
 
-  pose.pose.position.x = 0;
+  pose.pose.position.x = -0.054;
   pose.pose.position.y = 0;
-  pose.pose.position.z = -0.9;
+  pose.pose.position.z = -0.96;
   pose.pose.orientation.w = 1.0;
 
   path.poses.push_back(pose);

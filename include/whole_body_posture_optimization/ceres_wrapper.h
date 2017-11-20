@@ -44,14 +44,15 @@ public:
    * @param _cost_function ceres::CostFunction to wrap
    */
   CeresCostFunctionWrapper(ceres::CostFunction* _cost_function, int verbosity_level=0)
-    : cost_function_(_cost_function), verbosity_level_(verbosity_level)
+    : cost_function_(_cost_function), verbosity_level_(verbosity_level), evaluation_counter_(0)
   {}
 
   ~CeresCostFunctionWrapper() {
     delete cost_function_;
   }
 
-  double operator()(const std::vector<double> &x, std::vector<double> &gradient) const {
+  double operator()(const std::vector<double> &x, std::vector<double> &gradient) {
+    evaluation_counter_++;
     double const* x_ptr = &x[0];
     double const *const *parameters_ptr = &x_ptr;
     double* cost = new double;
@@ -72,17 +73,16 @@ public:
     }
 
     if (verbosity_level_ > 0) {
-      ROS_INFO_STREAM("x = " << vecToString(x));
+      ROS_INFO_STREAM(evaluation_counter_ << ": x = " << vecToString(x));
+      std::stringstream ss;
+      ss << " *** f(x) = " << *cost;
       if (verbosity_level_ > 1) {
-        std::stringstream ss;
-        ss << " *** f(x) = " << *cost;
         if (!gradient.empty()) {
           ss << "; f'(x) = " << vecToString(gradient);
         }
-        ROS_INFO_STREAM(ss.str());
       }
+      ROS_INFO_STREAM(ss.str());
     }
-
     return *cost;
   }
 
@@ -92,6 +92,7 @@ public:
 private:
   ceres::CostFunction* cost_function_;
   int verbosity_level_;
+  int evaluation_counter_;
 };
 
 #endif

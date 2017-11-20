@@ -3,7 +3,7 @@
   <param name="robot_description" command="$(find xacro)/xacro --inorder $(find argo_tracker_description)/urdf/argo_tracker_default.urdf.xacro" />
   
   <!-- optimization based contact simulation -->
-  <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_test" output="screen">    
+  <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen">    
     <!--<param name="use_esdf" value="true"/>
     <param name="scenario" value="step"/>
     <param name="load_tsdf" value="false"/>

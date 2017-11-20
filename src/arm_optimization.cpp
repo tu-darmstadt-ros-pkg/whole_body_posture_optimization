@@ -1,4 +1,4 @@
-#include <whole_body_posture_optimization/arm_optimization.h>
+#include <whole_body_posture_optimization/arm/arm_optimization.h>
 
 namespace whole_body_posture_optimization {
 
@@ -12,7 +12,7 @@ ArmOptimization::ArmOptimization(const ros::NodeHandle &nh, const std::shared_pt
 bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
 {
   if(!nh.getParam("joints", free_joints_)) {
-    ROS_ERROR_STREAM("Failed to find free joints.");
+    ROS_ERROR_STREAM("Failed to find parameter 'joints' in namespace'" << nh.getNamespace() << "'.");
     return false;
   }
 }
@@ -20,7 +20,7 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
 ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d> &contact_points)
 {
   ROS_INFO_STREAM("Starting optimization");
-  nlopt::opt opt(nlopt::LD_SLSQP,  3);
+  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
 
   // Define parameter bounds
   // TODO read from urdf

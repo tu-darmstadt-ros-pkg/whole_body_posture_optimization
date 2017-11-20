@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(whole_body_posture_optimization)
 
+set(CMAKE_BUILD_TYPE "RelWithDebInfo")
+
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
 
@@ -116,9 +118,10 @@ catkin_package(
 set(HEADERS
   include/${PROJECT_NAME}/whole_body_posture_optimization.h
   include/${PROJECT_NAME}/robot_model.h
-  include/${PROJECT_NAME}/stability_error.h
-  include/${PROJECT_NAME}/arm_optimization.h
-  include/${PROJECT_NAME}/flipper_optimization.h
+  include/${PROJECT_NAME}/arm/stability_error.h
+  include/${PROJECT_NAME}/arm/arm_optimization.h
+  include/${PROJECT_NAME}/flipper/flipper_optimization.h
+  include/${PROJECT_NAME}/flipper/convex_hull_area_error.h
   include/${PROJECT_NAME}/ceres_wrapper.h
 )
 
@@ -128,6 +131,7 @@ set(SOURCES
   src/stability_error.cpp
   src/arm_optimization.cpp
   src/flipper_optimization.cpp
+  src/convex_hull_area_error.cpp
 )
 
 include_directories(
