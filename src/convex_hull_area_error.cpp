@@ -13,9 +13,12 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 {
   std::vector<double> flipper_angles_vec(flipper_angles[0], flipper_angles[0] + shape_gen_->getDof());
   shape_gen_->updateShape(flipper_angles_vec);
-  double support_area;
-  contact_estimation_->estimateSupportPolygon(pose_, base_to_com_, support_area);
-  cost[0] = -support_area;
+  sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(pose_, base_to_com_);
+  double track_contact_weight = 0.4;
+  double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
+  double body_contact_weight = 5;
+  double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
+  cost[0] = -result.support_area - track_contact_weight * track_contact_pct + body_contact_weight * body_contact_pct;
   return true;
 }
 

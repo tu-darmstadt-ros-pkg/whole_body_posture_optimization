@@ -43,8 +43,8 @@ std::vector<double> FlipperOptimization::optimize(const Eigen::Affine3d &robot_p
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
-  opt.set_ftol_rel(1e-3);
-//  opt.set_maxeval(10);
+  opt.set_ftol_rel(1e-2);
+//  opt.set_maxeval(7);
 //  opt.set_stopval(-0.510003);
 //  opt.set_ftol_abs(0.01);
 
