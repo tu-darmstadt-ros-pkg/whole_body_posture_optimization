@@ -23,6 +23,7 @@ int main(int argc, char** argv) {
 
   // create environment
   auto cloud = sdf_contact_estimation::generateStep();
+  cloud.header.frame_id = "world";
   po.updateWorldModel(cloud);
 
   // create path

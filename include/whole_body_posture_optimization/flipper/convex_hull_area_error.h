@@ -4,6 +4,8 @@
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 
 #include <sdf_contact_estimation/body_shapes/robot_shape_generator_base.h>
+#include <whole_body_posture_optimization/arm/stability_error.h>
+#include <algorithm>
 
 namespace whole_body_posture_optimization {
 class ConvexHullAreaError {
