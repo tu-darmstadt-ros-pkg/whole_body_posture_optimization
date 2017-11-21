@@ -2,13 +2,25 @@
 <launch>  
   <param name="robot_description" command="$(find xacro)/xacro --inorder $(find argo_tracker_description)/urdf/argo_tracker_default.urdf.xacro" />
   
+    <node pkg="vigir_interactive_marker_pose_server" type="interactive_marker_pose_server" name="robot_pose_interactive_marker" output="screen" 
+      ns="whole_body_posture_optimization_node/interactive_marker">
+    <remap from="pose" to="set_robot_pose"/>
+    <param name="marker_name" value="robot_pose" />
+    <param name="frame_id" value="world" /> 
+    <rosparam subst_value="true">
+      # init_pose: [-0.811551, -0.643652, 0.0732615, -3.14159, 3.14159, 1.19263]
+      # init_pose: [-0.28, -0.6, -0.9, 0, 0, 0]
+      init_pose: [0.340918, 0.106201, -0.975869, 0, 0, 0]
+    </rosparam>
+  </node> 
+  
   <!-- optimization based contact simulation -->
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen">    
     <!--<param name="use_esdf" value="true"/>
     <param name="scenario" value="step"/>
     <param name="load_tsdf" value="false"/>
-    <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/rc17_day1_run1_v2.tsdf"/>
+    <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/rc17_day1_run1_v2.tsdf"/>-->
     
-    <remap from="~set_robot_pose" to="/sdf_contact_estimation_test/interactive_marker/set_robot_pose"/>-->
+    <remap from="~set_robot_pose" to="/whole_body_posture_optimization_node/interactive_marker/set_robot_pose"/>
     <rosparam file="$(find whole_body_posture_optimization)/config/opt.yaml" command="load" />  </node>
 </launch>

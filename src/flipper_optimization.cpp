@@ -5,7 +5,10 @@ namespace whole_body_posture_optimization {
 FlipperOptimization::FlipperOptimization(const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
                                          const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation)
   : robot_shape_gen_(robot_shape_gen), contact_estimation_(contact_estimation)
-{}
+{
+  ros::NodeHandle pnh("~/flipper");
+  start_state_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("start_state", 10, true);
+}
 
 std::vector<double> FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_position)
 {
@@ -48,6 +51,10 @@ std::vector<double> FlipperOptimization::optimize(const Eigen::Affine3d &robot_p
   // Fill in initial joint state (from previous time step)
   std::vector<double> parameters = init_position;
 
+  // Publish start state
+  robot_shape_gen_->updateShape(init_position);
+  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
+
   double minf;
   auto start = std::chrono::high_resolution_clock::now();
   nlopt::result nlopt_result;
@@ -72,7 +79,9 @@ std::vector<double> FlipperOptimization::optimize(const Eigen::Affine3d &robot_p
 
   // Estimating again for debug output
   std::vector<double> gradient;
+  contact_estimation_->enableVisualisation(true);
   support_area_cost(parameters, gradient);
+  contact_estimation_->enableVisualisation(false);
 
 
   return parameters;

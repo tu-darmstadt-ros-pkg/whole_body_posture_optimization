@@ -13,6 +13,8 @@ public:
 private:
   sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape_gen_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
+
+  ros::Publisher start_state_pub_;
 };
 
 }

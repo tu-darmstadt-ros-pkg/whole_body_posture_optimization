@@ -64,7 +64,7 @@ std::vector<std::vector<double>> WholeBodyPostureOptimization::findOptimalPostur
 
 std::vector<double> WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double>& joint_state)
 {
-  Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity(); // TODO compute com
+  Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity(); // TODO compute com, take solution from previous time step
   std::vector<double> init_flipper_angles(1, 0); // TODO read from parameter space?
   return flipper_optimization_->optimize(pose, base_to_com, init_flipper_angles);
 //  Eigen::Vector3d com;
