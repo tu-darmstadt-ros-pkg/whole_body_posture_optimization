@@ -7,6 +7,15 @@
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
 
 namespace whole_body_posture_optimization {
+
+struct PostureOptimizationResult {
+  std::vector<double> init_joint_angles;
+  std::vector<double> result_joint_angles;
+
+  sdf_contact_estimation::ContactEstimationResult init_contact;
+  sdf_contact_estimation::ContactEstimationResult result_contact;
+};
+
 class WholeBodyPostureOptimization {
 public:
   WholeBodyPostureOptimization(const ros::NodeHandle &nh, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen);
@@ -14,8 +23,11 @@ public:
   void updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf);
   void updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud);
   void setDefaultJointPositions(const std::vector<double>& default_joint_positions);
+  const std::vector<double>& getDefaultJointPositions();
   std::vector<std::vector<double>> findOptimalPostures(const nav_msgs::Path& path);
-  std::vector<double> findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &joint_state);
+  PostureOptimizationResult findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_state,
+                                               const sdf_contact_estimation::ContactEstimationResult *init_contact_result);
+  PostureOptimizationResult findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_state);
 private:
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
   std::shared_ptr<ArmOptimization> arm_optimization_;

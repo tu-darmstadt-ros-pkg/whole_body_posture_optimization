@@ -8,10 +8,17 @@
 
 namespace whole_body_posture_optimization {
 
+struct FlipperOptimizationResult {
+  std::vector<double> flipper_angles;
+  sdf_contact_estimation::ContactEstimationResult contact_result;
+};
+
 class FlipperOptimization {
 public:
   FlipperOptimization(const sdf_contact_estimation::RobotShapeGeneratorBasePtr& robot_shape_gen, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation);
-  std::vector<double> optimize(const Eigen::Affine3d& robot_pose, const Eigen::Affine3d& base_to_com, const std::vector<double> &init_position);
+//  bool loadParameters(const ros::NodeHandle &nh);
+  FlipperOptimizationResult optimize(const Eigen::Affine3d& robot_pose, const Eigen::Affine3d& base_to_com, const std::vector<double> &init_position,
+                               const sdf_contact_estimation::ContactEstimationResult &init_contact);
 private:
   void createConvexHullMarkerArray(const std::vector<Eigen::Vector3d>& points, const std::vector<double>& stabilities, visualization_msgs::MarkerArray &marker_array);
   sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape_gen_;

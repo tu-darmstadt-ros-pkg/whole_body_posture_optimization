@@ -47,13 +47,21 @@ int main(int argc, char** argv) {
   robot_pose_ = Eigen::Affine3d::Identity();
   robot_pose_.translation() = Eigen::Vector3d(-0.054, 0, -0.96);
   pose_updated_ = true;
+  bool reset = true;
 
   ros::Rate rate(100);
+  whole_body_posture_optimization::PostureOptimizationResult last_result;
+  std::vector<double> default_joint_state(1, 0);
   while (ros::ok()) {
     ros::spinOnce();
     if (pose_updated_) {
       auto start = std::chrono::high_resolution_clock::now();
-      po.findOptimalPosture(robot_pose_, std::vector<double>());
+      if (reset) {
+        last_result = po.findOptimalPosture(robot_pose_, default_joint_state);
+        reset = false;
+      } else {
+        last_result = po.findOptimalPosture(robot_pose_, last_result.result_joint_angles, &last_result.result_contact);
+      }
       std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
       ROS_INFO_STREAM("Flipper optimization took " << elapsed.count()*1000.0 << " ms.");
       pose_updated_ = false;

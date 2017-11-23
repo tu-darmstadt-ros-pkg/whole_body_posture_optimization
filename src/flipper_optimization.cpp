@@ -13,11 +13,21 @@ FlipperOptimization::FlipperOptimization(const sdf_contact_estimation::RobotShap
   result_com_pub_ = pnh.advertise<geometry_msgs::PoseStamped>("result_com_pose", 10, true);
 }
 
-std::vector<double> FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_position)
+//bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
+//{
+//  if(!nh.getParam("joints", free_joints_)) {
+//    ROS_ERROR_STREAM("Failed to find parameter 'joints' in namespace'" << nh.getNamespace() << "'.");
+//    return false;
+//  }
+//}
+
+FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_position,
+                                                  const sdf_contact_estimation::ContactEstimationResult &init_contact)
 {
   ROS_INFO_STREAM("Starting flipper optimization");
   // Global, derivative-free
-//  nlopt::opt opt(nlopt::GN_DIRECT_L,  robot_shape_gen_->getDof());
+  nlopt::opt opt(nlopt::GN_DIRECT_L,  robot_shape_gen_->getDof());
+//  nlopt::opt opt(nlopt::GN_DIRECT,  robot_shape_gen_->getDof());
 //    nlopt::opt opt(nlopt::GN_ORIG_DIRECT_L,  robot_shape_gen_->getDof());
 //  nlopt::opt opt(nlopt::GN_CRS2_LM,  robot_shape_gen_->getDof()); // similar results to direct_l, 154
 //  nlopt::opt opt(nlopt::GN_ISRES,  robot_shape_gen_->getDof()); // similar result to direct_l
@@ -25,11 +35,11 @@ std::vector<double> FlipperOptimization::optimize(const Eigen::Affine3d &robot_p
 
   // Local, derivative-free
 //  nlopt::opt opt(nlopt::LN_COBYLA,  robot_shape_gen_->getDof()); // similar result to direct_l
-    nlopt::opt opt(nlopt::LN_NELDERMEAD,  robot_shape_gen_->getDof()); // similar result to direct_l
+//    nlopt::opt opt(nlopt::LN_NELDERMEAD,  robot_shape_gen_->getDof()); // gets sometimes stuck in bounds
+//    nlopt::opt opt(nlopt::LN_SBPLX,  robot_shape_gen_->getDof()); // similar result to direct_l
 
   // Global, derivative
 //  nlopt::opt opt(nlopt::GD_STOGO,  robot_shape_gen_->getDof()); // good result, but sloooow (3x compared to direct_l)
-
 
   // Local, derivative
 //  nlopt::opt opt(nlopt::LD_LBFGS,  robot_shape_gen_->getDof()); // didn't work at all, only 0s
@@ -40,13 +50,13 @@ std::vector<double> FlipperOptimization::optimize(const Eigen::Affine3d &robot_p
 
   // Add objective function
   int verbosity_level = 1;
-  CeresCostFunctionWrapper support_area_cost(ConvexHullAreaError::Create(robot_shape_gen_, contact_estimation_, robot_pose, base_to_com), verbosity_level);
+  CeresCostFunctionWrapper support_area_cost(ConvexHullAreaError::Create(robot_shape_gen_, contact_estimation_, robot_pose, base_to_com, init_contact), verbosity_level);
   opt.set_min_objective(CeresCostFunctionWrapper::wrap, &support_area_cost);
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
-  opt.set_ftol_rel(1e-2);
-//  opt.set_maxeval(50);
+//  opt.set_ftol_rel(1e-2);
+  opt.set_maxeval(5);
 //  opt.set_stopval(-0.510003);
 //  opt.set_ftol_abs(0.01);
 
@@ -79,21 +89,24 @@ std::vector<double> FlipperOptimization::optimize(const Eigen::Affine3d &robot_p
   ROS_INFO_STREAM("Optimization returned " << resultToString(nlopt_result));
   ROS_INFO_STREAM("Result: " << vecToString(parameters));
 
+  FlipperOptimizationResult result;
+  result.flipper_angles = parameters;
+
   // Estimating again for debug output
   robot_shape_gen_->updateShape(parameters);
-  sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com);
-  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), result_state_pub_, result.estimated_pose, "world", Eigen::Vector3d(1, 1, 0));
+  result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
+  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), result_state_pub_, result.contact_result.estimated_pose, "world", Eigen::Vector3d(1, 1, 0));
   visualization_msgs::MarkerArray contact_points_array_msg;
-  sdf_contact_estimation::createPointMarkerArray(result.contact_points, contact_points_array_msg, "world", "contact_points", Eigen::Vector3d(1, 0.5, 0), 0.03);
-  sdf_contact_estimation::createPointMarkerArray(result.convex_hull_points, contact_points_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
-  Eigen::Affine3d result_com_pose = result.estimated_pose * base_to_com;
+  sdf_contact_estimation::createPointMarkerArray(result.contact_result.contact_points, contact_points_array_msg, "world", "contact_points", Eigen::Vector3d(1, 0.5, 0), 0.03);
+  sdf_contact_estimation::createPointMarkerArray(result.contact_result.convex_hull_points, contact_points_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
+  Eigen::Affine3d result_com_pose = result.contact_result.estimated_pose * base_to_com;
   sdf_contact_estimation::publishPose(result_com_pub_, result_com_pose, "world");
-  std::vector<double> stabilities = computeForceAngleStabilities<double>(result.convex_hull_points, Eigen::Vector3d(0, 0, -9.81), result_com_pose.translation());
-  createConvexHullMarkerArray(result.convex_hull_points, stabilities, contact_points_array_msg);
+  std::vector<double> stabilities = computeForceAngleStabilities<double>(result.contact_result.convex_hull_points, Eigen::Vector3d(0, 0, -9.81), result_com_pose.translation());
+  createConvexHullMarkerArray(result.contact_result.convex_hull_points, stabilities, contact_points_array_msg);
   sdf_contact_estimation::deleteAllMarkers(contact_points_pub_);
   contact_points_pub_.publish(contact_points_array_msg);
 
-  return parameters;
+  return result;
 }
 
 void FlipperOptimization::createConvexHullMarkerArray(const std::vector<Eigen::Vector3d>& points, const std::vector<double>& stabilities, visualization_msgs::MarkerArray &marker_array)
