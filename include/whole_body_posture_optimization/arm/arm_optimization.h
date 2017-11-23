@@ -20,9 +20,10 @@ struct ArmOptResult {
 class ArmOptimization {
 public:
   ArmOptimization(const ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model);
-  bool loadParameters(const ros::NodeHandle &nh);
   ArmOptResult optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d>& contact_points);
 private:
+  bool loadParameters(const ros::NodeHandle &nh);
+  bool loadLimits();
   std::shared_ptr<RobotModel> robot_model_;
 
   std::vector<std::string> free_joints_;

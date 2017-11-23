@@ -6,10 +6,11 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
 {
   loadParameters(nh);
   robot_model_ = std::make_shared<RobotModel>(robot_description_);
-  ros::NodeHandle arm_nh(nh, "arm_optimization");
   contact_estimation_ = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(robot_shape_gen);
+  ros::NodeHandle flipper_nh(nh, "flipper_optimization");
+  flipper_optimization_ = std::make_shared<FlipperOptimization>(flipper_nh, robot_model_, robot_shape_gen, contact_estimation_);
+//  ros::NodeHandle arm_nh(nh, "arm_optimization");
 //  arm_optimization_ = std::make_shared<ArmOptimization>(arm_nh, robot_model_);
-  flipper_optimization_ = std::make_shared<FlipperOptimization>(robot_shape_gen, contact_estimation_);
 }
 
 bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -19,7 +20,6 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
     return false;
   }
 
-  ROS_INFO_STREAM("Loading optimization parameters..");
   if (!nh.getParam("default_joint_state", default_joint_state_)) {
     ROS_ERROR_STREAM("No default joint state found.");
     return false;
@@ -27,8 +27,6 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 
   return true;
 }
-
-
 
 void WholeBodyPostureOptimization::updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf)
 {
@@ -74,26 +72,24 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   result.init_joint_angles = init_joint_state;
 
   Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity(); // TODO compute com, take solution from previous time step
+  base_to_com.translation() = Eigen::Vector3d(-0.15, 0, 0);
 
   // TODO we should be able to just take this from the previous time step. com shouldn't have changed
 //  Eigen::Vector3d com;
 //  robot_model_->computeCenterOfMass(init_joint_state, com);
 //  Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity();
 //  base_to_com.translation() = com;
-//  base_to_com.translation() = Eigen::Vector3d(-0.15, 0, 0);
   sdf_contact_estimation::ContactEstimationResult updated_init_contact;
   if (init_contact_result != NULL) {
     result.init_contact = *init_contact_result;
-    updated_init_contact = contact_estimation_->estimateSupportPolygon(pose, base_to_com, result.init_contact);
+    updated_init_contact = flipper_optimization_->computeContactEstimation(init_joint_state, pose, base_to_com, result.init_contact);
   } else {
-    updated_init_contact = contact_estimation_->estimateSupportPolygon(pose, base_to_com);
+    updated_init_contact = flipper_optimization_->computeContactEstimation(init_joint_state, pose, base_to_com);
   }
 
-  std::vector<double> init_flipper_angles = init_joint_state; // TODO find corresponding index
-  contact_estimation_->updateJointStates(init_flipper_angles);
-  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(pose, base_to_com, init_flipper_angles, updated_init_contact);
+  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(pose, base_to_com, init_joint_state, updated_init_contact);
   result.result_contact = flipper_result.contact_result;
-  result.result_joint_angles = flipper_result.flipper_angles;
+  result.result_joint_angles = flipper_result.joint_state;
 
   //  ArmOptResult result = arm_optimization_->optimize(joint_state, flipper_result.contact_result);
 

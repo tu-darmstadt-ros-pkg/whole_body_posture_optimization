@@ -8,4 +8,4 @@ arm_optimization:
   ftol_rel: 0.5
 flipper_optimization:
   joints:
-    - flipper_joint_1
+    - flipper_link_1

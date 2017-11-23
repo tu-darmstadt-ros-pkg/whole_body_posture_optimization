@@ -2,31 +2,38 @@
 
 namespace whole_body_posture_optimization {
 
-FlipperOptimization::FlipperOptimization(const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
+FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel> &robot_model, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
                                          const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation)
-  : robot_shape_gen_(robot_shape_gen), contact_estimation_(contact_estimation)
+  : contact_estimation_(contact_estimation), robot_model_(robot_model), robot_shape_gen_(robot_shape_gen)
 {
-  ros::NodeHandle pnh("~/flipper");
-  start_state_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("start_state", 10, true);
-  result_state_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("result_state", 10, true);
-  contact_points_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("contact_points", 10, true);
-  result_com_pub_ = pnh.advertise<geometry_msgs::PoseStamped>("result_com_pose", 10, true);
+  if (!loadParameters(nh)) {
+    ROS_ERROR_STREAM("Loading flipper parameters failed.");
+  }
+  if (!loadLimits()) {
+    ROS_ERROR_STREAM("Loading flipper limits failed");
+  }
+  param_idx_to_jnt_idx_ = robot_model_->getBodyIndices(free_joints_);
+  start_state_pub_ = nh.advertise<visualization_msgs::MarkerArray>("start_state", 10, true);
+  result_state_pub_ = nh.advertise<visualization_msgs::MarkerArray>("result_state", 10, true);
+  contact_points_pub_ = nh.advertise<visualization_msgs::MarkerArray>("contact_points", 10, true);
+  result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com_pose", 10, true);
 }
 
-//bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
-//{
-//  if(!nh.getParam("joints", free_joints_)) {
-//    ROS_ERROR_STREAM("Failed to find parameter 'joints' in namespace'" << nh.getNamespace() << "'.");
-//    return false;
-//  }
-//}
+bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
+{
+  if(!nh.getParam("joints", free_joints_)) {
+    ROS_ERROR_STREAM("Failed to find parameter 'joints' in namespace'" << nh.getNamespace() << "'.");
+    return false;
+  }
+  return true;
+}
 
 FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_position,
-                                                  const sdf_contact_estimation::ContactEstimationResult &init_contact)
+                                                        const sdf_contact_estimation::ContactEstimationResult &init_contact)
 {
   ROS_INFO_STREAM("Starting flipper optimization");
   // Global, derivative-free
-  nlopt::opt opt(nlopt::GN_DIRECT_L,  robot_shape_gen_->getDof());
+  nlopt::opt opt(nlopt::GN_DIRECT_L,  free_joints_.size());
 //  nlopt::opt opt(nlopt::GN_DIRECT,  robot_shape_gen_->getDof());
 //    nlopt::opt opt(nlopt::GN_ORIG_DIRECT_L,  robot_shape_gen_->getDof());
 //  nlopt::opt opt(nlopt::GN_CRS2_LM,  robot_shape_gen_->getDof()); // similar results to direct_l, 154
@@ -45,12 +52,12 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 //  nlopt::opt opt(nlopt::LD_LBFGS,  robot_shape_gen_->getDof()); // didn't work at all, only 0s
 
   // Define parameter bounds
-  opt.set_lower_bounds(robot_shape_gen_->getLowerLimits());
-  opt.set_upper_bounds(robot_shape_gen_->getUpperLimits());
+  opt.set_lower_bounds(lower_bounds_);
+  opt.set_upper_bounds(upper_bounds_);
 
   // Add objective function
   int verbosity_level = 1;
-  CeresCostFunctionWrapper support_area_cost(ConvexHullAreaError::Create(robot_shape_gen_, contact_estimation_, robot_pose, base_to_com, init_contact), verbosity_level);
+  CeresCostFunctionWrapper support_area_cost(ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, init_contact), verbosity_level);
   opt.set_min_objective(CeresCostFunctionWrapper::wrap, &support_area_cost);
 
   // Set convergence criterion
@@ -60,11 +67,9 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 //  opt.set_stopval(-0.510003);
 //  opt.set_ftol_abs(0.01);
 
-  // Fill in initial joint state (from previous time step)
-  std::vector<double> parameters = init_position;
-
+  std::vector<double> parameters = jointVectorToParamVector(init_position);
   // Publish start state
-  robot_shape_gen_->updateShape(init_position);
+  robot_shape_gen_->updateShape(parameters);
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
 
   double minf;
@@ -91,8 +96,12 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 
   FlipperOptimizationResult result;
   result.flipper_angles = parameters;
+  result.joint_state = init_position;
+  for (unsigned int i = 0; i < parameters.size(); i++) {
+    result.joint_state[param_idx_to_jnt_idx_[i]] = parameters[i];
+  }
 
-  // Estimating again for debug output
+  // Estimating again for debug output and result
   robot_shape_gen_->updateShape(parameters);
   result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), result_state_pub_, result.contact_result.estimated_pose, "world", Eigen::Vector3d(1, 1, 0));
@@ -107,6 +116,42 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   contact_points_pub_.publish(contact_points_array_msg);
 
   return result;
+}
+
+sdf_contact_estimation::ContactEstimationResult FlipperOptimization::computeContactEstimation(const std::vector<double> &joint_angles, const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com, const sdf_contact_estimation::ContactEstimationResult &last_result)
+{
+  std::vector<double> flipper_angles = jointVectorToParamVector(joint_angles);
+  contact_estimation_->updateJointStates(flipper_angles);
+  return contact_estimation_->estimateSupportPolygon(pose, base_to_com, last_result);
+}
+
+sdf_contact_estimation::ContactEstimationResult FlipperOptimization::computeContactEstimation(const std::vector<double> &joint_angles, const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com)
+{
+  std::vector<double> flipper_angles = jointVectorToParamVector(joint_angles);
+  contact_estimation_->updateJointStates(flipper_angles);
+  return contact_estimation_->estimateSupportPolygon(pose, base_to_com);
+}
+
+std::vector<double> FlipperOptimization::jointVectorToParamVector(const std::vector<double> &joint_vec)
+{
+  std::vector<double> parameters(free_joints_.size());
+  for (unsigned int i = 0; i < parameters.size(); i++) {
+    parameters[i] = joint_vec[param_idx_to_jnt_idx_[i]];
+  }
+  return parameters;
+}
+
+bool FlipperOptimization::loadLimits()
+{
+  for (const std::string& link: free_joints_) {
+    double upper, lower;
+    if (!robot_model_->getJointLimits(link, lower, upper)) {
+      return false;
+    }
+    upper_bounds_.push_back(upper);
+    lower_bounds_.push_back(lower);
+  }
+  return true;
 }
 
 void FlipperOptimization::createConvexHullMarkerArray(const std::vector<Eigen::Vector3d>& points, const std::vector<double>& stabilities, visualization_msgs::MarkerArray &marker_array)

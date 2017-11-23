@@ -51,13 +51,12 @@ int main(int argc, char** argv) {
 
   ros::Rate rate(100);
   whole_body_posture_optimization::PostureOptimizationResult last_result;
-  std::vector<double> default_joint_state(1, 0);
   while (ros::ok()) {
     ros::spinOnce();
     if (pose_updated_) {
       auto start = std::chrono::high_resolution_clock::now();
       if (reset) {
-        last_result = po.findOptimalPosture(robot_pose_, default_joint_state);
+        last_result = po.findOptimalPosture(robot_pose_, po.getDefaultJointPositions());
         reset = false;
       } else {
         last_result = po.findOptimalPosture(robot_pose_, last_result.result_joint_angles, &last_result.result_contact);

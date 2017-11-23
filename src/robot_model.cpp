@@ -11,7 +11,7 @@ RobotModel::RobotModel(const std::string &robot_description)
   }
 
   model_ptr_ = std::make_shared<rbdl::Model>();
-  rbdl::Addons::URDFReadFromString(robot_description.c_str(), model_ptr_.get(), true, true);
+  rbdl::Addons::URDFReadFromString(robot_description.c_str(), model_ptr_.get(), true, false);
   ad_model_ptr_ = std::make_shared<ADModel>(*model_ptr_);
   ROS_INFO_STREAM("Loaded model:");
   ROS_INFO_STREAM(" -- dof: " << model_ptr_->dof_count);
@@ -62,12 +62,15 @@ std::vector<unsigned int> RobotModel::getBodyIndices(const std::vector<std::stri
 {
   std::vector<unsigned int> indices;
   for (const std::string& body: bodies) {
-    int idx = model_ptr_->GetBodyId(body.c_str());
+    ROS_INFO_STREAM("Looking for body: " << body);
+    unsigned int idx = model_ptr_->GetBodyId(body.c_str());
     if (idx == std::numeric_limits<unsigned int>::max()) {
       ROS_ERROR_STREAM("Body '" << body << "' wasn't found in model.");
     }
+    ROS_INFO_STREAM("ID: " << idx);
     indices.push_back(idx);
   }
+  return indices;
 }
 
 std::string RobotModel::getParentJointName(const std::string &link_name)

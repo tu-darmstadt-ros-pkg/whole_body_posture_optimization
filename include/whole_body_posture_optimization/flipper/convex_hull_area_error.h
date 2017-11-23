@@ -10,17 +10,16 @@
 namespace whole_body_posture_optimization {
 class ConvexHullAreaError {
 public:
-  ConvexHullAreaError(const sdf_contact_estimation::RobotShapeGeneratorBasePtr& shape_gen, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
+  ConvexHullAreaError(unsigned int parameter_size, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                       const Eigen::Affine3d& pose, const Eigen::Affine3d& base_to_com, const sdf_contact_estimation::ContactEstimationResult &init_contact);
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
-  static ceres::CostFunction* Create(const sdf_contact_estimation::RobotShapeGeneratorBasePtr& shape_gen,
+  static ceres::CostFunction* Create(unsigned int parameter_size,
                                      const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                                      const Eigen::Affine3d& pose, const Eigen::Affine3d& base_to_com, const sdf_contact_estimation::ContactEstimationResult &init_contact);
 private:
-  sdf_contact_estimation::RobotShape shape_;
-  sdf_contact_estimation::RobotShapeGeneratorBasePtr shape_gen_;
+  unsigned int parameter_size_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
   std::vector<double> flipper_angles_;
 

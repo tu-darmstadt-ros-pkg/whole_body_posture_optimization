@@ -2,16 +2,16 @@
 
 namespace whole_body_posture_optimization {
 
-ConvexHullAreaError::ConvexHullAreaError(const sdf_contact_estimation::RobotShapeGeneratorBasePtr &shape_gen,
+ConvexHullAreaError::ConvexHullAreaError(unsigned int parameter_size,
                                          const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation, const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com, const sdf_contact_estimation::ContactEstimationResult &init_contact)
-  : shape_gen_(shape_gen), contact_estimation_(contact_estimation), pose_(pose), base_to_com_(base_to_com), init_contact_(init_contact)
+  : parameter_size_(parameter_size), contact_estimation_(contact_estimation), pose_(pose), base_to_com_(base_to_com), init_contact_(init_contact)
   {
 
 }
 
 bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double* cost) const
 {
-  std::vector<double> flipper_angles_vec(flipper_angles[0], flipper_angles[0] + shape_gen_->getDof());
+  std::vector<double> flipper_angles_vec(flipper_angles[0], flipper_angles[0] + parameter_size_);
   contact_estimation_->updateJointStates(flipper_angles_vec);
   sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(pose_, base_to_com_, init_contact_);
   if (result.convex_hull_points.empty()) {
@@ -32,14 +32,14 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   return true;
 }
 
-ceres::CostFunction *ConvexHullAreaError::Create(const sdf_contact_estimation::RobotShapeGeneratorBasePtr &shape_gen,
+ceres::CostFunction *ConvexHullAreaError::Create(unsigned int parameter_size,
                                                  const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation, const Eigen::Affine3d &pose,
                                                  const Eigen::Affine3d &base_to_com, const sdf_contact_estimation::ContactEstimationResult &init_contact)
 {
   ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>* cost_function = new ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>(
-        new ConvexHullAreaError(shape_gen, contact_estimation, pose, base_to_com, init_contact));
+        new ConvexHullAreaError(parameter_size, contact_estimation, pose, base_to_com, init_contact));
 
-  cost_function->AddParameterBlock(shape_gen->getDof());
+  cost_function->AddParameterBlock(parameter_size);
   cost_function->SetNumResiduals(1);
 
   return static_cast<ceres::CostFunction*>(cost_function);

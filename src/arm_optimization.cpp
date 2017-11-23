@@ -3,10 +3,14 @@
 namespace whole_body_posture_optimization {
 
 ArmOptimization::ArmOptimization(const ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model)
+  : robot_model_(robot_model)
 {
-  ROS_INFO_STREAM("Creating arm optimization");
-  loadParameters(nh);
-  robot_model_ = robot_model;
+  if (!loadParameters(nh)) {
+    ROS_ERROR_STREAM("Loading arm parameters failed.");
+  }
+  if (!loadLimits()) {
+    ROS_ERROR_STREAM("Loading arm limits failed");
+  }
 }
 
 bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -15,6 +19,20 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
     ROS_ERROR_STREAM("Failed to find parameter 'joints' in namespace'" << nh.getNamespace() << "'.");
     return false;
   }
+  return true;
+}
+
+bool ArmOptimization::loadLimits()
+{
+  for (const std::string& link: free_joints_) {
+    double upper, lower;
+    if (!robot_model_->getJointLimits(link, lower, upper)) {
+      return false;
+    }
+    upper_bounds_.push_back(upper);
+    lower_bounds_.push_back(lower);
+  }
+  return true;
 }
 
 ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d> &contact_points)
@@ -23,7 +41,6 @@ ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, 
   nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
 
   // Define parameter bounds
-  // TODO read from urdf
   opt.set_lower_bounds(lower_bounds_);
   opt.set_upper_bounds(upper_bounds_);
 
