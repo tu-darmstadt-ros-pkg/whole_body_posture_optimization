@@ -20,8 +20,9 @@ public:
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com);
 
   std::vector<unsigned int> getBodyIndices(const std::vector<std::string>& bodies);
+  std::vector<unsigned int> getJointIndices(const std::vector<std::string>& joints);
   std::string getParentJointName(const std::string& link_name);
-  bool getJointLimits(const std::string& link_name, double& lower_limit, double& upper_limit);
+  bool getJointLimits(const std::string& joint_name, double& lower_limit, double& upper_limit);
   unsigned int getNumJoints() const;
 
 private:
@@ -29,6 +30,7 @@ private:
   std::shared_ptr<ADModel> ad_model_ptr_;
   urdf::Model urdf_model_;
   unsigned int num_joints;
+  std::vector<std::string> joint_names_;
 };
 
 }

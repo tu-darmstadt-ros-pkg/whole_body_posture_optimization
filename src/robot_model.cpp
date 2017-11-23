@@ -11,7 +11,7 @@ RobotModel::RobotModel(const std::string &robot_description)
   }
 
   model_ptr_ = std::make_shared<rbdl::Model>();
-  rbdl::Addons::URDFReadFromString(robot_description.c_str(), model_ptr_.get(), true, false);
+  rbdl::Addons::URDFReadFromString(robot_description.c_str(), model_ptr_.get(), false, false);
   ad_model_ptr_ = std::make_shared<ADModel>(*model_ptr_);
   ROS_INFO_STREAM("Loaded model:");
   ROS_INFO_STREAM(" -- dof: " << model_ptr_->dof_count);
@@ -20,8 +20,12 @@ RobotModel::RobotModel(const std::string &robot_description)
   for (unsigned int body_id = 0; body_id < model_ptr_->mBodies.size(); body_id++) {
     std::string body_name = model_ptr_->GetBodyName(body_id);
     ROS_INFO_STREAM("Body id: " << body_id << ", name: " << body_name);
-    ROS_INFO_STREAM("-- Parent joint: " << getParentJointName(body_name));
-    ROS_INFO_STREAM("-- Joint type: " << model_ptr_->mJoints[body_id].mJointType);
+    ROS_INFO_STREAM("-- mass: " << model_ptr_->mBodies[body_id].mMass);
+    if (body_id != 0) {
+      ROS_INFO_STREAM("-- Parent joint: " << getParentJointName(body_name));
+      ROS_INFO_STREAM("-- Joint type: " << model_ptr_->mJoints[body_id].mJointType);
+      joint_names_.push_back(getParentJointName(body_name));
+    }
   }
 }
 
@@ -34,6 +38,7 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   rbdl::Math::VectorNd q(joint_angles.size());
   rbdl::Math::VectorNd qdot(joint_angles.size());
   for (unsigned int i = 0; i < joint_angles.size(); i++) {
+//    ROS_INFO_STREAM("Body name: " << joint_names_[i] << ", " << joint_angles[i]);
     q(i) = joint_angles[i];
     qdot(i) = 0;
   }
@@ -50,6 +55,14 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   jacobian = rbdl::Math::MatrixNd(3, ndirs);
   rbdl::AD::CalcCenterOfMass(*model_ptr_, *ad_model_ptr_, q, q_dirs, qdot, qdot_dirs, mass, com2, jacobian, 0, 0, 0, 0, true);
   com = com2;
+
+  // Fix because rbdl ignores root body
+  rbdl::Body root = model_ptr_->mBodies[0];
+  com = (mass * com + root.mMass * root.mCenterOfMass)/(mass + root.mMass);
+  mass += root.mMass;
+
+//  ROS_INFO_STREAM("mass: " << mass);
+//  ROS_INFO_STREAM("com: " << com);
 }
 
 void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com)
@@ -62,12 +75,23 @@ std::vector<unsigned int> RobotModel::getBodyIndices(const std::vector<std::stri
 {
   std::vector<unsigned int> indices;
   for (const std::string& body: bodies) {
-    ROS_INFO_STREAM("Looking for body: " << body);
     unsigned int idx = model_ptr_->GetBodyId(body.c_str());
     if (idx == std::numeric_limits<unsigned int>::max()) {
       ROS_ERROR_STREAM("Body '" << body << "' wasn't found in model.");
     }
-    ROS_INFO_STREAM("ID: " << idx);
+    indices.push_back(idx);
+  }
+  return indices;
+}
+
+std::vector<unsigned int> RobotModel::getJointIndices(const std::vector<std::string> &joints)
+{
+  std::vector<unsigned int> indices;
+  for (const std::string& joint: joints) {
+    ptrdiff_t idx = std::find(joint_names_.begin(), joint_names_.end(), joint) - joint_names_.begin();
+    if (idx >= joint_names_.size()) {
+      ROS_ERROR_STREAM("Joint '" << joint << "' wasn't found in model.");
+    }
     indices.push_back(idx);
   }
   return indices;
@@ -83,14 +107,13 @@ std::string RobotModel::getParentJointName(const std::string &link_name)
   return link->parent_joint->name;
 }
 
-bool RobotModel::getJointLimits(const std::string &link_name, double &lower_limit, double &upper_limit)
+bool RobotModel::getJointLimits(const std::string &joint_name, double &lower_limit, double &upper_limit)
 {
-  boost::shared_ptr<const urdf::Link> link = urdf_model_.getLink(link_name);
-  if (!link) {
-    ROS_ERROR_STREAM("Couldn't find link '" << link_name << "'.");
+  urdf::JointConstSharedPtr joint = urdf_model_.getJoint(joint_name);
+  if (!joint) {
+    ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
     return false;
   }
-  urdf::JointSharedPtr joint = link->parent_joint;
   upper_limit = joint->limits->upper;
   lower_limit = joint->limits->lower;
   return true;

@@ -9,8 +9,8 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
   contact_estimation_ = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(robot_shape_gen);
   ros::NodeHandle flipper_nh(nh, "flipper_optimization");
   flipper_optimization_ = std::make_shared<FlipperOptimization>(flipper_nh, robot_model_, robot_shape_gen, contact_estimation_);
-//  ros::NodeHandle arm_nh(nh, "arm_optimization");
-//  arm_optimization_ = std::make_shared<ArmOptimization>(arm_nh, robot_model_);
+  ros::NodeHandle arm_nh(nh, "arm_optimization");
+  arm_optimization_ = std::make_shared<ArmOptimization>(arm_nh, robot_model_);
 }
 
 bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -71,14 +71,14 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   PostureOptimizationResult result;
   result.init_joint_angles = init_joint_state;
 
-  Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity(); // TODO compute com, take solution from previous time step
-  base_to_com.translation() = Eigen::Vector3d(-0.15, 0, 0);
+//  Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity(); // TODO compute com, take solution from previous time step
+//  base_to_com.translation() = Eigen::Vector3d(-0.15, 0, 0);
 
   // TODO we should be able to just take this from the previous time step. com shouldn't have changed
-//  Eigen::Vector3d com;
-//  robot_model_->computeCenterOfMass(init_joint_state, com);
-//  Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity();
-//  base_to_com.translation() = com;
+  robot_model_->computeCenterOfMass(init_joint_state, result.init_com);
+  Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity();
+  base_to_com.translation() = result.init_com;
+
   sdf_contact_estimation::ContactEstimationResult updated_init_contact;
   if (init_contact_result != NULL) {
     result.init_contact = *init_contact_result;
@@ -89,9 +89,10 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
 
   FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(pose, base_to_com, init_joint_state, updated_init_contact);
   result.result_contact = flipper_result.contact_result;
-  result.result_joint_angles = flipper_result.joint_state;
 
-  //  ArmOptResult result = arm_optimization_->optimize(joint_state, flipper_result.contact_result);
+  ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points);
+  result.result_joint_angles = arm_result.joint_angles;
+  result.result_com = arm_result.center_of_mass;
 
   return result;
 }

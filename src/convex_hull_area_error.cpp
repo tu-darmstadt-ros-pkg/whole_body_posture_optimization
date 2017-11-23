@@ -28,7 +28,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 //  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
 //  double stability_sum = std::accumulate(begin(stabilities), end(stabilities), 0.0);
 //  ROS_INFO_STREAM("Stability: " << stability_min);
-//  cost[0] = -stability_min;
+//  cost[0] = -stability_sum;
   return true;
 }
 

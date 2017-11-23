@@ -12,7 +12,7 @@
 
 namespace whole_body_posture_optimization {
 
-struct ArmOptResult {
+struct ArmOptimizationResult {
   std::vector<double> joint_angles; // optimal joint angles
   Eigen::Vector3d center_of_mass; // optimal center of mass relative to base frame
 };
@@ -20,11 +20,13 @@ struct ArmOptResult {
 class ArmOptimization {
 public:
   ArmOptimization(const ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model);
-  ArmOptResult optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d>& contact_points);
+  ArmOptimizationResult optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d>& contact_points);
 private:
   bool loadParameters(const ros::NodeHandle &nh);
   bool loadLimits();
+  std::vector<double> jointVectorToParamVector(const std::vector<double> &joint_vec);
   std::shared_ptr<RobotModel> robot_model_;
+  std::vector<unsigned int> param_idx_to_jnt_idx_;
 
   std::vector<std::string> free_joints_;
   std::vector<double> lower_bounds_;

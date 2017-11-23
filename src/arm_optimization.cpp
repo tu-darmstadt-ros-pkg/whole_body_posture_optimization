@@ -11,6 +11,7 @@ ArmOptimization::ArmOptimization(const ros::NodeHandle &nh, const std::shared_pt
   if (!loadLimits()) {
     ROS_ERROR_STREAM("Loading arm limits failed");
   }
+  param_idx_to_jnt_idx_ = robot_model_->getJointIndices(free_joints_);
 }
 
 bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -35,14 +36,26 @@ bool ArmOptimization::loadLimits()
   return true;
 }
 
-ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d> &contact_points)
+std::vector<double> ArmOptimization::jointVectorToParamVector(const std::vector<double> &joint_vec)
+{
+  std::vector<double> parameters(free_joints_.size());
+  for (unsigned int i = 0; i < parameters.size(); i++) {
+    parameters[i] = joint_vec[param_idx_to_jnt_idx_[i]];
+  }
+  return parameters;
+}
+
+ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d> &contact_points)
 {
   ROS_INFO_STREAM("Starting optimization");
-  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
+  nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
 
   // Define parameter bounds
   opt.set_lower_bounds(lower_bounds_);
   opt.set_upper_bounds(upper_bounds_);
+
+  ROS_INFO_STREAM("lower bounds: " << vecToString(lower_bounds_));
+  ROS_INFO_STREAM("upper bounds: " << vecToString(upper_bounds_));
 
   // Add objective function
   CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points, initial_pose));
@@ -55,11 +68,8 @@ ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, 
 //  opt.set_ftol_abs(0.01);
 
   // Fill in initial joint state (from previous time step)
-  std::vector<double> parameters(free_joints_.size());
-  std::vector<unsigned int> param_idx_to_jnt_idx = robot_model_->getBodyIndices(free_joints_);
-  for (unsigned int i = 0; i < parameters.size(); i++) {
-    parameters[i] = initial_pose[param_idx_to_jnt_idx[i]];
-  }
+  std::vector<double> parameters = jointVectorToParamVector(initial_pose);
+  ROS_INFO_STREAM("param size:" << parameters.size());
 
   double minf;
   auto start = std::chrono::high_resolution_clock::now();
@@ -83,9 +93,12 @@ ArmOptResult ArmOptimization::optimize(const std::vector<double>& initial_pose, 
   ROS_INFO_STREAM("Optimization returned " << resultToString(nlopt_result));
   ROS_INFO_STREAM("Result: " << vecToString(parameters));
 
-  ArmOptResult result;
-  result.joint_angles = parameters;
-  robot_model_->computeCenterOfMass(parameters, result.center_of_mass);
+  ArmOptimizationResult result;
+  result.joint_angles = initial_pose;
+  for (unsigned int i = 0; i < parameters.size(); i++) {
+    result.joint_angles[param_idx_to_jnt_idx_[i]] = parameters[i];
+  }
+  robot_model_->computeCenterOfMass(result.joint_angles, result.center_of_mass);
 
   return result;
 }

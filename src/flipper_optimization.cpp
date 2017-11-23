@@ -12,7 +12,7 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   if (!loadLimits()) {
     ROS_ERROR_STREAM("Loading flipper limits failed");
   }
-  param_idx_to_jnt_idx_ = robot_model_->getBodyIndices(free_joints_);
+  param_idx_to_jnt_idx_ = robot_model_->getJointIndices(free_joints_);
   start_state_pub_ = nh.advertise<visualization_msgs::MarkerArray>("start_state", 10, true);
   result_state_pub_ = nh.advertise<visualization_msgs::MarkerArray>("result_state", 10, true);
   contact_points_pub_ = nh.advertise<visualization_msgs::MarkerArray>("contact_points", 10, true);

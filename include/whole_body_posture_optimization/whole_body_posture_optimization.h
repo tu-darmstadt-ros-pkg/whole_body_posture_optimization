@@ -14,6 +14,9 @@ struct PostureOptimizationResult {
 
   sdf_contact_estimation::ContactEstimationResult init_contact;
   sdf_contact_estimation::ContactEstimationResult result_contact;
+
+  Eigen::Vector3d init_com;
+  Eigen::Vector3d result_com;
 };
 
 class WholeBodyPostureOptimization {
