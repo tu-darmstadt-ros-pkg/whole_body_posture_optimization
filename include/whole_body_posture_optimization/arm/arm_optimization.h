@@ -2,13 +2,17 @@
 #define WHOLE_BODY_POSTURE_OPTIMIZATION__ARM_OPTIMIZATION_H
 
 #include <ros/ros.h>
+#include <geometry_msgs/PointStamped.h>
+#include <eigen_conversions/eigen_msg.h>
 #include <Eigen/Eigen>
 
 #include <nlopt.hpp>
 #include <chrono>
 
+#include <sdf_contact_estimation/visualisation.h>
 #include <whole_body_posture_optimization/ceres_wrapper.h>
 #include <whole_body_posture_optimization/arm/stability_error.h>
+#include <whole_body_posture_optimization/common.h>
 
 namespace whole_body_posture_optimization {
 
@@ -19,8 +23,8 @@ struct ArmOptimizationResult {
 
 class ArmOptimization {
 public:
-  ArmOptimization(const ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model);
-  ArmOptimizationResult optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d>& contact_points);
+  ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model);
+  ArmOptimizationResult optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d>& contact_points, const Eigen::Affine3d &robot_pose);
 private:
   bool loadParameters(const ros::NodeHandle &nh);
   bool loadLimits();
@@ -31,6 +35,9 @@ private:
   std::vector<std::string> free_joints_;
   std::vector<double> lower_bounds_;
   std::vector<double> upper_bounds_;
+
+  ros::Publisher result_com_pub_;
+  ros::Publisher convex_hull_pub_;
 };
 
 }

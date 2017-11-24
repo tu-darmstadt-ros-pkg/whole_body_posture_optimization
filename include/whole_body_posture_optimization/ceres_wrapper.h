@@ -74,14 +74,12 @@ public:
 
     if (verbosity_level_ > 0) {
       ROS_INFO_STREAM(evaluation_counter_ << ": x = " << vecToString(x));
-      std::stringstream ss;
-      ss << " *** f(x) = " << *cost;
+      ROS_INFO_STREAM(" *** f(x) = " << *cost);
       if (verbosity_level_ > 1) {
         if (!gradient.empty()) {
-          ss << "; f'(x) = " << vecToString(gradient);
+         ROS_INFO_STREAM(" *** f'(x) = " << vecToString(gradient));
         }
       }
-      ROS_INFO_STREAM(ss.str());
     }
     return *cost;
   }

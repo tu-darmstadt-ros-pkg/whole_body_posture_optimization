@@ -90,9 +90,11 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(pose, base_to_com, init_joint_state, updated_init_contact);
   result.result_contact = flipper_result.contact_result;
 
-  ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points);
+  ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points, flipper_result.contact_result.estimated_pose);
   result.result_joint_angles = arm_result.joint_angles;
   result.result_com = arm_result.center_of_mass;
+
+  robot_model_->publishRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
 
   return result;
 }

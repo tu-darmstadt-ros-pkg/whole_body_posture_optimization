@@ -2,6 +2,7 @@
 #define WHOLE_BODY_POSTURE_OPTIMIZATION__STABILITY_ERROR_H
 
 #include <whole_body_posture_optimization/robot_model.h>
+#include <algorithm>
 #include <ceres/ceres.h>
 
 #include <Eigen/Eigen>
@@ -26,10 +27,14 @@ public:
   virtual bool Evaluate(double const* const* parameters,
                         double* residuals,
                         double** jacobians) const {
-    std::vector<double> joint_positions;
+    std::vector<double> joint_positions(robot_model_->getNumJoints());
     for (unsigned int i = 0; i < robot_model_->getNumJoints(); i++) {
       joint_positions[i] = parameters[0][i];
     }
+
+//    std::vector<double> joint_positions(parameters[0][0], parameters[0][0] + robot_model_->getNumJoints());
+
+
 
     Eigen::Vector3d com;
     Eigen::MatrixXd ad_com;
@@ -53,6 +58,7 @@ private:
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<double> joint_positions_;
 };
+
 
 template <typename T> std::vector<T> computeForceAngleStabilities(const std::vector<Vector3T<T>>& contact_points, const Vector3T<T>& external_force, const Vector3T<T>& com) {
   std::vector<T> stabilities;
@@ -79,17 +85,21 @@ template <typename T> std::vector<T> computeForceAngleStabilities(const std::vec
   return stabilities;
 }
 
+template <typename T> std::vector<T> computeForceAngleStabilitiesWithGravity(const std::vector<Vector3T<T>>& contact_points, const Vector3T<T>& com) {
+  return computeForceAngleStabilities(contact_points, Vector3T<T>(T(0), T(0), T(-9.81)), com);
+}
+
 
 class StabilityError {
 public:
   StabilityError(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints,
-                 const std::vector<Eigen::Vector3d>& contact_points, const std::vector<double>& initial_pose);
+                 const std::vector<Eigen::Vector3d>& contact_points, const std::vector<double>& initial_pose, const Eigen::Affine3d& robot_pose);
 
   template <typename T> bool operator()(T const* const* parameters, T* cost) const {
     // Convert complete state to T
-    T* joint_angles = new T[initial_pose_.size()];
-    for (unsigned int i = 0; i < initial_pose_.size(); i++) {
-      joint_angles[i] = T(initial_pose_[i]);
+    T* joint_angles = new T[initial_angles_.size()];
+    for (unsigned int i = 0; i < initial_angles_.size(); i++) {
+      joint_angles[i] = T(initial_angles_[i]);
     }
     // Override free joints with parameters
     for (unsigned int i = 0; i < param_idx_to_joint_idx_.size(); i++) {
@@ -99,30 +109,30 @@ public:
     T** param_vec = &joint_angles;
     T* com = new T[3];
     compute_com_(param_vec, com);
-    Vector3T<T> com_vec(com[0], com[1], com[2]); // TODO use eigen map to eliminate copy
+    Vector3T<T> com_base(com[0], com[1], com[2]); // TODO use eigen map to eliminate copy
+    Vector3T<T> com_world = robot_pose_.cast<T>() * com_base;
     std::vector<Vector3T<T>> contact_points_t;
     for (const Eigen::Vector3d& contact_point: contact_points_) {
       contact_points_t.push_back(contact_point.cast<T>());
     }
-    Vector3T<T> external_force(T(0), T(0), T(9.81)); // only gravity
-    std::vector<T> stabilities = computeForceAngleStabilities(contact_points_t, external_force, com_vec);
-    T sum = T(0);
-    for (const T& stability: stabilities) {
-      sum -= stability;
-    }
-    cost[0] = sum;
+
+    std::vector<T> stabilities = computeForceAngleStabilitiesWithGravity(contact_points_t, com_world);
+    T stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));
+//    T stability_min = *std::min_element(stabilities.begin(), stabilities.end());
+    cost[0] = -stability_sum;
     return true;
   }
 
   static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string> &free_joints,
-                                     const std::vector<Eigen::Vector3d> &contact_points, const std::vector<double>& initial_pose);
+                                     const std::vector<Eigen::Vector3d> &contact_points, const std::vector<double>& initial_pose, const Eigen::Affine3d &robot_pose);
 
 private:
   ceres::DynamicCostFunctionToFunctor compute_com_;
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<unsigned int> param_idx_to_joint_idx_;
   std::vector<Eigen::Vector3d> contact_points_;
-  std::vector<double> initial_pose_;
+  Eigen::Affine3d robot_pose_;
+  std::vector<double> initial_angles_;
 };
 
 }

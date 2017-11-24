@@ -4,6 +4,9 @@
 #include <ros/ros.h>
 #include <urdf/model.h>
 #include <Eigen/Eigen>
+#include <moveit/robot_state/conversions.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit_msgs/DisplayRobotState.h>
 
 #undef LOG // of course everyone names their logging macro the same
 #include <differentiation/rbdl_utilsAD.h>
@@ -19,6 +22,8 @@ public:
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com, Eigen::MatrixXd &jacobian);
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com);
 
+  void publishRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
+
   std::vector<unsigned int> getBodyIndices(const std::vector<std::string>& bodies);
   std::vector<unsigned int> getJointIndices(const std::vector<std::string>& joints);
   std::string getParentJointName(const std::string& link_name);
@@ -29,8 +34,13 @@ private:
   std::shared_ptr<rbdl::Model> model_ptr_;
   std::shared_ptr<ADModel> ad_model_ptr_;
   urdf::Model urdf_model_;
-  unsigned int num_joints;
+  unsigned int num_joints_;
   std::vector<std::string> joint_names_;
+
+  robot_state::RobotStatePtr moveit_robot_state_;
+  robot_model::RobotModelPtr moveit_robot_model_;
+  ros::Publisher robot_state_pub_;
+
 };
 
 }

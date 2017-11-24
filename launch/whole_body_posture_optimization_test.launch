@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>  
   <param name="robot_description" command="$(find xacro)/xacro --inorder $(find argo_tracker_description)/urdf/argo_tracker_default.urdf.xacro" />
+  <param name="robot_description_semantic" textfile="$(find argo_tracker_robot_moveit_config)/config/taurob_tracker.srdf" />
   
     <node pkg="vigir_interactive_marker_pose_server" type="interactive_marker_pose_server" name="robot_pose_interactive_marker" output="screen" 
       ns="whole_body_posture_optimization_node/interactive_marker">

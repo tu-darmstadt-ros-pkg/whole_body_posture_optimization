@@ -2,7 +2,7 @@
 
 namespace whole_body_posture_optimization {
 
-ArmOptimization::ArmOptimization(const ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model)
+ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model)
   : robot_model_(robot_model)
 {
   if (!loadParameters(nh)) {
@@ -12,6 +12,8 @@ ArmOptimization::ArmOptimization(const ros::NodeHandle &nh, const std::shared_pt
     ROS_ERROR_STREAM("Loading arm limits failed");
   }
   param_idx_to_jnt_idx_ = robot_model_->getJointIndices(free_joints_);
+  result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com", 10, true);
+  convex_hull_pub_ = nh.advertise<visualization_msgs::MarkerArray>("convex_hull", 10, true);
 }
 
 bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -45,10 +47,13 @@ std::vector<double> ArmOptimization::jointVectorToParamVector(const std::vector<
   return parameters;
 }
 
-ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_pose, const std::vector<Eigen::Vector3d> &contact_points)
+ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose)
 {
-  ROS_INFO_STREAM("Starting optimization");
-  nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
+  ROS_INFO_STREAM("Starting arm optimization");
+//  nlopt::opt opt(nlopt::LD_LBFGS,  free_joints_.size());
+  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size());
+//  nlopt::opt opt(nlopt::LN_NELDERMEAD,  free_joints_.size());
+//  nlopt::opt opt(nlopt::LN_SBPLX,  free_joints_.size());
 
   // Define parameter bounds
   opt.set_lower_bounds(lower_bounds_);
@@ -58,18 +63,17 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   ROS_INFO_STREAM("upper bounds: " << vecToString(upper_bounds_));
 
   // Add objective function
-  CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points, initial_pose));
+  CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, robot_pose), 2);
   opt.set_min_objective(CeresCostFunctionWrapper::wrap, &stability_cost_);
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
-  opt.set_ftol_rel(1e-6);
-  opt.set_maxeval(50);
+  opt.set_ftol_rel(1e-2);
+  opt.set_maxeval(200);
 //  opt.set_ftol_abs(0.01);
 
   // Fill in initial joint state (from previous time step)
-  std::vector<double> parameters = jointVectorToParamVector(initial_pose);
-  ROS_INFO_STREAM("param size:" << parameters.size());
+  std::vector<double> parameters = jointVectorToParamVector(initial_angles);
 
   double minf;
   auto start = std::chrono::high_resolution_clock::now();
@@ -78,7 +82,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     nlopt_result = opt.optimize(parameters, minf);
   }
   catch (std::invalid_argument e) {
-    ROS_ERROR_STREAM("Optimization failed: " << e.what());
+    ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());
   }
   catch (nlopt::roundoff_limited e) {
     ROS_ERROR_STREAM("Optimization failed: " << e.what());
@@ -94,11 +98,25 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   ROS_INFO_STREAM("Result: " << vecToString(parameters));
 
   ArmOptimizationResult result;
-  result.joint_angles = initial_pose;
+  result.joint_angles = initial_angles;
   for (unsigned int i = 0; i < parameters.size(); i++) {
     result.joint_angles[param_idx_to_jnt_idx_[i]] = parameters[i];
   }
+  // Compute and publish result com
   robot_model_->computeCenterOfMass(result.joint_angles, result.center_of_mass);
+  Eigen::Affine3d com_pose = Eigen::Affine3d::Identity();
+  com_pose.translation() = robot_pose * result.center_of_mass;
+  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
+
+  // Compute and publish result stabilities
+  visualization_msgs::MarkerArray convex_hull_array_msg;
+  sdf_contact_estimation::createPointMarkerArray(contact_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
+  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_points, com_pose.translation());
+  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
+  ROS_INFO_STREAM("Stability after arm optimization:" << stability_min);
+  createConvexHullMarkerArray(contact_points, stabilities, convex_hull_array_msg);
+  sdf_contact_estimation::deleteAllMarkers(convex_hull_pub_);
+  convex_hull_pub_.publish(convex_hull_array_msg);
 
   return result;
 }

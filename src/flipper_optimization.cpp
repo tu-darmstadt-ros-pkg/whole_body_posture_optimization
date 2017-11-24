@@ -110,7 +110,9 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   sdf_contact_estimation::createPointMarkerArray(result.contact_result.convex_hull_points, contact_points_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
   Eigen::Affine3d result_com_pose = result.contact_result.estimated_pose * base_to_com;
   sdf_contact_estimation::publishPose(result_com_pub_, result_com_pose, "world");
-  std::vector<double> stabilities = computeForceAngleStabilities<double>(result.contact_result.convex_hull_points, Eigen::Vector3d(0, 0, -9.81), result_com_pose.translation());
+  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.contact_result.convex_hull_points, result_com_pose.translation());
+  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
+  ROS_INFO_STREAM("Stability after flipper optimization:" << stability_min);
   createConvexHullMarkerArray(result.contact_result.convex_hull_points, stabilities, contact_points_array_msg);
   sdf_contact_estimation::deleteAllMarkers(contact_points_pub_);
   contact_points_pub_.publish(contact_points_array_msg);
@@ -152,43 +154,6 @@ bool FlipperOptimization::loadLimits()
     lower_bounds_.push_back(lower);
   }
   return true;
-}
-
-void FlipperOptimization::createConvexHullMarkerArray(const std::vector<Eigen::Vector3d>& points, const std::vector<double>& stabilities, visualization_msgs::MarkerArray &marker_array)
-{
-  for (unsigned i = 0; i < points.size(); i++) {
-    visualization_msgs::Marker marker;
-    marker.type = visualization_msgs::Marker::ARROW;
-    marker.action = visualization_msgs::Marker::ADD;
-    marker.scale.x = 0.02;
-    marker.scale.y = 0.0;
-    marker.scale.z = 0.00001;
-
-    // calculate stability color
-    double max_stability = 6.0;
-    double clamped_stability = std::min(stabilities[i], max_stability);
-    double stability_pct = clamped_stability/max_stability;
-    marker.color.a = 1.0;
-    marker.color.r = 1 - stability_pct;
-    marker.color.g = stability_pct;
-    marker.color.b = 0;
-
-    marker.header.frame_id = "world";
-    marker.ns = "support_polygon";
-    marker.id = i;
-
-    Eigen::Affine3d marker_pose = Eigen::Affine3d::Identity();
-    tf::poseEigenToMsg(marker_pose, marker.pose);
-
-    geometry_msgs::Point point_start;
-    tf::pointEigenToMsg(points[i], point_start);
-    marker.points.push_back(point_start);
-    int ip1 = (i+1) % points.size(); // wrap around
-    geometry_msgs::Point point_end;
-    tf::pointEigenToMsg(points[ip1], point_end);
-    marker.points.push_back(point_end);
-    marker_array.markers.push_back(marker);
-  }
 }
 
 }

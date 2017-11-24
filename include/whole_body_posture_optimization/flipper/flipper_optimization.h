@@ -5,6 +5,7 @@
 #include <whole_body_posture_optimization/ceres_wrapper.h>
 #include <whole_body_posture_optimization/arm/stability_error.h>
 #include <sdf_contact_estimation/visualisation.h>
+#include <whole_body_posture_optimization/common.h>
 
 namespace whole_body_posture_optimization {
 
@@ -27,7 +28,6 @@ private:
   std::vector<double> jointVectorToParamVector(const std::vector<double>& joint_vec);
   bool loadParameters(const ros::NodeHandle &nh);
   bool loadLimits();
-  void createConvexHullMarkerArray(const std::vector<Eigen::Vector3d>& points, const std::vector<double>& stabilities, visualization_msgs::MarkerArray &marker_array);
 
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<unsigned int> param_idx_to_jnt_idx_;

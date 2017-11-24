@@ -1,5 +1,7 @@
 #default_joint_state: [0.03, 0.03, 5.41, 0.86, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
-default_joint_state: [0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
+default_joint_state: [1.0, 2, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
+#default_joint_state: [-3.10437, 3.072, 3.27395, 0, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
+
 arm_optimization:
   joints:
     - arm_joint_0

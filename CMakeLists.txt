@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   sdf_contact_estimation
   rbdl
   urdf
+  moveit_core
+  moveit_ros_planning
 )
 
 ## System dependencies are found with CMake's conventions
@@ -107,7 +109,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf
+  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning
 #  DEPENDS system_lib
 )
 
@@ -123,6 +125,7 @@ set(HEADERS
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
   include/${PROJECT_NAME}/flipper/convex_hull_area_error.h
   include/${PROJECT_NAME}/ceres_wrapper.h
+  include/${PROJECT_NAME}/common.h
 )
 
 set(SOURCES
@@ -132,6 +135,7 @@ set(SOURCES
   src/arm_optimization.cpp
   src/flipper_optimization.cpp
   src/convex_hull_area_error.cpp
+  src/common.cpp
 )
 
 include_directories(

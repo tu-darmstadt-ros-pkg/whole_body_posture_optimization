@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
         last_result = po.findOptimalPosture(robot_pose_, last_result.result_joint_angles, &last_result.result_contact);
       }
       std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-      ROS_INFO_STREAM("Flipper optimization took " << elapsed.count()*1000.0 << " ms.");
+      ROS_INFO_STREAM("Complete optimization took " << elapsed.count()*1000.0 << " ms.");
       pose_updated_ = false;
     }
     rate.sleep();
