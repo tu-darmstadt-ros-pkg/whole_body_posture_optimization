@@ -75,7 +75,7 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
 
 //  ROS_INFO_STREAM("mass: " << mass);
 //  ROS_INFO_STREAM("com: " << com);
-  ROS_INFO_STREAM("jacobian:" << std::endl << jacobian);
+//  ROS_INFO_STREAM("jacobian:" << std::endl << jacobian);
 }
 
 void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com)
@@ -110,7 +110,6 @@ void RobotModel::publishRobotState(const Eigen::Affine3d &robot_pose, const std:
   virtual_link_joint_states.position[5] = quat.z();
   virtual_link_joint_states.position[6] = quat.w();
   moveit::core::jointStateToRobotState(virtual_link_joint_states, *moveit_robot_state_);
-  ROS_INFO_STREAM("Robot state pub: " << virtual_link_joint_states.position[0] << ", " << virtual_link_joint_states.position[1] << ", " << virtual_link_joint_states.position[2]);
 
   sensor_msgs::JointState joint_state_msg;
   joint_state_msg.name = joint_names_;

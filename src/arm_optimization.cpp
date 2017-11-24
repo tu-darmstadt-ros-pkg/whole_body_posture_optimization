@@ -50,10 +50,16 @@ std::vector<double> ArmOptimization::jointVectorToParamVector(const std::vector<
 ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose)
 {
   ROS_INFO_STREAM("Starting arm optimization");
-//  nlopt::opt opt(nlopt::LD_LBFGS,  free_joints_.size());
-  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size());
+//  nlopt::opt opt(nlopt::LD_LBFGS,  free_joints_.size()); // nlopt failure
+  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
+//  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size());
+
 //  nlopt::opt opt(nlopt::LN_NELDERMEAD,  free_joints_.size());
 //  nlopt::opt opt(nlopt::LN_SBPLX,  free_joints_.size());
+
+//    nlopt::opt opt(nlopt::GD_STOGO,  free_joints_.size()); // nlopt failure
+//  nlopt::opt opt(nlopt::GN_DIRECT_L,  free_joints_.size());
+
 
   // Define parameter bounds
   opt.set_lower_bounds(lower_bounds_);
@@ -68,8 +74,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
-  opt.set_ftol_rel(1e-2);
-  opt.set_maxeval(200);
+  opt.set_ftol_rel(1e-3);
+//  opt.set_maxeval(50);
 //  opt.set_ftol_abs(0.01);
 
   // Fill in initial joint state (from previous time step)

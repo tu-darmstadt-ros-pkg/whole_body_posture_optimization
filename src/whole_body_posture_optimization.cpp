@@ -87,8 +87,9 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
     updated_init_contact = flipper_optimization_->computeContactEstimation(init_joint_state, pose, base_to_com);
   }
 
-  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(pose, base_to_com, init_joint_state, updated_init_contact);
+  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(updated_init_contact.estimated_pose, base_to_com, init_joint_state, updated_init_contact);
   result.result_contact = flipper_result.contact_result;
+  result.result_joint_angles = flipper_result.joint_state;
 
   ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points, flipper_result.contact_result.estimated_pose);
   result.result_joint_angles = arm_result.joint_angles;

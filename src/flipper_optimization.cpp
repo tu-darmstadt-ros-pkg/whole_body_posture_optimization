@@ -63,7 +63,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
 //  opt.set_ftol_rel(1e-2);
-  opt.set_maxeval(5);
+  opt.set_maxeval(10);
 //  opt.set_stopval(-0.510003);
 //  opt.set_ftol_abs(0.01);
 
