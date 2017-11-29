@@ -89,7 +89,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   }
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-  ROS_INFO_STREAM("Optimization took " << elapsed.count()*1000.0 << " ms.");
+  ROS_INFO_STREAM("Flipper optimization took " << elapsed.count()*1000.0 << " ms.");
 
   ROS_INFO_STREAM("Optimization returned " << resultToString(nlopt_result));
   ROS_INFO_STREAM("Result: " << vecToString(parameters));

@@ -8,6 +8,9 @@ StabilityError::StabilityError(const std::shared_ptr<RobotModel>& robot_model, c
 {
   param_idx_to_joint_idx_ = robot_model_->getJointIndices(free_joints); // TODO remove duplicate mapping calculation
   compute_com_ = std::make_shared<ceres::DynamicCostFunctionToFunctor>(new ComputeCenterOfMass(robot_model, initial_pose, param_idx_to_joint_idx_));
+  if (contact_points.empty()) {
+    ROS_ERROR_STREAM("Creating stability error with empty contact points list.");
+  }
 }
 
 ceres::CostFunction* StabilityError::Create(const std::shared_ptr<RobotModel>& robot_model, const std::vector<std::string> &free_joints,

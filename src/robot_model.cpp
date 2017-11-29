@@ -72,10 +72,6 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   rbdl::Body root = model_ptr_->mBodies[0];
   com = (mass * com + root.mMass * root.mCenterOfMass)/(mass + root.mMass);
   mass += root.mMass;
-
-//  ROS_INFO_STREAM("mass: " << mass);
-//  ROS_INFO_STREAM("com: " << com);
-//  ROS_INFO_STREAM("jacobian:" << std::endl << jacobian);
 }
 
 void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com)

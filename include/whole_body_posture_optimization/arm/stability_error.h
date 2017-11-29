@@ -80,8 +80,11 @@ template <typename T> std::vector<T> computeForceAngleStabilities(const std::vec
 
 
     // TODO: differentiable signed angle: https://stackoverflow.com/a/33920320
+    T t1 = force_component_norm.cross(axis_normal_norm).dot(axis_norm);
+    T t2 = axis_normal_norm.dot(force_component_norm);
+    T signed_angle = atan2(t1, t2);
     T angle = acos(axis_normal_norm.dot(force_component_norm));
-    T stability = angle * distance.norm() * force_component.norm();
+    T stability = signed_angle * distance.norm() * force_component.norm();
     stabilities.push_back(stability);
   }
 
@@ -120,9 +123,12 @@ public:
     }
 
     std::vector<T> stabilities = computeForceAngleStabilitiesWithGravity(contact_points_t, com_world);
+    std::vector<T> s(stabilities.size());
+    std::transform(stabilities.begin(), stabilities.end(), s.begin(), [](T stability) -> T { return 1.0/(pow(stability, 2)); });
+    T stability_sum2 = std::accumulate(s.begin(), s.end(), T(0));
 //    T stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));
-    T stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-    cost[0] = -stability_min;
+//    T stability_min = *std::min_element(stabilities.begin(), stabilities.end());
+    cost[0] = stability_sum2;
     return true;
   }
 

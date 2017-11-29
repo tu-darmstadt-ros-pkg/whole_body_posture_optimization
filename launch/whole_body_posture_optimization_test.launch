@@ -17,10 +17,12 @@
   
   <!-- optimization based contact simulation -->
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen">    
-    <!--<param name="use_esdf" value="true"/>
+    <param name="interactive" value="false"/>
+    <param name="truncation_distance" value="0.4"/>
+    <param name="max_contact_distance" value="0.04"/>    
     <param name="scenario" value="step"/>
     <param name="load_tsdf" value="false"/>
-    <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/rc17_day1_run1_v2.tsdf"/>-->
+    <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/rc17_day1_run1_v2.tsdf"/>
     
     <remap from="~set_robot_pose" to="/whole_body_posture_optimization_node/interactive_marker/set_robot_pose"/>
     <rosparam file="$(find whole_body_posture_optimization)/config/opt.yaml" command="load" />  </node>
