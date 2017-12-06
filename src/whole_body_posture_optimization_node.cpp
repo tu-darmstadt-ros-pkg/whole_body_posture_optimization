@@ -43,8 +43,8 @@ int main(int argc, char** argv) {
           last_result = po.findOptimalPosture(robot_pose_, po.getDefaultJointPositions());
           reset = false;
         } else {
-//          last_result = po.findOptimalPosture(robot_pose_, last_result.result_joint_angles, &last_result.result_contact);
-          last_result = po.findOptimalPosture(robot_pose_, po.getDefaultJointPositions(), &last_result.result_contact);
+          last_result = po.findOptimalPosture(robot_pose_, last_result.result_joint_angles, &last_result.result_contact);
+//          last_result = po.findOptimalPosture(robot_pose_, po.getDefaultJointPositions(), &last_result.result_contact);
         }
         std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
         ROS_INFO_STREAM("Complete optimization took " << elapsed.count()*1000.0 << " ms.");
@@ -55,17 +55,18 @@ int main(int argc, char** argv) {
   } else {
     // create path
     nav_msgs::Path path;
-    double step = 0.01;
-    for (double x = 0.75; x > -0.75; x-=step) {
-      geometry_msgs::PoseStamped pose;
-      pose.header.frame_id = "world";
+    double direction = -1.0;
+    double step = direction * 0.01;
+    for (double x = direction * -0.75; x > direction * 0.75; x+=step) {
+      geometry_msgs::PoseStamped pose_msg;
+      pose_msg.header.frame_id = "world";
 
-      pose.pose.position.x = x;
-      pose.pose.position.y = 0;
-      pose.pose.position.z = -0.9;
-      pose.pose.orientation.w = 1.0;
+      Eigen::Affine3d pose(Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitZ()));
+//      Eigen::Affine3d pose = Eigen::Affine3d::Identity();
+      pose.translation() = Eigen::Vector3d(x, 0, -0.9);
+      tf::poseEigenToMsg(pose, pose_msg.pose);
 
-      path.poses.push_back(pose);
+      path.poses.push_back(pose_msg);
     }
     // Compute optimal postures
     po.findOptimalPostures(path);

@@ -5,6 +5,8 @@
 #include <nlopt.hpp>
 #include <ros/ros.h>
 
+namespace whole_body_posture_optimization {
+
 inline std::string resultToString(nlopt::result result) {
   switch (result) {
     case nlopt::FAILURE: return "FAILURE";
@@ -92,5 +94,7 @@ private:
   int verbosity_level_;
   int evaluation_counter_;
 };
+
+}
 
 #endif

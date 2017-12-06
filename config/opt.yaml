@@ -9,6 +9,7 @@ arm_optimization:
     - arm_joint_1
     - arm_joint_2
     #- sensor_head_pitch_joint
+  collision_group: arm_with_head_group
   max_iterations: 50
   ftol_rel: 0.5
 flipper_optimization:

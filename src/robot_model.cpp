@@ -36,9 +36,11 @@ RobotModel::RobotModel(const std::string &robot_description)
     ROS_ERROR("Couldn't load robot model!");
   }
   moveit_robot_state_ = std::make_shared<robot_state::RobotState>(moveit_robot_model_);
+  generateLinkBodyDecompositions(0.02); //TODO resolution?
 
   ros::NodeHandle pnh("~");
   robot_state_pub_ = pnh.advertise<moveit_msgs::DisplayRobotState>("robot_state", 10, true);
+  collision_spheres_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("collision_spheres", 10, true);
 }
 
 void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com, Eigen::MatrixXd &jacobian)
@@ -117,6 +119,104 @@ void RobotModel::publishRobotState(const Eigen::Affine3d &robot_pose, const std:
   robot_state_pub_.publish(robot_state_msg);
 }
 
+void RobotModel::publishCollisionSpheres(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles, std::string collision_group)
+{
+  // Update state
+  if (joint_angles.size() != num_joints_) {
+    ROS_ERROR_STREAM("[RobotModel::publishRobotState] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_joints_ << ")");
+    return;
+  }
+  sensor_msgs::JointState virtual_link_joint_states;
+  virtual_link_joint_states.name.push_back("world_virtual_joint/trans_x");
+  virtual_link_joint_states.name.push_back("world_virtual_joint/trans_y");
+  virtual_link_joint_states.name.push_back("world_virtual_joint/trans_z");
+  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_x");
+  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_y");
+  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_z");
+  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_w");
+
+  virtual_link_joint_states.position.resize(7);
+
+  virtual_link_joint_states.position[0] = robot_pose.translation().x();
+  virtual_link_joint_states.position[1] = robot_pose.translation().y();
+  virtual_link_joint_states.position[2] = robot_pose.translation().z();
+  Eigen::Quaterniond quat(robot_pose.rotation());
+  virtual_link_joint_states.position[3] = quat.x();
+  virtual_link_joint_states.position[4] = quat.y();
+  virtual_link_joint_states.position[5] = quat.z();
+  virtual_link_joint_states.position[6] = quat.w();
+  moveit::core::jointStateToRobotState(virtual_link_joint_states, *moveit_robot_state_);
+
+  sensor_msgs::JointState joint_state_msg;
+  joint_state_msg.name = joint_names_;
+  joint_state_msg.position = joint_angles;
+  moveit::core::jointStateToRobotState(joint_state_msg, *moveit_robot_state_);
+
+  visualization_msgs::MarkerArray marker_array;
+
+  // creating colors
+  std_msgs::ColorRGBA robot_color;
+  robot_color.r = 0;
+  robot_color.b = 0.8f;
+  robot_color.g = 0;
+  robot_color.a = 0.5;
+
+  std_msgs::ColorRGBA world_links_color;
+  world_links_color.r = 1;
+  world_links_color.g = 1;
+  world_links_color.b = 0;
+  world_links_color.a = 0.5;
+
+  // creating sphere marker
+  visualization_msgs::Marker sphere_marker;
+  sphere_marker.header.frame_id = "world";
+  sphere_marker.header.stamp = ros::Time(0);
+  sphere_marker.type = visualization_msgs::Marker::SPHERE;
+  sphere_marker.action = visualization_msgs::Marker::ADD;
+  sphere_marker.pose.orientation.x = 0;
+  sphere_marker.pose.orientation.y = 0;
+  sphere_marker.pose.orientation.z = 0;
+  sphere_marker.pose.orientation.w = 1;
+//  sphere_marker.lifetime = ros::Duration(0);
+
+  unsigned int id = 0;
+
+  const moveit::core::JointModelGroup* joint_group = moveit_robot_state_->getJointModelGroup(collision_group);
+  const std::vector<std::string>& group_link_names = joint_group->getUpdatedLinkModelNames();
+
+  std::map<std::string, unsigned int>::const_iterator map_iter;
+  for (map_iter = body_decomposition_index_map_.begin(); map_iter != body_decomposition_index_map_.end(); map_iter++) {
+    const std::string& link_name = map_iter->first;
+    unsigned int link_index = map_iter->second;
+
+    // selecting color
+    if (std::find(group_link_names.begin(), group_link_names.end(), link_name) != group_link_names.end())
+    {
+      sphere_marker.color = robot_color;
+      sphere_marker.ns = "sphere_decomposition_" + collision_group;
+    }
+    else
+    {
+      sphere_marker.color = world_links_color;
+      sphere_marker.ns = "sphere_decomposition_robot";
+    }
+
+    collision_detection::PosedBodySphereDecompositionPtr sphere_representation(new collision_detection::PosedBodySphereDecomposition(body_decompositions_[link_index]));
+    sphere_representation->updatePose(moveit_robot_state_->getGlobalLinkTransform(link_name));
+    for (unsigned int j = 0; j < sphere_representation->getCollisionSpheres().size(); j++)
+    {
+      tf::pointEigenToMsg(sphere_representation->getSphereCenters()[j], sphere_marker.pose.position);
+      sphere_marker.scale.x = sphere_marker.scale.y = sphere_marker.scale.z = 2 * sphere_representation->getCollisionSpheres()[j].radius_;
+      sphere_marker.id = id;
+      id++;
+
+      marker_array.markers.push_back(sphere_marker);
+    }
+  }
+
+  collision_spheres_pub_.publish(marker_array);
+}
+
 std::vector<unsigned int> RobotModel::getBodyIndices(const std::vector<std::string> &bodies)
 {
   std::vector<unsigned int> indices;
@@ -168,6 +268,29 @@ bool RobotModel::getJointLimits(const std::string &joint_name, double &lower_lim
 unsigned int RobotModel::getNumJoints() const
 {
   return num_joints_;
+}
+
+void RobotModel::generateLinkBodyDecompositions(double resolution)
+{
+  const std::vector<const moveit::core::LinkModel*>& link_models = moveit_robot_model_->getLinkModelsWithCollisionGeometry();
+  unsigned int counter = 0;
+  for (const moveit::core::LinkModel* link_model: link_models) {
+    if (link_model->getShapes().empty())
+    {
+      ROS_WARN("No collision geometry for link model %s though there should be", link_model->getName().c_str());
+      continue;
+    }
+
+    ROS_DEBUG("Generating model for %s", link_model->getName().c_str());
+    collision_detection::BodyDecompositionConstPtr bd(
+          new collision_detection::BodyDecomposition(
+            link_model->getShapes(), link_model->getCollisionOriginTransforms(), resolution, 0.05));
+//          getLinkPadding(link_models[i]->getName())));
+    counter += bd->getCollisionSpheres().size();
+    body_decompositions_.push_back(bd);
+    body_decomposition_index_map_[link_model->getName()] = body_decompositions_.size() - 1;
+  }
+  ROS_INFO_STREAM("Created " << counter << " collision spheres.");
 }
 
 }

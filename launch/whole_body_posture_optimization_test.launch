@@ -9,18 +9,17 @@
     <param name="marker_name" value="robot_pose" />
     <param name="frame_id" value="world" /> 
     <rosparam subst_value="true">
-      # init_pose: [-0.811551, -0.643652, 0.0732615, -3.14159, 3.14159, 1.19263]
-      # init_pose: [-0.28, -0.6, -0.9, 0, 0, 0]
       init_pose: [-0.054, 0, -0.7, 0, 0, 0]
+      #init_pose: [-0.945384, -0.108783, -0.106525, 0.000000, 0.000000, -1.580228]
     </rosparam>
   </node> 
   
   <!-- optimization based contact simulation -->
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen">    
-    <param name="interactive" value="false"/>
+    <param name="interactive" value="true"/>
     <param name="truncation_distance" value="0.4"/>
     <param name="max_contact_distance" value="0.04"/>    
-    <param name="scenario" value="step"/>
+    <param name="scenario" value="ramp"/>
     <param name="load_tsdf" value="false"/>
     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/rc17_day1_run1_v2.tsdf"/>
     

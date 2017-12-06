@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   urdf
   moveit_core
   moveit_ros_planning
+  moveit_experimental
 )
 
 ## System dependencies are found with CMake's conventions
@@ -109,7 +110,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning
+  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning moveit_experimental
 #  DEPENDS system_lib
 )
 

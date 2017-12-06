@@ -27,6 +27,11 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
     return false;
   }
 
+  if (!nh.getParam("arm_optimization/collision_group", collision_group_)) {
+    ROS_ERROR_STREAM("Failed to load collision group name.");
+    return false;
+  }
+
   return true;
 }
 
@@ -55,7 +60,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
 {
   std::vector<PostureOptimizationResult> results;
   PostureOptimizationResult last_result;
-  ros::Rate rate(10);
+  ros::Rate rate(5);
   bool first = true;
   for (const geometry_msgs::PoseStamped& pose_msg: path.poses) {
     Eigen::Affine3d pose;
@@ -66,8 +71,8 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
       last_result = findOptimalPosture(pose, getDefaultJointPositions());
       first = false;
     } else {
-//      last_result = findOptimalPosture(pose, last_result.result_joint_angles, &last_result.result_contact);
-      last_result = findOptimalPosture(pose, getDefaultJointPositions(), &last_result.result_contact);
+      last_result = findOptimalPosture(pose, last_result.result_joint_angles, &last_result.result_contact);
+//      last_result = findOptimalPosture(pose, getDefaultJointPositions(), &last_result.result_contact);
     }
     results.push_back(last_result);
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
@@ -117,6 +122,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   result.result_com = arm_result.center_of_mass;
 
   robot_model_->publishRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
+  robot_model_->publishCollisionSpheres(result.result_contact.estimated_pose, result.result_joint_angles, collision_group_);
 
   return result;
 }

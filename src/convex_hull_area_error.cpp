@@ -17,21 +17,21 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   if (result.convex_hull_points.empty()) {
     return false;
   }
-//  double track_contact_weight = 1;
-//  double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
-//  double body_contact_weight = 3;
-//  double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
-//  cost[0] = -result.support_area - track_contact_weight * track_contact_pct + body_contact_weight * body_contact_pct;
+  double track_contact_weight = 1;
+  double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
+  double body_contact_weight = 3;
+  double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
+  cost[0] = -result.support_area - track_contact_weight * track_contact_pct + body_contact_weight * body_contact_pct;
 
-  Eigen::Affine3d com_pose = result.estimated_pose * base_to_com_;
-  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.convex_hull_points, com_pose.translation());
-  std::vector<double> stabilities_transformed(stabilities.size());
-  std::transform(stabilities.begin(), stabilities.end(), stabilities_transformed.begin(), [](double stability) -> double { return 1.0/(pow(std::max(stability, 0.01), 2)); });
-  double stability_transformed_sum = std::accumulate(stabilities_transformed.begin(), stabilities_transformed.end(), 0.0);
-  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-//  double stability_sum = std::accumulate(begin(stabilities), end(stabilities), 0.0);
-  ROS_INFO_STREAM("Stability: " << stability_min);
-  cost[0] = stability_transformed_sum;
+//  Eigen::Affine3d com_pose = result.estimated_pose * base_to_com_;
+//  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.convex_hull_points, com_pose.translation());
+//  std::vector<double> stabilities_transformed(stabilities.size());
+//  std::transform(stabilities.begin(), stabilities.end(), stabilities_transformed.begin(), [](double stability) -> double { return 1.0/(pow(std::max(stability, 0.01), 2)); });
+//  double stability_transformed_sum = std::accumulate(stabilities_transformed.begin(), stabilities_transformed.end(), 0.0);
+////  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
+////  double stability_sum = std::accumulate(begin(stabilities), end(stabilities), 0.0);
+////  ROS_INFO_STREAM("Stability: " << stability_min);
+//  cost[0] = stability_transformed_sum;
   return true;
 }
 

@@ -79,11 +79,10 @@ template <typename T> std::vector<T> computeForceAngleStabilities(const std::vec
     Vector3T<T> distance = -axis_normal + (axis_normal.dot(force_component_norm)) * force_component_norm; // d_i
 
 
-    // TODO: differentiable signed angle: https://stackoverflow.com/a/33920320
     T t1 = force_component_norm.cross(axis_normal_norm).dot(axis_norm);
     T t2 = axis_normal_norm.dot(force_component_norm);
     T signed_angle = atan2(t1, t2);
-    T angle = acos(axis_normal_norm.dot(force_component_norm));
+//    T angle = acos(axis_normal_norm.dot(force_component_norm));
     T stability = signed_angle * distance.norm() * force_component.norm();
     stabilities.push_back(stability);
   }
@@ -102,33 +101,25 @@ public:
                  const std::vector<Eigen::Vector3d>& contact_points, const std::vector<double>& initial_pose, const Eigen::Affine3d& robot_pose);
 
   template <typename T> bool operator()(T const* const* parameters, T* cost) const {
-    // Convert complete state to T
-//    T* joint_angles = new T[param_idx_to_joint_idx_.size()];
-//    for (unsigned int i = 0; i < param_idx_to_joint_idx_.size(); i++) {
-//      joint_angles[i] = parameters[0][i];
-//    }
-    // Override free joints with parameters
-//    for (unsigned int i = 0; i < param_idx_to_joint_idx_.size(); i++) {
-//      joint_angles[param_idx_to_joint_idx_[i]] = parameters[0][i];
-//    }
-
-//    T** param_vec = &joint_angles;
+    // Compute COM
     T* com = new T[3];
     (*compute_com_)(parameters, com);
     Vector3T<T> com_base(com[0], com[1], com[2]); // TODO use eigen map to eliminate copy
     Vector3T<T> com_world = robot_pose_.cast<T>() * com_base;
+
+    // Cast contact points
     std::vector<Vector3T<T>> contact_points_t;
     for (const Eigen::Vector3d& contact_point: contact_points_) {
       contact_points_t.push_back(contact_point.cast<T>());
     }
 
+    // Compute stabilities
     std::vector<T> stabilities = computeForceAngleStabilitiesWithGravity(contact_points_t, com_world);
-    std::vector<T> s(stabilities.size());
-    std::transform(stabilities.begin(), stabilities.end(), s.begin(), [](T stability) -> T { return 1.0/(pow(stability, 2)); });
-    T stability_sum2 = std::accumulate(s.begin(), s.end(), T(0));
+    std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [](T stability) -> T { return 1.0/(pow(stability, 2)); });
+    T stability_inverted_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));
 //    T stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));
 //    T stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-    cost[0] = stability_sum2;
+    cost[0] = stability_inverted_sum;
     return true;
   }
 
