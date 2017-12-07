@@ -38,9 +38,7 @@ private:
   std::shared_ptr<ArmOptimization> arm_optimization_;
   std::shared_ptr<FlipperOptimization> flipper_optimization_;
   std::shared_ptr<RobotModel> robot_model_;
-  std::string collision_group_;
 
-  std::string robot_description_;
   std::vector<double> default_joint_state_;
   std::shared_ptr<voxblox::TsdfMap> tsdf_;
 };

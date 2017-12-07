@@ -6,7 +6,7 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
   : nh_(nh)
 {
   loadParameters(nh);
-  robot_model_ = std::make_shared<RobotModel>(robot_description_);
+  robot_model_ = std::make_shared<RobotModel>(nh_);
   contact_estimation_ = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(robot_shape_gen);
   contact_estimation_->loadParametersFromNamespace(nh_);
   ros::NodeHandle flipper_nh(nh, "flipper_optimization");
@@ -17,18 +17,8 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
 
 bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 {
-  if(!nh.getParam("/robot_description", robot_description_)) {
-    ROS_ERROR_STREAM("Failed to load /robot_description.");
-    return false;
-  }
-
   if (!nh.getParam("default_joint_state", default_joint_state_)) {
     ROS_ERROR_STREAM("No default joint state found.");
-    return false;
-  }
-
-  if (!nh.getParam("arm_optimization/collision_group", collision_group_)) {
-    ROS_ERROR_STREAM("Failed to load collision group name.");
     return false;
   }
 
@@ -121,8 +111,9 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   result.result_joint_angles = arm_result.joint_angles;
   result.result_com = arm_result.center_of_mass;
 
-  robot_model_->publishRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
-  robot_model_->publishCollisionSpheres(result.result_contact.estimated_pose, result.result_joint_angles, collision_group_);
+  robot_model_->updateRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
+  robot_model_->publishRobotState();
+  robot_model_->publishCollisionSpheres();
 
   return result;
 }

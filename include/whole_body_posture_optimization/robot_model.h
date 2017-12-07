@@ -20,12 +20,15 @@ namespace whole_body_posture_optimization {
 
 class RobotModel {
 public:
-  RobotModel(const std::string& robot_description);
+  RobotModel(ros::NodeHandle& nh);
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com, Eigen::MatrixXd &jacobian);
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com);
 
+  void updateRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
   void publishRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
-  void publishCollisionSpheres(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles, std::string collision_group);
+  void publishRobotState();
+  void publishCollisionSpheres(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
+  void publishCollisionSpheres();
 
   std::vector<unsigned int> getBodyIndices(const std::vector<std::string>& bodies);
   std::vector<unsigned int> getJointIndices(const std::vector<std::string>& joints);
@@ -35,6 +38,8 @@ public:
 
 private:
   void generateLinkBodyDecompositions(double resolution);
+
+  std::string robot_description_;
 
   std::vector<collision_detection::BodyDecompositionConstPtr> body_decompositions_;
   std::map<std::string, unsigned int> body_decomposition_index_map_;
@@ -49,6 +54,7 @@ private:
   robot_model::RobotModelPtr moveit_robot_model_;
   ros::Publisher robot_state_pub_;
   ros::Publisher collision_spheres_pub_;
+  std::string collision_group_;
 
 };
 

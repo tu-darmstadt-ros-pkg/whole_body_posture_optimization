@@ -22,17 +22,11 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "com_visualisation_node");
   ros::NodeHandle nh;
 
-  std::string robot_description;
-  if(!nh.getParam("/robot_description", robot_description)) {
-    ROS_ERROR_STREAM("Failed to load /robot_description.");
-    return false;
-  }
-
   ros::Subscriber state_sub = nh.subscribe("/joint_states", 10, &jointStateCB);
   ros::NodeHandle pnh("~");
   ros::Publisher com_pub = pnh.advertise<geometry_msgs::PointStamped>("com", 10, true);
 
-  whole_body_posture_optimization::RobotModel model(robot_description);
+  whole_body_posture_optimization::RobotModel model(pnh);
   ros::Rate rate(100);
   while (ros::ok()) {
     ros::spinOnce();

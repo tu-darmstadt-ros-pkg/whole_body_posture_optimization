@@ -2,17 +2,25 @@
 
 namespace whole_body_posture_optimization {
 
-RobotModel::RobotModel(const std::string &robot_description)
+RobotModel::RobotModel(ros::NodeHandle &nh)
   : num_joints_(0)
 {
+  if(!nh.getParam("/robot_description", robot_description_)) {
+    ROS_ERROR_STREAM("Failed to load /robot_description.");
+  }
+
+  if (!nh.getParam("collision_group", collision_group_)) {
+    ROS_ERROR_STREAM("Failed to load collision group name.");
+  }
+
   // Loading urdf
-  if (!urdf_model_.initString(robot_description)) {
+  if (!urdf_model_.initString(robot_description_)) {
     ROS_ERROR_STREAM("Failed to parse urdf.");
   }
 
   // Loading rbdl model
   model_ptr_ = std::make_shared<rbdl::Model>();
-  rbdl::Addons::URDFReadFromString(robot_description.c_str(), model_ptr_.get(), false, false);
+  rbdl::Addons::URDFReadFromString(robot_description_.c_str(), model_ptr_.get(), false, false);
   ad_model_ptr_ = std::make_shared<ADModel>(*model_ptr_);
   ROS_INFO_STREAM("Loaded model:");
   ROS_INFO_STREAM(" -- dof: " << model_ptr_->dof_count);
@@ -82,7 +90,7 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   computeCenterOfMass(joint_angles, com, jacobian);
 }
 
-void RobotModel::publishRobotState(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
+void RobotModel::updateRobotState(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
 {
   if (joint_angles.size() != num_joints_) {
     ROS_ERROR_STREAM("[RobotModel::publishRobotState] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_joints_ << ")");
@@ -113,59 +121,45 @@ void RobotModel::publishRobotState(const Eigen::Affine3d &robot_pose, const std:
   joint_state_msg.name = joint_names_;
   joint_state_msg.position = joint_angles;
   moveit::core::jointStateToRobotState(joint_state_msg, *moveit_robot_state_);
+}
 
+void RobotModel::publishRobotState(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
+{
+  updateRobotState(robot_pose, joint_angles);
+  publishRobotState();
+}
+
+void RobotModel::publishRobotState()
+{
   moveit_msgs::DisplayRobotState robot_state_msg;
   moveit::core::robotStateToRobotStateMsg(*moveit_robot_state_, robot_state_msg.state);
   robot_state_pub_.publish(robot_state_msg);
 }
 
-void RobotModel::publishCollisionSpheres(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles, std::string collision_group)
+void RobotModel::publishCollisionSpheres(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
 {
-  // Update state
-  if (joint_angles.size() != num_joints_) {
-    ROS_ERROR_STREAM("[RobotModel::publishRobotState] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_joints_ << ")");
-    return;
-  }
-  sensor_msgs::JointState virtual_link_joint_states;
-  virtual_link_joint_states.name.push_back("world_virtual_joint/trans_x");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/trans_y");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/trans_z");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_x");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_y");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_z");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_w");
+  updateRobotState(robot_pose, joint_angles);
+  publishCollisionSpheres();
+}
 
-  virtual_link_joint_states.position.resize(7);
-
-  virtual_link_joint_states.position[0] = robot_pose.translation().x();
-  virtual_link_joint_states.position[1] = robot_pose.translation().y();
-  virtual_link_joint_states.position[2] = robot_pose.translation().z();
-  Eigen::Quaterniond quat(robot_pose.rotation());
-  virtual_link_joint_states.position[3] = quat.x();
-  virtual_link_joint_states.position[4] = quat.y();
-  virtual_link_joint_states.position[5] = quat.z();
-  virtual_link_joint_states.position[6] = quat.w();
-  moveit::core::jointStateToRobotState(virtual_link_joint_states, *moveit_robot_state_);
-
-  sensor_msgs::JointState joint_state_msg;
-  joint_state_msg.name = joint_names_;
-  joint_state_msg.position = joint_angles;
-  moveit::core::jointStateToRobotState(joint_state_msg, *moveit_robot_state_);
-
+void RobotModel::publishCollisionSpheres()
+{
   visualization_msgs::MarkerArray marker_array;
+
+  float transparency = 0.5f;
 
   // creating colors
   std_msgs::ColorRGBA robot_color;
   robot_color.r = 0;
   robot_color.b = 0.8f;
   robot_color.g = 0;
-  robot_color.a = 0.5;
+  robot_color.a = transparency;
 
   std_msgs::ColorRGBA world_links_color;
-  world_links_color.r = 1;
-  world_links_color.g = 1;
+  world_links_color.r = 1.0f;
+  world_links_color.g = 1.0f;
   world_links_color.b = 0;
-  world_links_color.a = 0.5;
+  world_links_color.a = transparency;
 
   // creating sphere marker
   visualization_msgs::Marker sphere_marker;
@@ -181,7 +175,7 @@ void RobotModel::publishCollisionSpheres(const Eigen::Affine3d &robot_pose, cons
 
   unsigned int id = 0;
 
-  const moveit::core::JointModelGroup* joint_group = moveit_robot_state_->getJointModelGroup(collision_group);
+  const moveit::core::JointModelGroup* joint_group = moveit_robot_state_->getJointModelGroup(collision_group_);
   const std::vector<std::string>& group_link_names = joint_group->getUpdatedLinkModelNames();
 
   std::map<std::string, unsigned int>::const_iterator map_iter;
@@ -189,16 +183,16 @@ void RobotModel::publishCollisionSpheres(const Eigen::Affine3d &robot_pose, cons
     const std::string& link_name = map_iter->first;
     unsigned int link_index = map_iter->second;
 
+    sphere_marker.ns = link_name;
+
     // selecting color
     if (std::find(group_link_names.begin(), group_link_names.end(), link_name) != group_link_names.end())
     {
       sphere_marker.color = robot_color;
-      sphere_marker.ns = "sphere_decomposition_" + collision_group;
     }
     else
     {
       sphere_marker.color = world_links_color;
-      sphere_marker.ns = "sphere_decomposition_robot";
     }
 
     collision_detection::PosedBodySphereDecompositionPtr sphere_representation(new collision_detection::PosedBodySphereDecomposition(body_decompositions_[link_index]));
@@ -282,13 +276,24 @@ void RobotModel::generateLinkBodyDecompositions(double resolution)
     }
 
     ROS_DEBUG("Generating model for %s", link_model->getName().c_str());
+    const double PADDING = 0.0;
+
+//    EigenSTL::vector_Affine3d fake_transforms(link_model->getShapes().size(), Eigen::Affine3d::Identity());
     collision_detection::BodyDecompositionConstPtr bd(
           new collision_detection::BodyDecomposition(
-            link_model->getShapes(), link_model->getCollisionOriginTransforms(), resolution, 0.05));
+            link_model->getShapes(), /*fake_transforms*/ link_model->getCollisionOriginTransforms(), resolution, PADDING));
 //          getLinkPadding(link_models[i]->getName())));
     counter += bd->getCollisionSpheres().size();
     body_decompositions_.push_back(bd);
     body_decomposition_index_map_[link_model->getName()] = body_decompositions_.size() - 1;
+
+//    ROS_INFO_STREAM("Shapes:");
+//    for (unsigned int i = 0; i < link_model->getShapes().size(); i++) {
+//      link_model->getShapes()[i]->print();
+//      Eigen::Vector3d xyz = link_model->getCollisionOriginTransforms()[i].translation();
+//      Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(link_model->getCollisionOriginTransforms()[i].linear());
+//      ROS_INFO("Transform: [%f, %f, %f, %f, %f, %f]", xyz(0), xyz(1), xyz(2), rpy(0), rpy(1), rpy(2));
+//    }
   }
   ROS_INFO_STREAM("Created " << counter << " collision spheres.");
 }

@@ -3,13 +3,14 @@ default_joint_state: [0, 1, 4.5, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default fo
 #default_joint_state: [1.0, 2, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 #default_joint_state: [0.0838013, 3.072, 4.68403, 0.86, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 
+collision_group: arm_with_head_group
+
 arm_optimization:
   joints:
     #- arm_joint_0
     - arm_joint_1
     - arm_joint_2
     #- sensor_head_pitch_joint
-  collision_group: arm_with_head_group
   max_iterations: 50
   ftol_rel: 0.5
 flipper_optimization:
