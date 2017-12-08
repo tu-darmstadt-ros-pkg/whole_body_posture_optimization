@@ -12,7 +12,7 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
   ros::NodeHandle flipper_nh(nh, "flipper_optimization");
   flipper_optimization_ = std::make_shared<FlipperOptimization>(flipper_nh, robot_model_, robot_shape_gen, contact_estimation_);
   ros::NodeHandle arm_nh(nh, "arm_optimization");
-  arm_optimization_ = std::make_shared<ArmOptimization>(arm_nh, robot_model_);
+  arm_optimization_ = std::make_shared<ArmOptimization>(arm_nh, robot_model_, contact_estimation_);
 }
 
 bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)

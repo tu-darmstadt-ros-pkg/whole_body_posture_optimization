@@ -46,6 +46,10 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   moveit_robot_state_ = std::make_shared<robot_state::RobotState>(moveit_robot_model_);
   generateLinkBodyDecompositions(0.02); //TODO resolution?
 
+  // ad kinematics
+  ad_chain_ = std::make_shared<ad_kinematics::Chain>(moveit_robot_model_->getURDF(), moveit_robot_state_->getJointModelGroup(collision_group_));
+
+  // Publishers
   ros::NodeHandle pnh("~");
   robot_state_pub_ = pnh.advertise<moveit_msgs::DisplayRobotState>("robot_state", 10, true);
   collision_spheres_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("collision_spheres", 10, true);
@@ -96,6 +100,9 @@ void RobotModel::updateRobotState(const Eigen::Affine3d &robot_pose, const std::
     ROS_ERROR_STREAM("[RobotModel::publishRobotState] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_joints_ << ")");
     return;
   }
+  robot_pose_ = robot_pose;
+  joint_angles_ = joint_angles;
+
   sensor_msgs::JointState virtual_link_joint_states;
   virtual_link_joint_states.name.push_back("world_virtual_joint/trans_x");
   virtual_link_joint_states.name.push_back("world_virtual_joint/trans_y");
@@ -186,12 +193,9 @@ void RobotModel::publishCollisionSpheres()
     sphere_marker.ns = link_name;
 
     // selecting color
-    if (std::find(group_link_names.begin(), group_link_names.end(), link_name) != group_link_names.end())
-    {
+    if (std::find(group_link_names.begin(), group_link_names.end(), link_name) != group_link_names.end()) {
       sphere_marker.color = robot_color;
-    }
-    else
-    {
+    } else {
       sphere_marker.color = world_links_color;
     }
 
@@ -264,6 +268,31 @@ unsigned int RobotModel::getNumJoints() const
   return num_joints_;
 }
 
+std::vector<std::string> RobotModel::getCollisionLinkNames()
+{
+  std::vector<std::string> collision_links;
+  for (const auto& kv: body_decomposition_index_map_) {
+    collision_links.push_back(kv.first);
+  }
+  return collision_links;
+}
+
+std::vector<collision_detection::CollisionSphere> RobotModel::getCollisionSpheres(std::string link_name)
+{
+  unsigned int idx = body_decomposition_index_map_.at(link_name);
+  return body_decompositions_[idx]->getCollisionSpheres();
+}
+
+std::vector<unsigned int> RobotModel::getChainToJointIndexMapping()
+{
+  return getJointIndices(ad_chain_->getActuatedJointNames());
+}
+
+std::vector<int> RobotModel::getParamToChainIndexMapping(const std::vector<std::string> &free_joints)
+{
+  return ad_chain_->getJointQIndices(free_joints);
+}
+
 void RobotModel::generateLinkBodyDecompositions(double resolution)
 {
   const std::vector<const moveit::core::LinkModel*>& link_models = moveit_robot_model_->getLinkModelsWithCollisionGeometry();
@@ -278,7 +307,6 @@ void RobotModel::generateLinkBodyDecompositions(double resolution)
     ROS_DEBUG("Generating model for %s", link_model->getName().c_str());
     const double PADDING = 0.0;
 
-//    EigenSTL::vector_Affine3d fake_transforms(link_model->getShapes().size(), Eigen::Affine3d::Identity());
     collision_detection::BodyDecompositionConstPtr bd(
           new collision_detection::BodyDecomposition(
             link_model->getShapes(), /*fake_transforms*/ link_model->getCollisionOriginTransforms(), resolution, PADDING));

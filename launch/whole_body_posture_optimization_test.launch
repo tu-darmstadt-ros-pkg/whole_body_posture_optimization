@@ -14,9 +14,8 @@
     </rosparam>
   </node> 
   
-  <!-- optimization based contact simulation -->
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen">    
-    <param name="interactive" value="true"/>
+    <param name="interactive" value="false"/>
     <param name="truncation_distance" value="0.4"/>
     <param name="max_contact_distance" value="0.04"/>    
     <param name="scenario" value="ramp"/>

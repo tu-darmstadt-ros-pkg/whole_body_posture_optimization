@@ -10,6 +10,8 @@
 #include <moveit_msgs/DisplayRobotState.h>
 #include <moveit/collision_distance_field/collision_distance_field_types.h>
 
+#include <ad_kinematics/chain.h>
+
 #undef LOG // of course everyone names their logging macro the same
 #include <differentiation/rbdl_utilsAD.h>
 #include <urdfreader/urdfreader.h>
@@ -36,6 +38,14 @@ public:
   bool getJointLimits(const std::string& joint_name, double& lower_limit, double& upper_limit);
   unsigned int getNumJoints() const;
 
+  std::vector<std::string> getCollisionLinkNames();
+  std::vector<collision_detection::CollisionSphere> getCollisionSpheres(std::string link_name);
+  template<typename T> ad_kinematics::Affine3<T> computeChainFK(const std::string& link_name, const std::vector<T>& chain_angles) {
+    return ad_chain_->computeTransform<T>(link_name, chain_angles).toAffine();
+  }
+  std::vector<unsigned int> getChainToJointIndexMapping();
+  std::vector<int> getParamToChainIndexMapping(const std::vector<std::string>& free_joints);
+
 private:
   void generateLinkBodyDecompositions(double resolution);
 
@@ -50,12 +60,16 @@ private:
   unsigned int num_joints_;
   std::vector<std::string> joint_names_;
 
-  robot_state::RobotStatePtr moveit_robot_state_;
   robot_model::RobotModelPtr moveit_robot_model_;
-  ros::Publisher robot_state_pub_;
-  ros::Publisher collision_spheres_pub_;
+  robot_state::RobotStatePtr moveit_robot_state_;
+  Eigen::Affine3d robot_pose_;
+  std::vector<double> joint_angles_;
+
+  std::shared_ptr<ad_kinematics::Chain> ad_chain_;
   std::string collision_group_;
 
+  ros::Publisher robot_state_pub_;
+  ros::Publisher collision_spheres_pub_;
 };
 
 }

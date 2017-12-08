@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_core
   moveit_ros_planning
   moveit_experimental
+  ad_kinematics
 )
 
 ## System dependencies are found with CMake's conventions
@@ -110,7 +111,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning moveit_experimental
+  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning moveit_experimental ad_kinematics
 #  DEPENDS system_lib
 )
 
@@ -123,6 +124,7 @@ set(HEADERS
   include/${PROJECT_NAME}/robot_model.h
   include/${PROJECT_NAME}/arm/stability_error.h
   include/${PROJECT_NAME}/arm/arm_optimization.h
+  include/${PROJECT_NAME}/arm/contact_constraint.h
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
   include/${PROJECT_NAME}/flipper/convex_hull_area_error.h
   include/${PROJECT_NAME}/ceres_wrapper.h

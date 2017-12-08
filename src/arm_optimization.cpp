@@ -2,8 +2,9 @@
 
 namespace whole_body_posture_optimization {
 
-ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model)
-  : robot_model_(robot_model)
+ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model,
+                                 const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation)
+  : robot_model_(robot_model), contact_estimation_(contact_estimation)
 {
   if (!loadParameters(nh)) {
     ROS_ERROR_STREAM("Loading arm parameters failed.");
@@ -51,13 +52,13 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 {
   ROS_INFO_STREAM("Starting arm optimization");
 //  nlopt::opt opt(nlopt::LD_LBFGS,  free_joints_.size()); // nlopt failure, but seems to work anyway
-//  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
+  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
 //  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size());
 //  nlopt::opt opt(nlopt::LD_TNEWTON, free_joints_.size());
 //  nlopt::opt opt(nlopt::LD_VAR2, free_joints_.size());
 //  nlopt::opt opt(nlopt::LD_VAR1, free_joints_.size());
 
-    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
+//    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
 //  nlopt::opt opt(nlopt::LN_NELDERMEAD,  free_joints_.size());
 //  nlopt::opt opt(nlopt::LN_SBPLX,  free_joints_.size());
 
@@ -75,6 +76,24 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   // Add objective function
   CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, robot_pose), 2);
   opt.set_min_objective(CeresCostFunctionWrapper::wrap, &stability_cost_);
+
+  // Add constraints
+  // TODO creating this new for each call seems inefficient
+  std::vector<int> param_idx_to_chain_idx = robot_model_->getParamToChainIndexMapping(free_joints_);
+  std::vector<unsigned int> chain_idx_to_jnt_idx = robot_model_->getChainToJointIndexMapping();
+  std::vector<double> default_chain_angles(chain_idx_to_jnt_idx.size());
+  for (unsigned int chain_idx = 0; chain_idx < default_chain_angles.size(); chain_idx++) {
+    default_chain_angles[chain_idx] = initial_angles[chain_idx_to_jnt_idx[chain_idx]];
+  }
+  std::vector<std::shared_ptr<CeresCostFunctionWrapper>> constraints;
+  for (const std::string& collision_link: robot_model_->getCollisionLinkNames()) {
+    for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
+      ceres::CostFunction* cost_function = ContactConstraint::Create(robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_, sphere, collision_link);
+      auto wrapper = std::make_shared<CeresCostFunctionWrapper>(cost_function);
+      constraints.push_back(wrapper);
+      opt.add_inequality_constraint(CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+    }
+  }
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
