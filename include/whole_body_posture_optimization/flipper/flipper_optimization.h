@@ -19,7 +19,7 @@ class FlipperOptimization {
 public:
   FlipperOptimization(ros::NodeHandle& nh, const std::shared_ptr<RobotModel>& robot_model, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
                       const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation);
-  FlipperOptimizationResult optimize(const Eigen::Affine3d& robot_pose, const Eigen::Affine3d& base_to_com, const std::vector<double> &init_position,
+  FlipperOptimizationResult optimize(const Eigen::Affine3d& robot_pose, const Eigen::Affine3d& base_to_com, const std::vector<double> &init_joint_angles,
                                const sdf_contact_estimation::ContactEstimationResult &init_contact);
   sdf_contact_estimation::ContactEstimationResult computeContactEstimation(const std::vector<double>& joint_angles,const Eigen::Affine3d& pose, const Eigen::Affine3d &base_to_com,
                                                                            const sdf_contact_estimation::ContactEstimationResult& last_result);

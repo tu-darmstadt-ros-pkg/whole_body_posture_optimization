@@ -3,8 +3,9 @@
 namespace whole_body_posture_optimization {
 
 RobotModel::RobotModel(ros::NodeHandle &nh)
-  : num_joints_(0)
+  : num_joints_(0), collision_padding_(0.0)
 {
+  // Parameter loading
   if(!nh.getParam("/robot_description", robot_description_)) {
     ROS_ERROR_STREAM("Failed to load /robot_description.");
   }
@@ -12,6 +13,7 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   if (!nh.getParam("collision_group", collision_group_)) {
     ROS_ERROR_STREAM("Failed to load collision group name.");
   }
+  collision_padding_ = nh.param<double>("collision_padding", 0.0);
 
   // Loading urdf
   if (!urdf_model_.initString(robot_description_)) {
@@ -183,7 +185,7 @@ void RobotModel::publishCollisionSpheres()
   unsigned int id = 0;
 
   const moveit::core::JointModelGroup* joint_group = moveit_robot_state_->getJointModelGroup(collision_group_);
-  const std::vector<std::string>& group_link_names = joint_group->getUpdatedLinkModelNames();
+  const std::vector<std::string>& group_link_names = joint_group->getLinkModelNames();
 
   std::map<std::string, unsigned int>::const_iterator map_iter;
   for (map_iter = body_decomposition_index_map_.begin(); map_iter != body_decomposition_index_map_.end(); map_iter++) {
@@ -277,6 +279,21 @@ std::vector<std::string> RobotModel::getCollisionLinkNames()
   return collision_links;
 }
 
+std::vector<std::string> RobotModel::getCollisionGroupNames()
+{
+  const moveit::core::JointModelGroup* joint_group = moveit_robot_state_->getJointModelGroup(collision_group_);
+  const std::vector<std::string>& group_link_names = joint_group->getLinkModelNames();
+
+  std::vector<std::string> collision_links;
+  for (const auto& kv: body_decomposition_index_map_) {
+    std::string link_name = kv.first;
+    if (std::find(group_link_names.begin(), group_link_names.end(), link_name) != group_link_names.end()) {
+      collision_links.push_back(kv.first);
+    }
+  }
+  return collision_links;
+}
+
 std::vector<collision_detection::CollisionSphere> RobotModel::getCollisionSpheres(std::string link_name)
 {
   unsigned int idx = body_decomposition_index_map_.at(link_name);
@@ -305,25 +322,16 @@ void RobotModel::generateLinkBodyDecompositions(double resolution)
     }
 
     ROS_DEBUG("Generating model for %s", link_model->getName().c_str());
-    const double PADDING = 0.0;
 
     collision_detection::BodyDecompositionConstPtr bd(
           new collision_detection::BodyDecomposition(
-            link_model->getShapes(), /*fake_transforms*/ link_model->getCollisionOriginTransforms(), resolution, PADDING));
+            link_model->getShapes(), link_model->getCollisionOriginTransforms(), resolution, collision_padding_));
 //          getLinkPadding(link_models[i]->getName())));
     counter += bd->getCollisionSpheres().size();
     body_decompositions_.push_back(bd);
     body_decomposition_index_map_[link_model->getName()] = body_decompositions_.size() - 1;
-
-//    ROS_INFO_STREAM("Shapes:");
-//    for (unsigned int i = 0; i < link_model->getShapes().size(); i++) {
-//      link_model->getShapes()[i]->print();
-//      Eigen::Vector3d xyz = link_model->getCollisionOriginTransforms()[i].translation();
-//      Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(link_model->getCollisionOriginTransforms()[i].linear());
-//      ROS_INFO("Transform: [%f, %f, %f, %f, %f, %f]", xyz(0), xyz(1), xyz(2), rpy(0), rpy(1), rpy(2));
-//    }
   }
-  ROS_INFO_STREAM("Created " << counter << " collision spheres.");
+//  ROS_INFO_STREAM("Created " << counter << " collision spheres.");
 }
 
 }

@@ -44,7 +44,6 @@ public:
       chain_angles[param_idx_to_chain_idx_[p_idx]] = parameters[0][p_idx];
     }
 
-
     // Compute sphere position in world
     Vector3<T> sphere_center = sphere_.relative_vec_.cast<T>();
     Affine3<T> base_to_link = robot_model_->computeChainFK<T>(link_name_, chain_angles);

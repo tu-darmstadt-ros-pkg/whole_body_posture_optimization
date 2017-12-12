@@ -51,19 +51,9 @@ std::vector<double> ArmOptimization::jointVectorToParamVector(const std::vector<
 ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose)
 {
   ROS_INFO_STREAM("Starting arm optimization");
-//  nlopt::opt opt(nlopt::LD_LBFGS,  free_joints_.size()); // nlopt failure, but seems to work anyway
-  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
+//  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
 //  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size());
-//  nlopt::opt opt(nlopt::LD_TNEWTON, free_joints_.size());
-//  nlopt::opt opt(nlopt::LD_VAR2, free_joints_.size());
-//  nlopt::opt opt(nlopt::LD_VAR1, free_joints_.size());
-
-//    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
-//  nlopt::opt opt(nlopt::LN_NELDERMEAD,  free_joints_.size());
-//  nlopt::opt opt(nlopt::LN_SBPLX,  free_joints_.size());
-
-//    nlopt::opt opt(nlopt::GD_STOGO,  free_joints_.size()); // nlopt failure
-//  nlopt::opt opt(nlopt::GN_DIRECT_L,  free_joints_.size());
+    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
 
 
   // Define parameter bounds
@@ -78,7 +68,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   opt.set_min_objective(CeresCostFunctionWrapper::wrap, &stability_cost_);
 
   // Add constraints
-  // TODO creating this new for each call seems inefficient
+  // TODO move constraints creation to constructor
   std::vector<int> param_idx_to_chain_idx = robot_model_->getParamToChainIndexMapping(free_joints_);
   std::vector<unsigned int> chain_idx_to_jnt_idx = robot_model_->getChainToJointIndexMapping();
   std::vector<double> default_chain_angles(chain_idx_to_jnt_idx.size());
@@ -86,7 +76,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     default_chain_angles[chain_idx] = initial_angles[chain_idx_to_jnt_idx[chain_idx]];
   }
   std::vector<std::shared_ptr<CeresCostFunctionWrapper>> constraints;
-  for (const std::string& collision_link: robot_model_->getCollisionLinkNames()) {
+  for (const std::string& collision_link: robot_model_->getCollisionGroupNames()) {
+    ROS_DEBUG_STREAM("Creating collision constraints for link: " << collision_link);
     for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
       ceres::CostFunction* cost_function = ContactConstraint::Create(robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_, sphere, collision_link);
       auto wrapper = std::make_shared<CeresCostFunctionWrapper>(cost_function);
@@ -94,6 +85,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       opt.add_inequality_constraint(CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
     }
   }
+  ROS_INFO_STREAM("Created " << constraints.size() << " collision constraints.");
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
@@ -103,6 +95,12 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // Fill in initial joint state (from previous time step)
   std::vector<double> parameters = jointVectorToParamVector(initial_angles);
+
+  // Debug
+//  for (const std::shared_ptr<CeresCostFunctionWrapper>& c: constraints) {
+//    std::vector<double> gradient(parameters.size());
+//    double cost = c->operator ()(parameters, gradient);
+//  }
 
   double minf;
   auto start = std::chrono::high_resolution_clock::now();

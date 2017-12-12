@@ -28,7 +28,7 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
   return true;
 }
 
-FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_position,
+FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_joint_angles,
                                                         const sdf_contact_estimation::ContactEstimationResult &init_contact)
 {
   ROS_INFO_STREAM("Starting flipper optimization");
@@ -67,7 +67,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 //  opt.set_stopval(-0.510003);
 //  opt.set_ftol_abs(0.01);
 
-  std::vector<double> parameters = jointVectorToParamVector(init_position);
+  std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
   // Publish start state
   robot_shape_gen_->updateShape(parameters);
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
@@ -96,7 +96,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 
   FlipperOptimizationResult result;
   result.flipper_angles = parameters;
-  result.joint_state = init_position;
+  result.joint_state = init_joint_angles;
   for (unsigned int i = 0; i < parameters.size(); i++) {
     result.joint_state[param_idx_to_jnt_idx_[i]] = parameters[i];
   }
