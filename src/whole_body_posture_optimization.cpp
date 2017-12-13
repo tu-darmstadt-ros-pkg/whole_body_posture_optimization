@@ -94,7 +94,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   }
 //  result.result_contact = updated_init_contact;
 
-  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(updated_init_contact.estimated_pose, base_to_com, init_joint_angles, previous_joint_angles, updated_init_contact);
+  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(updated_init_contact.estimated_pose, base_to_com, init_joint_angles, previous_joint_angles,
+                                                                             updated_init_contact);
   result.result_contact = flipper_result.contact_result;
   result.result_joint_angles = flipper_result.joint_state;
 
@@ -104,7 +105,10 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
     return result;
   }
 
-  ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points, flipper_result.contact_result.estimated_pose);
+  ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points,
+                                                                 flipper_result.contact_result.estimated_pose, previous_joint_angles);
+//  ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points,
+//                                                                 flipper_result.contact_result.estimated_pose, getDefaultJointPositions());
 //  ArmOptimizationResult arm_result = arm_optimization_->optimize(init_joint_state, updated_init_contact.convex_hull_points, updated_init_contact.estimated_pose);
   result.result_joint_angles = arm_result.joint_angles;
   result.result_com = arm_result.center_of_mass;

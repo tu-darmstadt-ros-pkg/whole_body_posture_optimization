@@ -18,15 +18,15 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   }
 
 
-  // Robust regularisation
-  double regularisation_weight = 1.5;
-  double regularisation_cost = 0.0;
+  // Robust regularization
+  double regularization_weight = 0.5;
+  double regularization_cost = 0.0;
   for (unsigned int idx = 0; idx < prev_flipper_angles_.size(); idx++) {
     double diff = prev_flipper_angles_[idx] - flipper_angles[0][idx];
-    regularisation_cost += lorentzian<double>(diff, 0.8);
+    regularization_cost += lorentzian<double>(diff, 0.8);
 //    regularisation_cost += pow(diff, 2);
   }
-  ROS_INFO_STREAM("Regularisation cost: " << regularisation_cost);
+//  ROS_INFO_STREAM("Regularization cost: " << regularization_cost);
 
 //  double track_contact_weight = 1;
 //  double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
@@ -42,7 +42,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 //  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
 //  double stability_sum = std::accumulate(begin(stabilities), end(stabilities), 0.0);
 //  ROS_INFO_STREAM("Stability: " << stability_min);
-  cost[0] = stability_transformed_sum + regularisation_weight * regularisation_cost ;
+  cost[0] = stability_transformed_sum + regularization_weight * regularization_cost ;
   return true;
 }
 

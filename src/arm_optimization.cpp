@@ -48,7 +48,8 @@ std::vector<double> ArmOptimization::jointVectorToParamVector(const std::vector<
   return parameters;
 }
 
-ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose)
+ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose,
+                                                const std::vector<double>& previous_joint_angles)
 {
   ROS_INFO_STREAM("Starting arm optimization");
   nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
@@ -64,7 +65,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   ROS_INFO_STREAM("upper bounds: " << vecToString(upper_bounds_));
 
   // Add objective function
-  CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, robot_pose), 2);
+  std::vector<double> previous_parameters = jointVectorToParamVector(previous_joint_angles);
+  CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose), 2);
   opt.set_min_objective(CeresCostFunctionWrapper::wrap, &stability_cost_);
 
   // Add constraints

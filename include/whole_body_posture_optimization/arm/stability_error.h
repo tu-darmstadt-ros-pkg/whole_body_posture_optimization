@@ -59,8 +59,8 @@ private:
 
 class StabilityError {
 public:
-  StabilityError(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints,
-                 const std::vector<Eigen::Vector3d>& contact_points, const std::vector<double>& initial_pose, const Eigen::Affine3d& robot_pose);
+  StabilityError(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<Eigen::Vector3d>& contact_points,
+                 const std::vector<double>& initial_joint_angles, const std::vector<double>& previous_param_angles, const Eigen::Affine3d& robot_pose);
 
   template <typename T> bool operator()(T const* const* parameters, T* cost) const {
     // Compute COM
@@ -81,20 +81,31 @@ public:
     T stability_inverted_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));
 //    T stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));
 //    T stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-    cost[0] = stability_inverted_sum;
+
+    // Compute regularization
+    T regularization_weight = T(0.5);
+    T regularization_cost = T(0.0);
+    for (unsigned int idx = 0; idx < previous_param_angles_.size(); idx++) {
+      T angle_diff = T(previous_param_angles_[idx]) - parameters[0][idx];
+      regularization_cost += lorentzian<T>(angle_diff, T(0.5));
+    }
+
+    cost[0] = stability_inverted_sum + regularization_weight * regularization_cost;
     return true;
   }
 
-  static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string> &free_joints,
-                                     const std::vector<Eigen::Vector3d> &contact_points, const std::vector<double>& initial_pose, const Eigen::Affine3d &robot_pose);
+  static ceres::CostFunction* Create(const std::shared_ptr<RobotModel>& robot_model, const std::vector<std::string> &free_joints, const std::vector<Eigen::Vector3d> &contact_points,
+                                     const std::vector<double>& initial_joint_angles, const std::vector<double> &previous_param_angles, const Eigen::Affine3d &robot_pose);
 
 private:
   std::shared_ptr<ceres::DynamicCostFunctionToFunctor> compute_com_;
   std::shared_ptr<RobotModel> robot_model_;
+
   std::vector<unsigned int> param_idx_to_joint_idx_;
   std::vector<Eigen::Vector3d> contact_points_;
   Eigen::Affine3d robot_pose_;
-  std::vector<double> initial_angles_;
+  std::vector<double> initial_joint_angles;
+  std::vector<double> previous_param_angles_;
 };
 
 }

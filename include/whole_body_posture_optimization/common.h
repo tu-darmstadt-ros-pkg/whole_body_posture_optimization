@@ -16,7 +16,7 @@ template<typename T>
 using Matrix3 = Eigen::Matrix<T, 3, 3>;
 
 template <typename T> T lorentzian(const T& x, const T& sigma) {
-  return log(1 + pow(x, 2)/(2 * pow(sigma, 2)));
+  return log(T(1) + pow(x, T(2))/(T(2) * pow(sigma, T(2))));
 }
 
 template <typename T> std::vector<T> computeForceAngleStabilities(const std::vector<Vector3<T>>& contact_points, const Vector3<T>& external_force, const Vector3<T>& com) {

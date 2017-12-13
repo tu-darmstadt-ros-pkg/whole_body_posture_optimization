@@ -46,10 +46,12 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
     ROS_ERROR("Couldn't load robot model!");
   }
   moveit_robot_state_ = std::make_shared<robot_state::RobotState>(moveit_robot_model_);
-  generateLinkBodyDecompositions(0.02); //TODO resolution?
 
   // ad kinematics
-  ad_chain_ = std::make_shared<ad_kinematics::Chain>(moveit_robot_model_->getURDF(), moveit_robot_state_->getJointModelGroup(collision_group_));
+  if (collision_group_ != "") {
+    ad_chain_ = std::make_shared<ad_kinematics::Chain>(moveit_robot_model_->getURDF(), moveit_robot_state_->getJointModelGroup(collision_group_));
+    generateLinkBodyDecompositions(0.02); //TODO resolution?
+  }
 
   // Publishers
   ros::NodeHandle pnh("~");
