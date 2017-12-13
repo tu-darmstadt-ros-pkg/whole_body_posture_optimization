@@ -51,9 +51,9 @@ std::vector<double> ArmOptimization::jointVectorToParamVector(const std::vector<
 ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose)
 {
   ROS_INFO_STREAM("Starting arm optimization");
-//  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
+  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
 //  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size());
-    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
+//    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
 
 
   // Define parameter bounds

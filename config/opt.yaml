@@ -8,6 +8,7 @@ collision_group: arm_with_gripper_group
 collision_padding: 0.05
 
 arm_optimization:
+  enabled: true
   joints:
     #- arm_joint_0
     - arm_joint_1
@@ -16,5 +17,6 @@ arm_optimization:
   max_iterations: 50
   ftol_rel: 0.5
 flipper_optimization:
+  enabled: true
   joints:
     - flipper_joint_1

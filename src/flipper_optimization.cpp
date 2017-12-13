@@ -29,7 +29,7 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
 }
 
 FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_joint_angles,
-                                                        const sdf_contact_estimation::ContactEstimationResult &init_contact)
+                                                        const std::vector<double> &previous_joint_angles, const sdf_contact_estimation::ContactEstimationResult &init_contact)
 {
   ROS_INFO_STREAM("Starting flipper optimization");
   // Global, derivative-free
@@ -56,8 +56,11 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   opt.set_upper_bounds(upper_bounds_);
 
   // Add objective function
+  std::vector<double> previous_flipper_angles = jointVectorToParamVector(previous_joint_angles);
   int verbosity_level = 1;
-  CeresCostFunctionWrapper support_area_cost(ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, init_contact), verbosity_level);
+  CeresCostFunctionWrapper support_area_cost(
+        ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact),
+        verbosity_level);
   opt.set_min_objective(CeresCostFunctionWrapper::wrap, &support_area_cost);
 
   // Set convergence criterion

@@ -1,6 +1,8 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__CONTACT_CONSTRAINT_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION__CONTACT_CONSTRAINT_H
 
+#include <whole_body_posture_optimization/common.h>
+
 #include <whole_body_posture_optimization/robot_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <algorithm>
@@ -10,12 +12,6 @@
 #include <math.h>
 
 namespace  whole_body_posture_optimization {
-
-template<typename T>
-using Vector3 = Eigen::Matrix<T, 3, 1>;
-
-template<typename T>
-using Affine3 = Eigen::Transform<T, 3, Eigen::Affine>;
 
 class ContactConstraint {
 public:

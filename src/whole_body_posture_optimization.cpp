@@ -58,11 +58,11 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
 
     auto start = std::chrono::high_resolution_clock::now();
     if (first) {
-      last_result = findOptimalPosture(pose, getDefaultJointPositions());
+      last_result = findOptimalPosture(pose, getDefaultJointPositions(), getDefaultJointPositions());
       first = false;
     } else {
-//      last_result = findOptimalPosture(pose, last_result.result_joint_angles, &last_result.result_contact);
-      last_result = findOptimalPosture(pose, getDefaultJointPositions(), &last_result.result_contact);
+//      last_result = findOptimalPosture(pose, last_result.result_joint_angles, last_result.result_joint_angles, &last_result.result_contact);
+      last_result = findOptimalPosture(pose, getDefaultJointPositions(), last_result.result_joint_angles, &last_result.result_contact);
     }
     results.push_back(last_result);
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
@@ -74,6 +74,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
 }
 
 PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
+                                                                           const std::vector<double> &previous_joint_angles,
                                                                            const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
 {
   PostureOptimizationResult result;
@@ -93,7 +94,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   }
 //  result.result_contact = updated_init_contact;
 
-  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(updated_init_contact.estimated_pose, base_to_com, init_joint_angles, updated_init_contact);
+  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(updated_init_contact.estimated_pose, base_to_com, init_joint_angles, previous_joint_angles, updated_init_contact);
   result.result_contact = flipper_result.contact_result;
   result.result_joint_angles = flipper_result.joint_state;
 
@@ -115,9 +116,9 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   return result;
 }
 
-PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d &pose, const std::vector<double> &init_joint_state)
+PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d &pose, const std::vector<double> &init_joint_state, const std::vector<double> &previous_joint_angles)
 {
-  return findOptimalPosture(pose, init_joint_state, NULL);
+  return findOptimalPosture(pose, init_joint_state, previous_joint_angles, NULL);
 }
 
 }
