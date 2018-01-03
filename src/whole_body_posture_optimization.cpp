@@ -145,13 +145,10 @@ void WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<Post
 
   for (const PostureOptimizationResult& result: opt_result) {
     robot_model_->updateRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
-    const robot_state::RobotState& state = robot_model_->getMoveitRobotState();
-    trajectory.addSuffixWayPoint(state, 1.0); // Insert default delta times
+    robot_state::RobotState state = robot_model_->getMoveitRobotState();
+    trajectory.addSuffixWayPoint(state, 0.0);
   }
   time_parameterization.computeTimeStamps(trajectory);
-//  for (unsigned int i = 0; i < trajectory.getWayPointCount(); i++) {
-//    ROS_INFO_STREAM("Duration " << i << ": " << trajectory.getWayPointDurationFromPrevious(i));
-//  }
   publishTrajectory(trajectory);
 }
 
@@ -160,9 +157,9 @@ void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::Rob
   moveit_msgs::DisplayTrajectory display_msg;
 //  display_msg.model_id = "";
 
-  moveit_msgs::RobotState start_state_msg;
-  moveit::core::robotStateToRobotStateMsg(robot_trajectory.getFirstWayPoint(), start_state_msg);
-  display_msg.trajectory_start = start_state_msg;
+//  moveit_msgs::RobotState start_state_msg;
+//  moveit::core::robotStateToRobotStateMsg(robot_trajectory.getFirstWayPoint(), start_state_msg);
+//  display_msg.trajectory_start = start_state_msg;
 
   moveit_msgs::RobotTrajectory trajectory_msg;
   robot_trajectory.getRobotTrajectoryMsg(trajectory_msg);
