@@ -336,4 +336,14 @@ void RobotModel::generateLinkBodyDecompositions(double resolution)
 //  ROS_INFO_STREAM("Created " << counter << " collision spheres.");
 }
 
+robot_model::RobotModelPtr RobotModel::getMoveitRobotModel() const
+{
+  return moveit_robot_model_;
+}
+
+robot_state::RobotState RobotModel::getMoveitRobotState() const
+{
+  return *moveit_robot_state_;
+}
+
 }

@@ -13,6 +13,8 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
   flipper_optimization_ = std::make_shared<FlipperOptimization>(flipper_nh, robot_model_, robot_shape_gen, contact_estimation_);
   ros::NodeHandle arm_nh(nh, "arm_optimization");
   arm_optimization_ = std::make_shared<ArmOptimization>(arm_nh, robot_model_, contact_estimation_);
+
+  trajectory_pub_ = nh_.advertise<moveit_msgs::DisplayTrajectory>("trajectory", 10, true);
 }
 
 bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -28,12 +30,12 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 void WholeBodyPostureOptimization::updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf)
 {
   tsdf_ = tsdf;
-  contact_estimation_->loadTsdf(tsdf, false);
+  contact_estimation_->loadTsdf(tsdf, true);
 }
 
 void WholeBodyPostureOptimization::updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud)
 {
-  contact_estimation_->loadCloud(cloud, false);
+  contact_estimation_->loadCloud(cloud, true);
 }
 
 void WholeBodyPostureOptimization::setDefaultJointPositions(const std::vector<double>& default_joint_positions)
@@ -48,9 +50,10 @@ const std::vector<double> &WholeBodyPostureOptimization::getDefaultJointPosition
 
 std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimalPostures(const nav_msgs::Path& path)
 {
+  auto start_complete = std::chrono::high_resolution_clock::now();
   std::vector<PostureOptimizationResult> results;
   PostureOptimizationResult last_result;
-  ros::Rate rate(5);
+//  ros::Rate rate(5);
   bool first = true;
   for (const geometry_msgs::PoseStamped& pose_msg: path.poses) {
     Eigen::Affine3d pose;
@@ -67,8 +70,10 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     results.push_back(last_result);
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
     ROS_INFO_STREAM("Complete optimization took " << elapsed.count()*1000.0 << " ms.");
-    rate.sleep();
+//    rate.sleep();
   }
+  std::chrono::duration<double> elapsed_complete = std::chrono::high_resolution_clock::now() - start_complete;
+  ROS_INFO_STREAM("Path planning took " << elapsed_complete.count() << " s.");
 
   return results;
 }
@@ -77,6 +82,12 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
                                                                            const std::vector<double> &previous_joint_angles,
                                                                            const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
 {
+  Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
+  Eigen::Vector3d xyz = pose.translation();
+  ROS_INFO_STREAM("**********************************************");
+  ROS_INFO("Requested pose: [%f, %f, %f, %f, %f, %f]", xyz(0), xyz(1), xyz(2), rpy(0), rpy(1), rpy(2));
+  ROS_INFO_STREAM("**********************************************");
+
   PostureOptimizationResult result;
   result.init_joint_angles = init_joint_angles;
 
@@ -92,18 +103,19 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   } else {
     updated_init_contact = flipper_optimization_->computeContactEstimation(init_joint_angles, pose, base_to_com);
   }
-//  result.result_contact = updated_init_contact;
-
-  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(updated_init_contact.estimated_pose, base_to_com, init_joint_angles, previous_joint_angles,
-                                                                             updated_init_contact);
-  result.result_contact = flipper_result.contact_result;
-  result.result_joint_angles = flipper_result.joint_state;
 
   if (updated_init_contact.convex_hull_points.empty()) {
     ROS_ERROR_STREAM("Contact estimation failed.");
     result.result_joint_angles = init_joint_angles;
     return result;
   }
+
+  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(updated_init_contact.estimated_pose, base_to_com, init_joint_angles, previous_joint_angles,
+                                                                             updated_init_contact);
+  result.result_contact = flipper_result.contact_result;
+  result.result_joint_angles = flipper_result.joint_state;
+
+
 
   ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points,
                                                                  flipper_result.contact_result.estimated_pose, previous_joint_angles);
@@ -123,6 +135,40 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
 PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d &pose, const std::vector<double> &init_joint_state, const std::vector<double> &previous_joint_angles)
 {
   return findOptimalPosture(pose, init_joint_state, previous_joint_angles, NULL);
+}
+
+void WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
+{
+  trajectory_processing::IterativeParabolicTimeParameterization time_parameterization;
+  std::string group = "complete_robot_group"; //TODO parameter
+  robot_trajectory::RobotTrajectory trajectory(robot_model_->getMoveitRobotModel(), group);
+
+  for (const PostureOptimizationResult& result: opt_result) {
+    robot_model_->updateRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
+    const robot_state::RobotState& state = robot_model_->getMoveitRobotState();
+    trajectory.addSuffixWayPoint(state, 1.0); // Insert default delta times
+  }
+  time_parameterization.computeTimeStamps(trajectory);
+//  for (unsigned int i = 0; i < trajectory.getWayPointCount(); i++) {
+//    ROS_INFO_STREAM("Duration " << i << ": " << trajectory.getWayPointDurationFromPrevious(i));
+//  }
+  publishTrajectory(trajectory);
+}
+
+void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory)
+{
+  moveit_msgs::DisplayTrajectory display_msg;
+//  display_msg.model_id = "";
+
+  moveit_msgs::RobotState start_state_msg;
+  moveit::core::robotStateToRobotStateMsg(robot_trajectory.getFirstWayPoint(), start_state_msg);
+  display_msg.trajectory_start = start_state_msg;
+
+  moveit_msgs::RobotTrajectory trajectory_msg;
+  robot_trajectory.getRobotTrajectoryMsg(trajectory_msg);
+  display_msg.trajectory.push_back(trajectory_msg);
+
+  trajectory_pub_.publish(display_msg);
 }
 
 }

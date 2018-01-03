@@ -1,11 +1,13 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__FLIPPER_OPTIMIZATION_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION__FLIPPER_OPTIMIZATION_H
 
-#include <whole_body_posture_optimization/flipper/convex_hull_area_error.h>
-#include <whole_body_posture_optimization/ceres_wrapper.h>
-#include <whole_body_posture_optimization/arm/stability_error.h>
+#include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
+
 #include <sdf_contact_estimation/visualisation.h>
+
 #include <whole_body_posture_optimization/common.h>
+#include <whole_body_posture_optimization/robot_model.h>
+#include <whole_body_posture_optimization/flipper/convex_hull_area_error.h>
 
 namespace whole_body_posture_optimization {
 

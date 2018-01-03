@@ -57,11 +57,11 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 
   // Add objective function
   std::vector<double> previous_flipper_angles = jointVectorToParamVector(previous_joint_angles);
-  int verbosity_level = 1;
-  CeresCostFunctionWrapper support_area_cost(
+  int verbosity_level = 0;
+  ceres_nlopt_wrapper::CeresCostFunctionWrapper support_area_cost(
         ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact),
         verbosity_level);
-  opt.set_min_objective(CeresCostFunctionWrapper::wrap, &support_area_cost);
+  opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &support_area_cost);
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
@@ -94,8 +94,8 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Flipper optimization took " << elapsed.count()*1000.0 << " ms.");
 
-  ROS_INFO_STREAM("Optimization returned " << resultToString(nlopt_result));
-  ROS_INFO_STREAM("Result: " << vecToString(parameters));
+  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
+  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
 
   FlipperOptimizationResult result;
   result.flipper_angles = parameters;

@@ -20,17 +20,16 @@ int main(int argc, char** argv) {
   // Create robot shape
   sdf_contact_estimation::RobotShapeGeneratorBasePtr tracker_shape = std::make_shared<argo_tracker::ArgoTrackerShape>();
   whole_body_posture_optimization::WholeBodyPostureOptimization po(pnh, tracker_shape);
-
   // create environment
-  auto cloud = sdf_contact_estimation::generateStep();
-  cloud.header.frame_id = "world";
+  std::string scenario = pnh.param("scenario", std::string("flat"));
+  pcl::PointCloud<pcl::PointXYZ> cloud = sdf_contact_estimation::createScenarioFromName(scenario);
   po.updateWorldModel(cloud);
 
   if (pnh.param("interactive", false)) {
     // Try with one pose first
     robot_pose_ = Eigen::Affine3d::Identity();
-    robot_pose_.translation() = Eigen::Vector3d(-0.054, 0, -0.96);
-//    robot_pose_.translation() = Eigen::Vector3d(-0.5, 0, -0.96);
+    robot_pose_.translation() = Eigen::Vector3d(0.946, 0, -1.96);
+//    robot_pose_.translation() = Eigen::Vector3d(0.5, 0, -1.96);
     pose_updated_ = true;
     bool reset = true;
 
@@ -56,21 +55,39 @@ int main(int argc, char** argv) {
   } else {
     // create path
     nav_msgs::Path path;
-    double direction = 1.0;
-    double step = direction * 0.01;
-    for (double x = direction * -0.75; x < direction * 0.75; x+=step) {
+    // step
+//    double direction = 1.0;
+//    double step = direction * 0.02;
+//    double x_offset = 1;
+//    for (double x = (direction * -0.5) + x_offset; x < (direction * 0.75) + x_offset; x+=step) {
+//      geometry_msgs::PoseStamped pose_msg;
+//      pose_msg.header.frame_id = "world";
+
+////      Eigen::Affine3d pose(Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitZ()));
+//      Eigen::Affine3d pose = Eigen::Affine3d::Identity();
+//      pose.translation() = Eigen::Vector3d(x, 0, -1.9);
+//      tf::poseEigenToMsg(pose, pose_msg.pose);
+
+//      path.poses.push_back(pose_msg);
+//    }
+
+    // ramp
+    double step = 0.02;
+    for (double x = -1.0; x < 1.0; x+=step) {
       geometry_msgs::PoseStamped pose_msg;
       pose_msg.header.frame_id = "world";
 
 //      Eigen::Affine3d pose(Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitZ()));
       Eigen::Affine3d pose = Eigen::Affine3d::Identity();
-      pose.translation() = Eigen::Vector3d(x, 0, -0.9);
+      pose.translation() = Eigen::Vector3d(x, 0, -1);
       tf::poseEigenToMsg(pose, pose_msg.pose);
 
       path.poses.push_back(pose_msg);
     }
+    ROS_INFO_STREAM("Running optimization");
     // Compute optimal postures
-    po.findOptimalPostures(path);
+    auto result = po.findOptimalPostures(path);
+    po.computeTimedTrajectory(result);
   }
 
   ros::spin();

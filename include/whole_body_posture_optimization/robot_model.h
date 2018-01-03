@@ -47,6 +47,10 @@ public:
   std::vector<unsigned int> getChainToJointIndexMapping();
   std::vector<int> getParamToChainIndexMapping(const std::vector<std::string>& free_joints);
 
+  robot_state::RobotState getMoveitRobotState() const;
+
+  robot_model::RobotModelPtr getMoveitRobotModel() const;
+
 private:
   void generateLinkBodyDecompositions(double resolution);
 

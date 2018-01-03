@@ -61,13 +61,13 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   opt.set_lower_bounds(lower_bounds_);
   opt.set_upper_bounds(upper_bounds_);
 
-  ROS_INFO_STREAM("lower bounds: " << vecToString(lower_bounds_));
-  ROS_INFO_STREAM("upper bounds: " << vecToString(upper_bounds_));
+  ROS_INFO_STREAM("lower bounds: " << ceres_nlopt_wrapper::vecToString(lower_bounds_));
+  ROS_INFO_STREAM("upper bounds: " << ceres_nlopt_wrapper::vecToString(upper_bounds_));
 
   // Add objective function
   std::vector<double> previous_parameters = jointVectorToParamVector(previous_joint_angles);
-  CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose), 2);
-  opt.set_min_objective(CeresCostFunctionWrapper::wrap, &stability_cost_);
+  ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose), 0);
+  opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost_);
 
   // Add constraints
   // TODO move constraints creation to constructor
@@ -77,14 +77,17 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   for (unsigned int chain_idx = 0; chain_idx < default_chain_angles.size(); chain_idx++) {
     default_chain_angles[chain_idx] = initial_angles[chain_idx_to_jnt_idx[chain_idx]];
   }
-  std::vector<std::shared_ptr<CeresCostFunctionWrapper>> constraints;
+  std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> constraints;
   for (const std::string& collision_link: robot_model_->getCollisionGroupNames()) {
+//    if (collision_link != "gripper_roll_link") {
+//      continue;
+//    }
     ROS_DEBUG_STREAM("Creating collision constraints for link: " << collision_link);
     for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
       ceres::CostFunction* cost_function = ContactConstraint::Create(robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_, sphere, collision_link);
-      auto wrapper = std::make_shared<CeresCostFunctionWrapper>(cost_function);
+      auto wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
       constraints.push_back(wrapper);
-      opt.add_inequality_constraint(CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+      opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
     }
   }
   ROS_INFO_STREAM("Created " << constraints.size() << " collision constraints.");
@@ -97,12 +100,6 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // Fill in initial joint state (from previous time step)
   std::vector<double> parameters = jointVectorToParamVector(initial_angles);
-
-  // Debug
-//  for (const std::shared_ptr<CeresCostFunctionWrapper>& c: constraints) {
-//    std::vector<double> gradient(parameters.size());
-//    double cost = c->operator ()(parameters, gradient);
-//  }
 
   double minf;
   auto start = std::chrono::high_resolution_clock::now();
@@ -123,8 +120,13 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Arm optimization took " << elapsed.count()*1000.0 << " ms.");
 
-  ROS_INFO_STREAM("Optimization returned " << resultToString(nlopt_result));
-  ROS_INFO_STREAM("Result: " << vecToString(parameters));
+  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
+  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
+
+  // Check for collisions in solution  
+  if (!ceres_nlopt_wrapper::checkConstraints(parameters, constraints, 0.001)) {
+    ROS_WARN_STREAM("Detected collision!!");
+  }
 
   ArmOptimizationResult result;
   result.joint_angles = initial_angles;
@@ -142,7 +144,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   sdf_contact_estimation::createPointMarkerArray(contact_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_points, com_pose.translation());
   double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-  ROS_INFO_STREAM("Stability after arm optimization:" << stability_min);
+  ROS_INFO_STREAM("Stability after arm optimization: " << stability_min);
   createConvexHullMarkerArray(contact_points, stabilities, convex_hull_array_msg);
   sdf_contact_estimation::deleteAllMarkers(convex_hull_pub_);
   convex_hull_pub_.publish(convex_hull_array_msg);

@@ -9,10 +9,11 @@
 #include <nlopt.hpp>
 #include <chrono>
 
+#include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
+
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <sdf_contact_estimation/visualisation.h>
 #include <whole_body_posture_optimization/common.h>
-#include <whole_body_posture_optimization/ceres_wrapper.h>
 #include <whole_body_posture_optimization/arm/stability_error.h>
 #include <whole_body_posture_optimization/arm/contact_constraint.h>
 
