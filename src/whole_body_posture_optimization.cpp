@@ -1,5 +1,12 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
+#include <pluginlib/class_loader.h>
+#include <moveit/planning_interface/planning_interface.h>
+#include <moveit/planning_scene/planning_scene.h>
+#include <moveit/kinematic_constraints/utils.h>
+#include <moveit/trajectory_processing/iterative_time_parameterization.h>
+#include <moveit_msgs/DisplayTrajectory.h>
+
 namespace whole_body_posture_optimization {
 
 WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle& nh, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen)
@@ -139,14 +146,58 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
 
 void WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
 {
-  trajectory_processing::IterativeParabolicTimeParameterization time_parameterization;
   std::string group = "complete_robot_group"; //TODO parameter
-  robot_trajectory::RobotTrajectory trajectory(robot_model_->getMoveitRobotModel(), group);
+  std::string group_with_world = "complete_robot_group_with_world";
+  const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(group);
 
-  for (const PostureOptimizationResult& result: opt_result) {
-    robot_model_->updateRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
-    robot_state::RobotState state = robot_model_->getMoveitRobotState();
-    trajectory.addSuffixWayPoint(state, 0.0);
+  planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
+
+  pluginlib::ClassLoader<planning_interface::PlannerManager> planner_plugin_loader("moveit_core", "planning_interface::PlannerManager");
+  std::vector<std::string> planner_names = planner_plugin_loader.getDeclaredClasses();
+  std::string default_planner_name = planner_names[0];
+  planning_interface::PlannerManagerPtr planner_instance(planner_plugin_loader.createUnmanagedInstance(default_planner_name));
+  if (!planner_instance->initialize(robot_model_->getMoveitRobotModel(), nh_.getNamespace())) {
+    ROS_FATAL_STREAM("Could not initialize planner instance");
+    return;
+  }
+  ROS_INFO_STREAM("Using planning interface '" << planner_instance->getDescription() << "'");
+
+
+  planning_interface::MotionPlanRequest req;
+  planning_interface::MotionPlanResponse res;
+  req.group_name = group;
+
+  trajectory_processing::IterativeParabolicTimeParameterization time_parameterization;
+  robot_trajectory::RobotTrajectory trajectory(robot_model_->getMoveitRobotModel(), group_with_world);
+
+  for (unsigned int i = 0; i < opt_result.size()-1; i++) {
+    // set start state
+    robot_model_->updateRobotState(opt_result[i].result_contact.estimated_pose, opt_result[i].result_joint_angles);
+    robot_state::RobotState start_state = robot_model_->getMoveitRobotState();
+    planning_scene->setCurrentState(start_state);
+
+    // set goal state
+    robot_model_->updateRobotState(opt_result[i+1].result_contact.estimated_pose, opt_result[i+1].result_joint_angles);
+    robot_state::RobotState goal_state = robot_model_->getMoveitRobotState();
+    ROS_INFO_STREAM("Setting constraints");
+    moveit_msgs::Constraints goal_constraint = kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
+    req.goal_constraints.clear();
+    req.goal_constraints.push_back(goal_constraint);
+
+    // compute trajectory from start to goal
+    planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
+    if (!context) {
+      ROS_ERROR_STREAM("Failed to construct planning context. Error: " << res.error_code_);
+      return;
+    }
+    context->solve(res);
+    if (res.error_code_.val != res.error_code_.SUCCESS)
+    {
+      ROS_ERROR("Could not compute plan successfully");
+      return ;
+    }
+    // append to trajectory
+    trajectory.append(*res.trajectory_, 0.0);
   }
   time_parameterization.computeTimeStamps(trajectory);
   publishTrajectory(trajectory);

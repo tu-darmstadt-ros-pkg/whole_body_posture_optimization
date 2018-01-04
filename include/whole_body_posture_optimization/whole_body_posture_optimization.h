@@ -7,8 +7,7 @@
 #include <whole_body_posture_optimization/arm/arm_optimization.h>
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
 
-#include <moveit/trajectory_processing/iterative_time_parameterization.h>
-#include <moveit_msgs/DisplayTrajectory.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
 
 namespace whole_body_posture_optimization {
 
