@@ -144,10 +144,11 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   return findOptimalPosture(pose, init_joint_state, previous_joint_angles, NULL);
 }
 
-void WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
+std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
 {
   std::string group = "complete_robot_group"; //TODO parameter
   std::string group_with_world = "complete_robot_group_with_world";
+  std::vector<robot_trajectory::RobotTrajectory> trajectories;
   const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(group);
 
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
@@ -158,28 +159,27 @@ void WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<Post
   planning_interface::PlannerManagerPtr planner_instance(planner_plugin_loader.createUnmanagedInstance(default_planner_name));
   if (!planner_instance->initialize(robot_model_->getMoveitRobotModel(), nh_.getNamespace())) {
     ROS_FATAL_STREAM("Could not initialize planner instance");
-    return;
+    return trajectories;
   }
   ROS_INFO_STREAM("Using planning interface '" << planner_instance->getDescription() << "'");
-
 
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
   req.group_name = group;
+  req.allowed_planning_time = 2.0;
 
   trajectory_processing::IterativeParabolicTimeParameterization time_parameterization;
-  robot_trajectory::RobotTrajectory trajectory(robot_model_->getMoveitRobotModel(), group_with_world);
-
+  robot_trajectory::RobotTrajectory trajectory_tmp(robot_model_->getMoveitRobotModel(), group_with_world);
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     // set start state
     robot_model_->updateRobotState(opt_result[i].result_contact.estimated_pose, opt_result[i].result_joint_angles);
     robot_state::RobotState start_state = robot_model_->getMoveitRobotState();
     planning_scene->setCurrentState(start_state);
+    moveit::core::robotStateToRobotStateMsg(start_state, req.start_state);
 
     // set goal state
     robot_model_->updateRobotState(opt_result[i+1].result_contact.estimated_pose, opt_result[i+1].result_joint_angles);
     robot_state::RobotState goal_state = robot_model_->getMoveitRobotState();
-    ROS_INFO_STREAM("Setting constraints");
     moveit_msgs::Constraints goal_constraint = kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
     req.goal_constraints.clear();
     req.goal_constraints.push_back(goal_constraint);
@@ -188,33 +188,74 @@ void WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<Post
     planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
     if (!context) {
       ROS_ERROR_STREAM("Failed to construct planning context. Error: " << res.error_code_);
-      return;
+      return trajectories;
     }
     context->solve(res);
     if (res.error_code_.val != res.error_code_.SUCCESS)
     {
       ROS_ERROR("Could not compute plan successfully");
-      return ;
+      return trajectories;
     }
-    // append to trajectory
-    trajectory.append(*res.trajectory_, 0.0);
+
+    // The moveit trajectory planner can't handle/interpolate the virtual world joint
+    // So we do it ourselves and override the respective states
+    Eigen::Vector3d start_position = opt_result[i].result_contact.estimated_pose.translation();
+    Eigen::Vector3d end_position = opt_result[i+1].result_contact.estimated_pose.translation();
+    Eigen::Vector3d position_diff = end_position - start_position;
+    Eigen::Quaterniond start_orientation(opt_result[i].result_contact.estimated_pose.rotation());
+    Eigen::Quaterniond end_orientation(opt_result[i+1].result_contact.estimated_pose.rotation());
+    for (unsigned int j = 0; j < res.trajectory_->getWayPointCount(); j++) {
+      double t = static_cast<double>(j) / res.trajectory_->getWayPointCount();
+      robot_state::RobotStatePtr state = res.trajectory_->getWayPointPtr(j);
+      Eigen::Vector3d interpolated_position = start_position + t * position_diff;
+      Eigen::Quaterniond interpolated_orientation = start_orientation.slerp(t, end_orientation);
+      Eigen::Affine3d interpolated_pose(interpolated_orientation);
+      interpolated_pose.translation() = interpolated_position;
+      updateMoveitRobotState(*state, interpolated_pose);
+    }
+
+    // Compute time parameterization and push to vector
+    trajectory_tmp.clear();
+    trajectory_tmp.append(*res.trajectory_, 0);
+    time_parameterization.computeTimeStamps(trajectory_tmp);
+    trajectories.push_back(trajectory_tmp);
   }
-  time_parameterization.computeTimeStamps(trajectory);
-  publishTrajectory(trajectory);
+
+  publishTrajectory(trajectories);
+
+//  for (unsigned int i = 0; i < trajectories[0].getWayPointCount(); i++) {
+//    const robot_state::RobotState& state = trajectories[0].getWayPoint(i);
+////    std::vector<std::string> names = state.getVariableNames();
+//    Eigen::Affine3d t = state.getJointTransform("world_virtual_joint");
+//    ROS_INFO_STREAM("Waypoint " << i << ":" << t.translation());
+////    double p = *state.getJointPositions("arm_joint_1");
+////    ROS_INFO_STREAM("Waypoint " << i << ": " << p);
+//    double d = trajectories[0].getWayPointDurationFromPrevious(i);
+//    ROS_INFO_STREAM(" -- Duration from previous: " << d);
+////    for (auto name: names) {
+////      ROS_INFO_STREAM(" -- " << name);
+////    }
+//  }
+  return trajectories;
 }
 
-void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory)
+void WholeBodyPostureOptimization::publishTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &robot_trajectory)
 {
+  if (robot_trajectory.empty()) {
+    return;
+  }
   moveit_msgs::DisplayTrajectory display_msg;
 //  display_msg.model_id = "";
 
-//  moveit_msgs::RobotState start_state_msg;
-//  moveit::core::robotStateToRobotStateMsg(robot_trajectory.getFirstWayPoint(), start_state_msg);
-//  display_msg.trajectory_start = start_state_msg;
+  moveit_msgs::RobotState start_state_msg;
+  moveit::core::robotStateToRobotStateMsg(robot_trajectory[0].getFirstWayPoint(), start_state_msg);
+  display_msg.trajectory_start = start_state_msg;
 
-  moveit_msgs::RobotTrajectory trajectory_msg;
-  robot_trajectory.getRobotTrajectoryMsg(trajectory_msg);
-  display_msg.trajectory.push_back(trajectory_msg);
+  for (const robot_trajectory::RobotTrajectory& t: robot_trajectory) {
+    moveit_msgs::RobotTrajectory trajectory_msg;
+    t.getRobotTrajectoryMsg(trajectory_msg);
+    display_msg.trajectory.push_back(trajectory_msg);
+  }
 
   trajectory_pub_.publish(display_msg);
 }

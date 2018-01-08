@@ -34,9 +34,9 @@ public:
   PostureOptimizationResult findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_angles, const std::vector<double> &previous_joint_angles,
                                                const sdf_contact_estimation::ContactEstimationResult *init_contact_result);
   PostureOptimizationResult findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_state, const std::vector<double> &previous_joint_angles);
-  void computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
+  std::vector<robot_trajectory::RobotTrajectory> computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
 private:
-  void publishTrajectory(const robot_trajectory::RobotTrajectory& robot_trajectory);
+  void publishTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &robot_trajectory);
   ros::NodeHandle nh_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
   std::shared_ptr<ArmOptimization> arm_optimization_;

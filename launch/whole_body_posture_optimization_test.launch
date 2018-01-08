@@ -19,7 +19,7 @@
     <param name="use_esdf" value="true"/> 
     <param name="truncation_distance" value="0.4"/>
     <param name="max_contact_distance" value="0.02"/>    
-    <param name="scenario" value="ramp"/>
+    <param name="scenario" value="step"/>
     <param name="load_tsdf" value="false"/>
     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/rc17_day1_run1_v2.tsdf"/>
     

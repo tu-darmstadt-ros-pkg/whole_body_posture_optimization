@@ -3,6 +3,8 @@
 
 #include <eigen_conversions/eigen_msg.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <moveit/robot_state/conversions.h>
+
 
 namespace whole_body_posture_optimization {
 
@@ -51,6 +53,10 @@ template <typename T> std::vector<T> computeForceAngleStabilitiesWithGravity(con
 }
 
 void createConvexHullMarkerArray(const std::vector<Eigen::Vector3d>& points, const std::vector<double>& stabilities, visualization_msgs::MarkerArray &marker_array);
+
+void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Affine3d& pose);
+//void updateState(robot_state::RobotState &state, const std::vector<double>& angles);
+
 }
 
 #endif

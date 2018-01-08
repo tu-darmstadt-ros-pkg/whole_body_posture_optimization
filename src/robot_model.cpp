@@ -117,7 +117,6 @@ void RobotModel::updateRobotState(const Eigen::Affine3d &robot_pose, const std::
   virtual_link_joint_states.name.push_back("world_virtual_joint/rot_w");
 
   virtual_link_joint_states.position.resize(7);
-
   virtual_link_joint_states.position[0] = robot_pose.translation().x();
   virtual_link_joint_states.position[1] = robot_pose.translation().y();
   virtual_link_joint_states.position[2] = robot_pose.translation().z();

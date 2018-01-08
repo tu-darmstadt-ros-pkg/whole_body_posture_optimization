@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning
   moveit_experimental
   ad_kinematics
+  actionlib
 )
 
 
@@ -25,7 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning moveit_experimental ad_kinematics
+  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning moveit_experimental ad_kinematics actionlib
 #  DEPENDS system_lib
 )
 
@@ -71,8 +72,13 @@ target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
 
 ## Declare an executable
 add_executable(com_visualisation_node src/com_visualisation_node.cpp)
-add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(com_visualisation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(com_visualisation_node ${PROJECT_NAME})
+
+## Declare an executable
+add_executable(driving_controller_node src/driving_controller_node.cpp)
+add_dependencies(driving_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(driving_controller_node ${PROJECT_NAME})
 
 #############
 ## Testing ##
