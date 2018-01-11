@@ -28,6 +28,9 @@ public:
   bool loadParameters(const ros::NodeHandle &nh); // set free parameters, etc
   void updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf);
   void updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud);
+  bool loadTsdfFromFile(std::string tsdf_file_path, float truncation_distance);
+
+
   void setDefaultJointPositions(const std::vector<double>& default_joint_positions);
   const std::vector<double>& getDefaultJointPositions();
   std::vector<PostureOptimizationResult> findOptimalPostures(const nav_msgs::Path& path);
@@ -44,9 +47,10 @@ private:
   std::shared_ptr<RobotModel> robot_model_;
 
   std::vector<double> default_joint_state_;
-  std::shared_ptr<voxblox::TsdfMap> tsdf_;
 
   ros::Publisher trajectory_pub_;
+
+  std::string tsdf_save_folder_;
 };
 }
 

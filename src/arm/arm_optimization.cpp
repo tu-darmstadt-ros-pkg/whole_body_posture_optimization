@@ -118,7 +118,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   }
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-  ROS_INFO_STREAM("Arm optimization took " << elapsed.count()*1000.0 << " ms.");
+  ROS_INFO_STREAM("Arm optimization took " << stability_cost_.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms.");
 
   ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
   ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));

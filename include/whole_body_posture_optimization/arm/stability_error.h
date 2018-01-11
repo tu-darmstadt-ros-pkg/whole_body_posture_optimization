@@ -84,7 +84,7 @@ public:
 //    T stability_min = *std::min_element(stabilities.begin(), stabilities.end());
 
     // Compute regularization
-    T regularization_weight = T(0.2);
+    T regularization_weight = T(0.1);
     T regularization_cost = T(0.0);
     for (unsigned int idx = 0; idx < previous_param_angles_.size(); idx++) {
       T angle_diff = T(previous_param_angles_[idx]) - parameters[0][idx];

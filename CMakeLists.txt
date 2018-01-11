@@ -37,22 +37,24 @@ catkin_package(
 set(HEADERS
   include/${PROJECT_NAME}/whole_body_posture_optimization.h
   include/${PROJECT_NAME}/robot_model.h
+  include/${PROJECT_NAME}/common.h
+  include/${PROJECT_NAME}/driving_controller.h
   include/${PROJECT_NAME}/arm/stability_error.h
   include/${PROJECT_NAME}/arm/arm_optimization.h
   include/${PROJECT_NAME}/arm/contact_constraint.h
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
   include/${PROJECT_NAME}/flipper/convex_hull_area_error.h
-  include/${PROJECT_NAME}/common.h
 )
 
 set(SOURCES
   src/whole_body_posture_optimization.cpp
   src/robot_model.cpp
-  src/stability_error.cpp
-  src/arm_optimization.cpp
-  src/flipper_optimization.cpp
-  src/convex_hull_area_error.cpp
   src/common.cpp
+  src/driving_controller.cpp
+  src/arm/stability_error.cpp
+  src/arm/arm_optimization.cpp
+  src/flipper/flipper_optimization.cpp
+  src/flipper/convex_hull_area_error.cpp
 )
 
 include_directories(

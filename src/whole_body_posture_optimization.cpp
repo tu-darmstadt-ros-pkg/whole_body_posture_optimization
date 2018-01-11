@@ -1,11 +1,16 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
+#include <iomanip>
+#include <ctime>
+
 #include <pluginlib/class_loader.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 #include <moveit_msgs/DisplayTrajectory.h>
+
+#include <voxblox/io/layer_io.h>
 
 namespace whole_body_posture_optimization {
 
@@ -26,23 +31,38 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
 
 bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 {
+  // Set ros verbosity level to debug
+  bool debug;
+  nh.param<bool>("posture_optimization_debug", debug, false);
+  if (debug) {
+    if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug)) {
+      ros::console::notifyLoggerLevelsChanged();
+    }
+  }
+
   if (!nh.getParam("default_joint_state", default_joint_state_)) {
     ROS_ERROR_STREAM("No default joint state found.");
     return false;
   }
+
+  nh.param<std::string>("tsdf_save_folder", tsdf_save_folder_, "");
 
   return true;
 }
 
 void WholeBodyPostureOptimization::updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf)
 {
-  tsdf_ = tsdf;
-  contact_estimation_->loadTsdf(tsdf, true);
+  contact_estimation_->loadTsdf(tsdf, 0.4, true);
 }
 
 void WholeBodyPostureOptimization::updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud)
 {
   contact_estimation_->loadCloud(cloud, true);
+}
+
+bool WholeBodyPostureOptimization::loadTsdfFromFile(std::string tsdf_file_path, float truncation_distance)
+{
+  return contact_estimation_->loadTsdfFromFile(tsdf_file_path, truncation_distance, true, true);
 }
 
 void WholeBodyPostureOptimization::setDefaultJointPositions(const std::vector<double>& default_joint_positions)
@@ -57,6 +77,17 @@ const std::vector<double> &WholeBodyPostureOptimization::getDefaultJointPosition
 
 std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimalPostures(const nav_msgs::Path& path)
 {
+  // Save the current tsdf for later debugging
+  if (tsdf_save_folder_ != "") {
+    auto t = std::time(nullptr);
+    auto tm = *std::localtime(&t);
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S");
+    std::string time_stamp = oss.str();
+    std::string save_path =  tsdf_save_folder_ + "/tsdf_map_" + time_stamp + ".tsdf";
+    voxblox::io::SaveLayer(contact_estimation_->getTsdfMap()->getTsdfLayer(), save_path);
+  }
+
   auto start_complete = std::chrono::high_resolution_clock::now();
   std::vector<PostureOptimizationResult> results;
   PostureOptimizationResult last_result;
@@ -146,6 +177,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
 
 std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
 {
+  auto start = std::chrono::high_resolution_clock::now();
+
   std::string group = "complete_robot_group"; //TODO parameter
   std::string group_with_world = "complete_robot_group_with_world";
   std::vector<robot_trajectory::RobotTrajectory> trajectories;
@@ -194,7 +227,8 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     if (res.error_code_.val != res.error_code_.SUCCESS)
     {
       ROS_ERROR("Could not compute plan successfully");
-      return trajectories;
+//      return trajectories;
+      break;
     }
 
     // The moveit trajectory planner can't handle/interpolate the virtual world joint
@@ -223,19 +257,8 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
 
   publishTrajectory(trajectories);
 
-//  for (unsigned int i = 0; i < trajectories[0].getWayPointCount(); i++) {
-//    const robot_state::RobotState& state = trajectories[0].getWayPoint(i);
-////    std::vector<std::string> names = state.getVariableNames();
-//    Eigen::Affine3d t = state.getJointTransform("world_virtual_joint");
-//    ROS_INFO_STREAM("Waypoint " << i << ":" << t.translation());
-////    double p = *state.getJointPositions("arm_joint_1");
-////    ROS_INFO_STREAM("Waypoint " << i << ": " << p);
-//    double d = trajectories[0].getWayPointDurationFromPrevious(i);
-//    ROS_INFO_STREAM(" -- Duration from previous: " << d);
-////    for (auto name: names) {
-////      ROS_INFO_STREAM(" -- " << name);
-////    }
-//  }
+  std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
+  ROS_INFO_STREAM("Trajectory planning took " << elapsed.count() << " s.");
   return trajectories;
 }
 

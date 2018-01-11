@@ -16,6 +16,8 @@
 #include <differentiation/rbdl_utilsAD.h>
 #include <urdfreader/urdfreader.h>
 
+#include <whole_body_posture_optimization/common.h>
+
 namespace rbdl = RigidBodyDynamics;
 
 namespace whole_body_posture_optimization {

@@ -32,6 +32,8 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
                                                         const std::vector<double> &previous_joint_angles, const sdf_contact_estimation::ContactEstimationResult &init_contact)
 {
   ROS_INFO_STREAM("Starting flipper optimization");
+  Eigen::Vector3d com_pos = base_to_com.translation();
+  ROS_DEBUG_STREAM("COM position: [" << com_pos[0] << ", " << com_pos[1] << ", " << com_pos[2] << "]");
   // Global, derivative-free
   nlopt::opt opt(nlopt::GN_DIRECT_L,  free_joints_.size());
 //  nlopt::opt opt(nlopt::GN_DIRECT,  robot_shape_gen_->getDof());
@@ -57,7 +59,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 
   // Add objective function
   std::vector<double> previous_flipper_angles = jointVectorToParamVector(previous_joint_angles);
-  int verbosity_level = 0;
+  int verbosity_level = 1;
   ceres_nlopt_wrapper::CeresCostFunctionWrapper support_area_cost(
         ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact),
         verbosity_level);
@@ -92,7 +94,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   }
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-  ROS_INFO_STREAM("Flipper optimization took " << elapsed.count()*1000.0 << " ms.");
+  ROS_INFO_STREAM("Flipper optimization took " << support_area_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms.");
 
   ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
   ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));

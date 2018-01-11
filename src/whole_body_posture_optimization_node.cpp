@@ -22,8 +22,21 @@ int main(int argc, char** argv) {
   whole_body_posture_optimization::WholeBodyPostureOptimization po(pnh, tracker_shape);
   // create environment
   std::string scenario = pnh.param("scenario", std::string("flat"));
-  pcl::PointCloud<pcl::PointXYZ> cloud = sdf_contact_estimation::createScenarioFromName(scenario);
-  po.updateWorldModel(cloud);
+  if (scenario == "tsdf") {
+    std::string tsdf_file_path;
+    if (!pnh.getParam("tsdf_file_path", tsdf_file_path)) {
+      ROS_ERROR_STREAM("No tsdf file path found in namespace '" + pnh.getNamespace() + "/tsdf_file_path.");
+      return 0;
+    }
+
+    if (!po.loadTsdfFromFile(tsdf_file_path, 0.4)) {
+      return 0;
+    }
+  } else {
+    pcl::PointCloud<pcl::PointXYZ> cloud = sdf_contact_estimation::createScenarioFromName(scenario);
+    po.updateWorldModel(cloud);
+  }
+
 
   if (pnh.param("interactive", false)) {
     // Try with one pose first
@@ -81,6 +94,18 @@ int main(int argc, char** argv) {
   //      Eigen::Affine3d pose(Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitZ()));
         Eigen::Affine3d pose = Eigen::Affine3d::Identity();
         pose.translation() = Eigen::Vector3d(x, 0, -1);
+        tf::poseEigenToMsg(pose, pose_msg.pose);
+
+        path.poses.push_back(pose_msg);
+      }
+    } else if (scenario == "tsdf") {
+      double step = 0.02;
+      for (double x = 0.0; x < 2; x+=step) {
+        geometry_msgs::PoseStamped pose_msg;
+        pose_msg.header.frame_id = "world";
+
+        Eigen::Affine3d pose = Eigen::Affine3d::Identity();
+        pose.translation() = Eigen::Vector3d(x, 0, 0);
         tf::poseEigenToMsg(pose, pose_msg.pose);
 
         path.poses.push_back(pose_msg);

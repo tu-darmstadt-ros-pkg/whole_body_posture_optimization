@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>    
+  <node pkg="whole_body_posture_optimization" type="driving_controller_node" name="driving_controller_node" output="screen">    
+    <param name="truncation_distance" value="0.4"/>
+    <param name="max_contact_distance" value="0.02"/>
+    <param name="tsdf_save_folder" value="$(find whole_body_posture_optimization)/tsdf"/>
+
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt.yaml" command="load" />
+    
+    <remap from="~tsdf" to="/tsdf_server/tsdf_map_out"/>
+  </node>
+</launch>

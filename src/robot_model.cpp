@@ -107,25 +107,7 @@ void RobotModel::updateRobotState(const Eigen::Affine3d &robot_pose, const std::
   robot_pose_ = robot_pose;
   joint_angles_ = joint_angles;
 
-  sensor_msgs::JointState virtual_link_joint_states;
-  virtual_link_joint_states.name.push_back("world_virtual_joint/trans_x");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/trans_y");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/trans_z");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_x");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_y");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_z");
-  virtual_link_joint_states.name.push_back("world_virtual_joint/rot_w");
-
-  virtual_link_joint_states.position.resize(7);
-  virtual_link_joint_states.position[0] = robot_pose.translation().x();
-  virtual_link_joint_states.position[1] = robot_pose.translation().y();
-  virtual_link_joint_states.position[2] = robot_pose.translation().z();
-  Eigen::Quaterniond quat(robot_pose.rotation());
-  virtual_link_joint_states.position[3] = quat.x();
-  virtual_link_joint_states.position[4] = quat.y();
-  virtual_link_joint_states.position[5] = quat.z();
-  virtual_link_joint_states.position[6] = quat.w();
-  moveit::core::jointStateToRobotState(virtual_link_joint_states, *moveit_robot_state_);
+  updateMoveitRobotState(*moveit_robot_state_, robot_pose);
 
   sensor_msgs::JointState joint_state_msg;
   joint_state_msg.name = joint_names_;
