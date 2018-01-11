@@ -15,11 +15,6 @@ DrivingController::DrivingController(const ros::NodeHandle &nh)
   optimizer_= std::make_shared<WholeBodyPostureOptimization>(nh_, tracker_shape_);
 
   // Connect trajectory execution service client
-//  execute_trajectory_client_ = nh_.serviceClient<moveit_msgs::ExecuteKnownTrajectory>("/execute_kinematic_path");
-//  if (!execute_trajectory_client_.waitForExistence(ros::Duration(5))) {
-//    ROS_ERROR_STREAM("Timed out waiting for '/execute_kinematic_path' service.");
-//  }
-
   ROS_INFO_STREAM("Waiting for trajectory execution client..");
   execute_trajectory_client_ = std::make_shared<actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction>>(nh_, "/execute_trajectory", true);
   if (!execute_trajectory_client_->waitForServer(ros::Duration(5))) {
@@ -53,17 +48,20 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
     return true;
   }
 
+  std::string move_group = "complete_robot_group";
+  robot_trajectory::RobotTrajectory combined_trajectory(trajectory[0].getRobotModel(), move_group);
+
   // Drive to starting pose
   ROS_INFO_STREAM("Moving to starting pose");
-  if (!planAndMove(trajectory[0].getFirstWayPoint(), trajectory[0].getGroup())) {
+  if (!planAndMove(trajectory[0].getFirstWayPoint(), combined_trajectory.getGroup())) {
     ROS_ERROR_STREAM("Moving to initial state failed.");
     return false;
   }
 
   // Assemble arm motion plan
-  robot_trajectory::RobotTrajectory combined_trajectory = trajectory[0];
-  for (unsigned int i = 1; i < trajectory.size(); i++) {
-    combined_trajectory.append(trajectory[i], 0.0);
+//  robot_trajectory::RobotTrajectory combined_trajectory = trajectory[0];
+  for (unsigned int i = 0; i < trajectory.size(); i++) {
+    combined_trajectory.append(trajectory[i], 0.001);
   }
 
   moveit_msgs::ExecuteTrajectoryGoal execute_trajectory_goal;
@@ -96,7 +94,6 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
   tf::poseEigenToMsg(end_goal_pose, end_pose_msg.pose);
   path.poses.push_back(end_pose_msg);
 
-
   move_base_lite_msgs::FollowPathGoal follow_path_goal;
   follow_path_goal.target_path = path;
   follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
@@ -108,14 +105,15 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
   driving_client_->sendGoal(follow_path_goal);
 
   // Wait for result
-  if (!driving_client_->waitForResult()) {
-    ROS_INFO_STREAM("FollowPath action failed.");
-    return false;
-  }
   if (!execute_trajectory_client_->waitForResult()) {
     ROS_INFO_STREAM("ExecuteTrajectory action failed");
     return false;
   }
+  if (!driving_client_->waitForResult()) {
+    ROS_INFO_STREAM("FollowPath action failed.");
+    return false;
+  }
+
   moveit_msgs::ExecuteTrajectoryResultConstPtr execute_trajectory_result = execute_trajectory_client_->getResult();
   if (execute_trajectory_result->error_code.val != moveit_msgs::MoveItErrorCodes::SUCCESS) {
     ROS_INFO_STREAM("Trajectory execution failed with error code: " << execute_trajectory_result->error_code.val);
@@ -127,7 +125,7 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
 
 bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, const robot_model::JointModelGroup* jmg)
 {
-  if (jmg != nullptr) {
+  if (jmg == nullptr) {
     ROS_ERROR_STREAM("JointModelGroup is null.");
     return false;
   }
