@@ -143,9 +143,9 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   }
 
   if (updated_init_contact.convex_hull_points.empty()) {
-    ROS_ERROR_STREAM("Contact estimation failed.");
-    result.result_joint_angles = init_joint_angles;
-    return result;
+    ROS_WARN_STREAM("Updated init contact estimation failed.");
+//    result.result_joint_angles = init_joint_angles;
+      updated_init_contact.estimated_pose = pose;
   }
 
   FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(updated_init_contact.estimated_pose, base_to_com, init_joint_angles, previous_joint_angles,

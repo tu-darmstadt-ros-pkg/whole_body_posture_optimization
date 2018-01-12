@@ -12,7 +12,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 {
   std::vector<double> flipper_angles_vec(flipper_angles[0], flipper_angles[0] + parameter_size_);
   contact_estimation_->updateJointStates(flipper_angles_vec);
-  sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(pose_, base_to_com_);
+  sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(pose_, base_to_com_, init_contact_);
   if (result.convex_hull_points.empty()) {
     return false;
   }
