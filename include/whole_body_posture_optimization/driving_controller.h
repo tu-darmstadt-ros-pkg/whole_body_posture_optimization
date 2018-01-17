@@ -17,6 +17,10 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 #include <sdf_contact_estimation/body_shapes/argo_tracker_robot_shape.h>
 
+typedef actionlib::SimpleActionClient<move_base_lite_msgs::FollowPathAction> FollowPathClient;
+typedef actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> ExecuteTrajectoryClient;
+typedef actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction> MoveGroupClient;
+
 
 namespace whole_body_posture_optimization {
 
@@ -31,6 +35,8 @@ private:
   bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
   bool planAndMove(const robot_state::RobotState& goal_state, const moveit::core::JointModelGroup *jmg);
 
+  void followPathFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr& feedback_ptr);
+
   ros::NodeHandle nh_;
 
   ros::Subscriber path_sub_;
@@ -44,9 +50,14 @@ private:
   sdf_contact_estimation::RobotShapeGeneratorBasePtr tracker_shape_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
 
-  std::shared_ptr<actionlib::SimpleActionClient<move_base_lite_msgs::FollowPathAction>> driving_client_;
-  std::shared_ptr<actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction>> move_group_client_;
-  std::shared_ptr<actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction>> execute_trajectory_client_;
+  std::shared_ptr<FollowPathClient> driving_client_;
+  std::shared_ptr<MoveGroupClient> move_group_client_;
+  std::shared_ptr<ExecuteTrajectoryClient> execute_trajectory_client_;
+
+  moveit_msgs::ExecuteTrajectoryGoal execute_trajectory_goal_;
+  ros::Time starting_time_;
+  std::vector<moveit_msgs::RobotTrajectory> trajectory_msgs_;
+  unsigned int current_waypoint_;
 };
 
 }
