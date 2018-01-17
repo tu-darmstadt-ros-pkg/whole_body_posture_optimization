@@ -56,8 +56,6 @@ private:
 
   moveit_msgs::ExecuteTrajectoryGoal execute_trajectory_goal_;
   ros::Time starting_time_;
-  std::vector<moveit_msgs::RobotTrajectory> trajectory_msgs_;
-  unsigned int current_waypoint_;
 };
 
 }

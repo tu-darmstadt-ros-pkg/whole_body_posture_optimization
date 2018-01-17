@@ -49,31 +49,24 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
   }
 
   std::string move_group = "complete_robot_group";
-  robot_trajectory::RobotTrajectory arm_trajectory(trajectories[0].getRobotModel(), move_group);
+  robot_trajectory::RobotTrajectory combined_trajectory(trajectories[0].getRobotModel(), move_group);
 
   // Drive to starting pose
   ROS_INFO_STREAM("Moving to starting pose");
-  if (!planAndMove(trajectories[0].getFirstWayPoint(), arm_trajectory.getGroup())) {
+  if (!planAndMove(trajectories[0].getFirstWayPoint(), combined_trajectory.getGroup())) {
     ROS_ERROR_STREAM("Moving to initial state failed.");
     return false;
   }
 
   // Assemble arm motion plan
-  trajectory_msgs_.resize(trajectories.size());
   for (unsigned int i = 0; i < trajectories.size(); i++) {
-//    combined_trajectory.append(trajectory[i], 0.001);
-    arm_trajectory.clear();
-    arm_trajectory.append(trajectories[i], 0.0);
-    arm_trajectory.getRobotTrajectoryMsg(trajectory_msgs_[i]);
+    combined_trajectory.append(trajectories[i], 0.000000001);
   }
-  ROS_INFO_STREAM("Trajectory count: " << trajectories.size());
 
-//  combined_trajectory.getRobotTrajectoryMsg(execute_trajectory_goal_.trajectory);
+  combined_trajectory.getRobotTrajectoryMsg(execute_trajectory_goal_.trajectory);
 
   // Set starting time
-  current_waypoint_ = 0;
   starting_time_ = ros::Time::now() + ros::Duration(2);
-  execute_trajectory_goal_.trajectory = trajectory_msgs_[current_waypoint_];
   execute_trajectory_goal_.trajectory.joint_trajectory.header.stamp = starting_time_;
 
   // Assemble driving plan
@@ -104,6 +97,8 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
   follow_path_goal.follow_path_options.desired_speed = 0.0;
   follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
   follow_path_goal.follow_path_options.is_fixed = true;
+  follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.01;
+  follow_path_goal.follow_path_options.goal_pose_angle_tolerance = 0.01;
 
   ROS_INFO_STREAM("Executing planned trajectory");
 
@@ -111,6 +106,10 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
   execute_trajectory_client_->sendGoal(execute_trajectory_goal_);
   driving_client_->sendGoal(follow_path_goal, FollowPathClient::SimpleDoneCallback(), FollowPathClient::SimpleActiveCallback(),
                             boost::bind(&DrivingController::followPathFeedbackCb, this, _1));
+
+  ros::Duration time_until_start = starting_time_ - ros::Time::now();
+  time_until_start.sleep();
+  optimizer_->publishTrajectory(trajectories);
 
   // Wait for result
   if (!driving_client_->waitForResult()) {
@@ -135,6 +134,8 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
     return false;
   }
 
+
+  ROS_INFO_STREAM("Trajectory execution successful!");
   return true;
 }
 
@@ -148,15 +149,6 @@ void DrivingController::followPathFeedbackCb(const move_base_lite_msgs::FollowPa
 //    execute_trajectory_goal_.trajectory.joint_trajectory.header.stamp = starting_time_ + feedback_ptr->current_lagg;
 //    execute_trajectory_client_->sendGoal(execute_trajectory_goal_);
 //  }
-
-
-  while (feedback_ptr->current_waypoint != current_waypoint_) {
-    ROS_INFO_STREAM("Robot reached waypoint " << current_waypoint_ << ". Sending next trajectory.");
-    current_waypoint_++;
-    execute_trajectory_goal_.trajectory = trajectory_msgs_[current_waypoint_];
-    execute_trajectory_goal_.trajectory.joint_trajectory.header.stamp = ros::Time(0);
-    execute_trajectory_client_->sendGoal(execute_trajectory_goal_);
-  }
 
 }
 
@@ -184,7 +176,7 @@ bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, 
   follow_path_goal.follow_path_options.goal_pose_angle_tolerance = 0.01;
 
   driving_client_->sendGoal(follow_path_goal);
-  if (!driving_client_->waitForResult(ros::Duration(10))) {
+  if (!driving_client_->waitForResult(ros::Duration(15))) {
     ROS_ERROR_STREAM("Follow path action timed out.");
     return false;
   }
