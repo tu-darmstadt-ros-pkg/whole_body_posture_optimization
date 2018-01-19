@@ -3,7 +3,7 @@
 namespace whole_body_posture_optimization {
 
 DrivingController::DrivingController(const ros::NodeHandle &nh)
-  : nh_(nh), received_first_tsdf_update_(false), auto_start_(false)
+  : nh_(nh), auto_start_(false)
 {
   // Create tsdf
   voxblox::TsdfMap::Config tsdf_config;
@@ -14,30 +14,36 @@ DrivingController::DrivingController(const ros::NodeHandle &nh)
   tracker_shape_ = std::make_shared<argo_tracker::ArgoTrackerShape>();
   optimizer_= std::make_shared<WholeBodyPostureOptimization>(nh_, tracker_shape_);
 
+  // Connect get tsdf layer service client
+  ROS_INFO_STREAM("Waiting for get tsdf client..");
+  get_tsdf_client_ = nh_.serviceClient<voxblox_msgs::GetLayer>("get_tsdf");
+  if (!get_tsdf_client_.waitForExistence(ros::Duration(5))) {
+    ROS_ERROR_STREAM("Timed out waiting for tsdf server.");
+  }
+
   // Connect trajectory execution service client
   ROS_INFO_STREAM("Waiting for trajectory execution client..");
   execute_trajectory_client_ = std::make_shared<ExecuteTrajectoryClient>(nh_, "/execute_trajectory", true);
   if (!execute_trajectory_client_->waitForServer(ros::Duration(5))) {
-    ROS_ERROR_STREAM("Timed out waiting for execute_trajectory action client.");
+    ROS_ERROR_STREAM("Timed out waiting for execute_trajectory action server.");
   }
 
   // Connect vehicle controller action client
   ROS_INFO_STREAM("Waiting for vehicle controller client..");
   driving_client_ = std::make_shared<FollowPathClient>(nh_, "/controller/follow_path", true);
   if (!driving_client_->waitForServer(ros::Duration(5))) {
-    ROS_ERROR_STREAM("Timed out waiting for driving action client.");
+    ROS_ERROR_STREAM("Timed out waiting for driving action server.");
   }
 
   // Connect vehicle controller action client
   ROS_INFO_STREAM("Waiting for move_group client..");
   move_group_client_ = std::make_shared<MoveGroupClient>(nh_, "/move_group", true);
   if (!move_group_client_->waitForServer(ros::Duration(5))) {
-    ROS_ERROR_STREAM("Timed out waiting for move_group action client.");
+    ROS_ERROR_STREAM("Timed out waiting for move_group action server.");
   }
 
   // Start subscribers
   path_sub_ = nh_.subscribe("path_command", 10, &DrivingController::pathCb, this);
-  tsdf_sub_ = nh_.subscribe("tsdf", 10, &DrivingController::tsdfCb, this);
   execute_sub_ = nh_.subscribe("execute_planned_trajectory", 10, &DrivingController::executeCb, this);
 }
 
@@ -141,15 +147,6 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
 
 void DrivingController::followPathFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr &feedback_ptr)
 {
-//  if (feedback_ptr->current_lagg.toSec() > 0.1) {
-//    ROS_INFO_STREAM("Resending trajectory with lagg: " << feedback_ptr->current_lagg.toSec());
-////    ros::Time old_starting_time = execute_trajectory_goal_.trajectory.joint_trajectory.header.stamp;
-////    ros::Time new_starting_time = old_starting_time + feedback_ptr->current_lagg;
-////    execute_trajectory_goal_.trajectory.joint_trajectory.header.stamp = new_starting_time;
-//    execute_trajectory_goal_.trajectory.joint_trajectory.header.stamp = starting_time_ + feedback_ptr->current_lagg;
-//    execute_trajectory_client_->sendGoal(execute_trajectory_goal_);
-//  }
-
 }
 
 bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, const robot_model::JointModelGroup* jmg)
@@ -216,24 +213,37 @@ bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, 
   return true;
 }
 
+bool DrivingController::updateTsdf(std::shared_ptr<voxblox::TsdfMap> &tsdf)
+{
+  if (!tsdf) {
+    ROS_ERROR_STREAM("Tsdf pointer is null");
+    return false;
+  }
+
+  voxblox_msgs::GetLayer get_layer;
+  get_layer.request.action = voxblox_msgs::Layer::ACTION_FULL_MAP;
+  if (!get_tsdf_client_.call(get_layer)) {
+    ROS_ERROR_STREAM("Failed to retrieve the latest tsdf map.");
+    return false;
+  }
+  voxblox::deserializeMsgToLayer<voxblox::TsdfVoxel>(get_layer.response.layer, tsdf->getTsdfLayerPtr());
+  return true;
+}
+
 void DrivingController::pathCb(const nav_msgs::PathConstPtr &path_msg) {
   ROS_INFO_STREAM("Received new path, planning..");
-  while (!received_first_tsdf_update_ && ros::ok()) {
-    ROS_WARN_STREAM("Waiting for first tsdf update..");
-    ros::spinOnce();
-    ros::Duration(0.1).sleep();
+
+  if (!updateTsdf(tsdf_)) {
+    ROS_ERROR_STREAM("Failed to update world model.");
+    return;
   }
+
   optimizer_->updateWorldModel(tsdf_);
   auto result = optimizer_->findOptimalPostures(*path_msg);
   trajectory_ = optimizer_->computeTimedTrajectory(result);
   if (auto_start_) {
     executeTrajectory(trajectory_);
   }
-}
-
-void DrivingController::tsdfCb(const voxblox_msgs::Layer &layer_msg) {
-  received_first_tsdf_update_ = true;
-  voxblox::deserializeMsgToLayer<voxblox::TsdfVoxel>(layer_msg, tsdf_->getTsdfLayerPtr());
 }
 
 void DrivingController::executeCb(const std_msgs::EmptyConstPtr &empty_msg)

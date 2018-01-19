@@ -79,9 +79,6 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   }
   std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> constraints;
   for (const std::string& collision_link: robot_model_->getCollisionGroupNames()) {
-//    if (collision_link != "gripper_roll_link") {
-//      continue;
-//    }
     ROS_DEBUG_STREAM("Creating collision constraints for link: " << collision_link);
     for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
       ceres::CostFunction* cost_function = ContactConstraint::Create(robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_, sphere, collision_link);

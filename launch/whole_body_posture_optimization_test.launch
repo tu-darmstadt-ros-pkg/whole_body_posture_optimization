@@ -17,7 +17,7 @@
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen">
     <!-- node parameters -->
     <param name="interactive" value="false"/>
-    <param name="scenario" value="step"/>
+    <param name="scenario" value="tsdf"/>
     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_sim_vlp16.tsdf"/>
     
     <!-- posture optimization lib parameters -->
@@ -28,9 +28,10 @@
     <rosparam file="$(find whole_body_posture_optimization)/config/opt.yaml" command="load" />  
     
     <!-- contact estimation lib parameters -->
-    <param name="contact_estimation_debug" value="false"/>
+<!--    <param name="contact_estimation_debug" value="false"/>
     <param name="truncation_distance" value="0.4"/>
-    <param name="max_contact_distance" value="0.01"/>    
+    <param name="iteration_max_contact_distance" value="0.01"/>
+    <param name="final_max_contact_distance" value="0.05"/>  -->
     
     <remap from="~set_robot_pose" to="/whole_body_posture_optimization_node/interactive_marker/set_robot_pose"/>
   </node>

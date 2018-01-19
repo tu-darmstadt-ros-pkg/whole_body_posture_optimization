@@ -19,8 +19,8 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
 {
   loadParameters(nh);
   robot_model_ = std::make_shared<RobotModel>(nh_);
-  contact_estimation_ = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(robot_shape_gen);
-  contact_estimation_->loadParametersFromNamespace(nh_);
+  ros::NodeHandle contact_estimation_nh(nh, "contact_estimation");
+  contact_estimation_ = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(contact_estimation_nh, robot_shape_gen);
   ros::NodeHandle flipper_nh(nh, "flipper_optimization");
   flipper_optimization_ = std::make_shared<FlipperOptimization>(flipper_nh, robot_model_, robot_shape_gen, contact_estimation_);
   ros::NodeHandle arm_nh(nh, "arm_optimization");
@@ -85,7 +85,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     oss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S");
     std::string time_stamp = oss.str();
     std::string save_path =  tsdf_save_folder_ + "/tsdf_map_" + time_stamp + ".tsdf";
-    voxblox::io::SaveLayer(contact_estimation_->getTsdfMap()->getTsdfLayer(), save_path);
+    contact_estimation_->saveTsdfToFile(save_path);
   }
 
   auto start_complete = std::chrono::high_resolution_clock::now();
