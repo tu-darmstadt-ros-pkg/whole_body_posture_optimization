@@ -16,6 +16,9 @@
 #include <differentiation/rbdl_utilsAD.h>
 #include <urdfreader/urdfreader.h>
 
+#undef LOG
+#include <voxblox/core/tsdf_map.h>
+
 #include <whole_body_posture_optimization/common.h>
 
 namespace rbdl = RigidBodyDynamics;
@@ -27,6 +30,8 @@ public:
   RobotModel(ros::NodeHandle& nh);
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com, Eigen::MatrixXd &jacobian);
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com);
+
+  std::shared_ptr<voxblox::TsdfMap> computeTsdfFromRobotModel(const std::string& group);
 
   void updateRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
   void publishRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
@@ -42,10 +47,12 @@ public:
 
   std::vector<std::string> getCollisionLinkNames();
   std::vector<std::string> getCollisionGroupNames();
-  std::vector<collision_detection::CollisionSphere> getCollisionSpheres(std::string link_name);
+  const std::vector<collision_detection::CollisionSphere> &getCollisionSpheres(std::string link_name);
+
   template<typename T> ad_kinematics::Affine3<T> computeChainFK(const std::string& link_name, const std::vector<T>& chain_angles) {
     return ad_chain_->computeTransform<T>(link_name, chain_angles).toAffine();
   }
+
   std::vector<unsigned int> getChainToJointIndexMapping();
   std::vector<int> getParamToChainIndexMapping(const std::vector<std::string>& free_joints);
 
