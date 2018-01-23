@@ -3,7 +3,7 @@
 namespace whole_body_posture_optimization {
 
 RobotModel::RobotModel(ros::NodeHandle &nh)
-  : num_joints_(0), collision_padding_(0.0)
+  : num_joints_(0)
 {
   // Parameter loading
   if(!nh.getParam("/robot_description", robot_description_)) {
@@ -13,12 +13,13 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   if (!nh.getParam("collision_group", collision_group_)) {
     ROS_ERROR_STREAM("Failed to load collision group name.");
   }
-  collision_padding_ = nh.param<double>("collision_padding", 0.0);
 
   // Loading urdf
   if (!urdf_model_.initString(robot_description_)) {
     ROS_ERROR_STREAM("Failed to parse urdf.");
   }
+
+  nh.param<std::vector<std::string>>("static_link_names", static_link_names_, static_link_names_);
 
   // Loading rbdl model
   model_ptr_ = std::make_shared<rbdl::Model>();
@@ -57,6 +58,7 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   ros::NodeHandle pnh("~");
   robot_state_pub_ = pnh.advertise<moveit_msgs::DisplayRobotState>("robot_state", 10, true);
   collision_spheres_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("collision_spheres", 10, true);
+  robot_tsdf_pub_ = pnh.advertise<pcl::PointCloud<pcl::PointXYZI>>("robot_tsdf", 10, true);
 }
 
 void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com, Eigen::MatrixXd &jacobian)
@@ -98,27 +100,25 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   computeCenterOfMass(joint_angles, com, jacobian);
 }
 
-std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::string &group)
+std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names)
 {
+  ROS_INFO_STREAM("Creating tsdf from robot model");
   // Create empty SDF
+  const double voxel_size = 0.05;
+  const double truncation_distance = 0.4;
   voxblox::TsdfMap::Config tsdf_config;
-  double voxel_size = 0.05;
   tsdf_config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(voxel_size); // TODO parameter
   std::shared_ptr<voxblox::TsdfMap> tsdf;
   tsdf.reset(new voxblox::TsdfMap(tsdf_config));
-
-  const double truncation_distance = 0.4;
-
-  const moveit::core::JointModelGroup* collision_joint_group = moveit_robot_state_->getJointModelGroup(group);
-  const std::vector<std::string>& group_link_names = collision_joint_group->getLinkModelNames();
 
   // Iterate over all link models with attached collision geometry
   for (auto map_iter = body_decomposition_index_map_.begin(); map_iter != body_decomposition_index_map_.end(); map_iter++) {
     const std::string& link_name = map_iter->first;
     unsigned int link_index = map_iter->second;
 
-    // Check if they are part of the requested group
-    if (std::find(group_link_names.begin(), group_link_names.end(), link_name) != group_link_names.end()) {
+    // Check if they are part of the requested links
+    if (std::find(link_names.begin(), link_names.end(), link_name) != link_names.end()) {
+      ROS_INFO_STREAM("-- Computing tsdf for '" << link_name << "'.");
       // Transform the link model according to current robot state
       collision_detection::PosedBodySphereDecompositionPtr sphere_representation(new collision_detection::PosedBodySphereDecomposition(body_decompositions_[link_index]));
       sphere_representation->updatePose(moveit_robot_state_->getGlobalLinkTransform(link_name));
@@ -141,7 +141,10 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
 
               // Check if voxel is already set
               if (voxel.weight > 0) {
-                voxel.distance = std::min(voxel.distance, distance);
+                // we want to keep the distance value closest to the surface/zero
+                if (std::abs(distance) < std::abs(voxel.distance)) {
+                  voxel.distance = distance;
+                }
               } else {
                 voxel.weight = 1.0;
                 voxel.distance = distance;
@@ -153,6 +156,7 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
       }
     }
   }
+  return tsdf;
 }
 
 void RobotModel::updateRobotState(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
@@ -255,6 +259,12 @@ void RobotModel::publishCollisionSpheres()
   }
 
   collision_spheres_pub_.publish(marker_array);
+}
+
+void RobotModel::publishRobotTsdf()
+{
+  std::shared_ptr<voxblox::TsdfMap> tsdf = computeTsdfFromRobotModel(static_link_names_);
+  sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf);
 }
 
 std::vector<unsigned int> RobotModel::getBodyIndices(const std::vector<std::string> &bodies)
@@ -362,8 +372,8 @@ void RobotModel::generateLinkBodyDecompositions(double resolution)
 
     ROS_DEBUG("Generating model for %s", link_model->getName().c_str());
 
-    collision_detection::BodyDecompositionConstPtr bd(new collision_detection::BodyDecomposition(
-      link_model->getShapes(), link_model->getCollisionOriginTransforms(), resolution, collision_padding_));
+    collision_detection::BodyDecompositionConstPtr bd = std::make_shared<collision_detection::BodyDecomposition>(
+      link_model->getShapes(), link_model->getCollisionOriginTransforms(), resolution, 0.0);
     body_decompositions_.push_back(bd);
     body_decomposition_index_map_[link_model->getName()] = body_decompositions_.size() - 1;
   }

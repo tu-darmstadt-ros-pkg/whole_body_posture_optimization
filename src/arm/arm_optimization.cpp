@@ -23,6 +23,10 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
     ROS_ERROR_STREAM("Failed to find parameter 'joints' in namespace'" << nh.getNamespace() << "'.");
     return false;
   }
+
+  nh.param("environment_collision_padding", environment_collision_padding_, 0.0);
+  nh.param("self_collision_padding", self_collision_padding_, 0.0);
+
   return true;
 }
 
@@ -66,7 +70,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // Add objective function
   std::vector<double> previous_parameters = jointVectorToParamVector(previous_joint_angles);
-  ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost_(StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose), 0);
+  ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost_(
+        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose), 0);
   opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost_);
 
   // Add constraints
@@ -81,7 +86,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   for (const std::string& collision_link: robot_model_->getCollisionGroupNames()) {
     ROS_DEBUG_STREAM("Creating collision constraints for link: " << collision_link);
     for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
-      ceres::CostFunction* cost_function = ContactConstraint::Create(robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_, sphere, collision_link);
+      ceres::CostFunction* cost_function = ContactConstraint::Create(
+            robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_->getSdf(), sphere, collision_link, environment_collision_padding_);
       auto wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
       constraints.push_back(wrapper);
       opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);

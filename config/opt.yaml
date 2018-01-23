@@ -11,7 +11,6 @@ default_joint_state: [0, 2, 5.2, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default fo
 #default_joint_state: [0.0838013, 3.072, 4.68403, 0.86, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 
 collision_group: arm_with_gripper_group
-collision_padding: 0.1
 
 arm_optimization:
   enabled: true
@@ -20,9 +19,16 @@ arm_optimization:
     - arm_joint_1
     - arm_joint_2
     #- sensor_head_pitch_joint
-  max_iterations: 50
-  ftol_rel: 0.5
+  environment_collision_padding: 0.1
+  self_collision_padding: 0.0
 flipper_optimization:
   enabled: true
   joints:
     - flipper_joint_1
+    
+static_link_names:
+  - chassis_link
+  - flipper_link_0
+  - flipper_link_1
+  - spin_lidar_lidar_mount_link
+  - spin_lidar_pitch_hokuyo_laser_frame

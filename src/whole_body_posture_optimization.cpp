@@ -91,7 +91,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
   auto start_complete = std::chrono::high_resolution_clock::now();
   std::vector<PostureOptimizationResult> results;
   PostureOptimizationResult last_result;
-//  ros::Rate rate(5);
+  ros::Rate rate(5);
   bool first = true;
   for (const geometry_msgs::PoseStamped& pose_msg: path.poses) {
     Eigen::Affine3d pose;
@@ -108,7 +108,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     results.push_back(last_result);
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
     ROS_INFO_STREAM("Complete optimization took " << elapsed.count()*1000.0 << " ms.");
-//    rate.sleep();
+    rate.sleep();
   }
   std::chrono::duration<double> elapsed_complete = std::chrono::high_resolution_clock::now() - start_complete;
   ROS_INFO_STREAM("Path planning took " << elapsed_complete.count() << " s.");
@@ -166,6 +166,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   robot_model_->updateRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
   robot_model_->publishRobotState();
   robot_model_->publishCollisionSpheres();
+  robot_model_->publishRobotTsdf();
 
   return result;
 }

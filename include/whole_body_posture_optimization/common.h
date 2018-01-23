@@ -5,7 +5,6 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <moveit/robot_state/conversions.h>
 
-
 namespace whole_body_posture_optimization {
 
 template<typename T>

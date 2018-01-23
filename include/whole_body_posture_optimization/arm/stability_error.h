@@ -2,9 +2,9 @@
 #define WHOLE_BODY_POSTURE_OPTIMIZATION__STABILITY_ERROR_H
 
 #include <whole_body_posture_optimization/common.h>
+
 #include <whole_body_posture_optimization/robot_model.h>
 #include <algorithm>
-#undef LOG
 #include <ceres/ceres.h>
 
 #include <Eigen/Eigen>

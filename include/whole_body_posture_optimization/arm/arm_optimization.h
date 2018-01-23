@@ -41,6 +41,8 @@ private:
   std::vector<std::string> free_joints_;
   std::vector<double> lower_bounds_;
   std::vector<double> upper_bounds_;
+  double environment_collision_padding_;
+  double self_collision_padding_;
 
   ros::Publisher result_com_pub_;
   ros::Publisher convex_hull_pub_;
