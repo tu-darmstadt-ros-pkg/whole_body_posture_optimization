@@ -21,14 +21,19 @@ arm_optimization:
     #- sensor_head_pitch_joint
   environment_collision_padding: 0.1
   self_collision_padding: 0.0
+  self_collision_tsdf_truncation_distance: 0.4
+  
+  static_link_names:
+   # - chassis_link
+    - flipper_link_0
+    - flipper_link_1
+    - spin_lidar_lidar_mount_link
+    - spin_lidar_pitch_hokuyo_laser_frame
+    - structure_addons_link
+  
 flipper_optimization:
   enabled: true
   joints:
     - flipper_joint_1
     
-static_link_names:
-  - chassis_link
-  - flipper_link_0
-  - flipper_link_1
-  - spin_lidar_lidar_mount_link
-  - spin_lidar_pitch_hokuyo_laser_frame
+

@@ -59,7 +59,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 
   // Add objective function
   std::vector<double> previous_flipper_angles = jointVectorToParamVector(previous_joint_angles);
-  int verbosity_level = 1;
+  int verbosity_level = 0;
   ceres_nlopt_wrapper::CeresCostFunctionWrapper support_area_cost(
         ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact),
         verbosity_level);
@@ -107,7 +107,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   }
 
   // Estimating again for debug output and result
-  robot_shape_gen_->updateShape(parameters);
+  contact_estimation_->updateJointStates(parameters);
   result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), result_state_pub_, result.contact_result.estimated_pose, "world", Eigen::Vector3d(1, 1, 0));
   visualization_msgs::MarkerArray contact_points_array_msg;
@@ -117,7 +117,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   sdf_contact_estimation::publishPose(result_com_pub_, result_com_pose, "world");
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.contact_result.convex_hull_points, result_com_pose.translation());
   double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-  ROS_INFO_STREAM("Stability after flipper optimization:" << stability_min);
+  ROS_INFO_STREAM("Stability after flipper optimization: " << stability_min);
   createConvexHullMarkerArray(result.contact_result.convex_hull_points, stabilities, contact_points_array_msg);
   sdf_contact_estimation::deleteAllMarkers(contact_points_pub_);
   contact_points_pub_.publish(contact_points_array_msg);

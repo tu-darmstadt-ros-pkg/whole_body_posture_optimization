@@ -19,8 +19,6 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
     ROS_ERROR_STREAM("Failed to parse urdf.");
   }
 
-  nh.param<std::vector<std::string>>("static_link_names", static_link_names_, static_link_names_);
-
   // Loading rbdl model
   model_ptr_ = std::make_shared<rbdl::Model>();
   rbdl::Addons::URDFReadFromString(robot_description_.c_str(), model_ptr_.get(), false, false);
@@ -58,7 +56,6 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   ros::NodeHandle pnh("~");
   robot_state_pub_ = pnh.advertise<moveit_msgs::DisplayRobotState>("robot_state", 10, true);
   collision_spheres_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("collision_spheres", 10, true);
-  robot_tsdf_pub_ = pnh.advertise<pcl::PointCloud<pcl::PointXYZI>>("robot_tsdf", 10, true);
 }
 
 void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com, Eigen::MatrixXd &jacobian)
@@ -100,57 +97,59 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   computeCenterOfMass(joint_angles, com, jacobian);
 }
 
-std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names)
+std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, double truncation_distance)
 {
-  ROS_INFO_STREAM("Creating tsdf from robot model");
+//  ROS_INFO_STREAM("Creating tsdf from robot model");
   // Create empty SDF
   const double voxel_size = 0.05;
-  const double truncation_distance = 0.4;
   voxblox::TsdfMap::Config tsdf_config;
   tsdf_config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(voxel_size); // TODO parameter
   std::shared_ptr<voxblox::TsdfMap> tsdf;
   tsdf.reset(new voxblox::TsdfMap(tsdf_config));
 
-  // Iterate over all link models with attached collision geometry
-  for (auto map_iter = body_decomposition_index_map_.begin(); map_iter != body_decomposition_index_map_.end(); map_iter++) {
-    const std::string& link_name = map_iter->first;
-    unsigned int link_index = map_iter->second;
+  // Iterate over requested links
+  for (const std::string& link_name: link_names) {
 
-    // Check if they are part of the requested links
-    if (std::find(link_names.begin(), link_names.end(), link_name) != link_names.end()) {
-      ROS_INFO_STREAM("-- Computing tsdf for '" << link_name << "'.");
-      // Transform the link model according to current robot state
-      collision_detection::PosedBodySphereDecompositionPtr sphere_representation(new collision_detection::PosedBodySphereDecomposition(body_decompositions_[link_index]));
-      sphere_representation->updatePose(moveit_robot_state_->getGlobalLinkTransform(link_name));
-      // Iterate over spheres and compute sdf
-      for (unsigned int j = 0; j < sphere_representation->getCollisionSpheres().size(); j++)
-      {
-        const Eigen::Vector3d& center = sphere_representation->getSphereCenters()[j];
-        double radius = sphere_representation->getCollisionSpheres()[j].radius_;
+    // Get the collision geometry
+    unsigned int index;
+    try {
+      index = body_decomposition_index_map_.at(link_name);
+    } catch (const std::out_of_range&) {
+      ROS_WARN_STREAM("Didn't find a collision geometry for link '" << link_name << "'.");
+      continue;
+    }
 
-        // Cube around center with size radius + truncation_distance
-        for (double x = center.x() - radius - truncation_distance; x < center.x() + radius + truncation_distance; x += voxel_size) {
-          for (double y = center.y() - radius - truncation_distance; y < center.y() + radius + truncation_distance; y += voxel_size) {
-            for (double z = center.z() - radius - truncation_distance; z < center.z() + radius + truncation_distance; z += voxel_size) {
-              Eigen::Vector3d point(x, y, z);
-              float distance = static_cast<float>((center - point).norm() - radius);
+//    ROS_INFO_STREAM("-- Computing tsdf for '" << link_name << "'.");
+    // Transform the link model according to current robot state
+    collision_detection::PosedBodySphereDecompositionPtr sphere_representation = std::make_shared<collision_detection::PosedBodySphereDecomposition>(body_decompositions_[index]);
+    sphere_representation->updatePose(moveit_robot_state_->getGlobalLinkTransform(link_name));
+    // Iterate over spheres and compute sdf
+    for (unsigned int j = 0; j < sphere_representation->getCollisionSpheres().size(); j++) {
+      const Eigen::Vector3d& center = sphere_representation->getSphereCenters()[j];
+      double radius = sphere_representation->getCollisionSpheres()[j].radius_;
 
-              voxblox::Point vpoint(x, y, z);
-              voxblox::Layer<voxblox::TsdfVoxel>::BlockType::Ptr block_ptr = tsdf->getTsdfLayerPtr()->allocateBlockPtrByCoordinates(vpoint);
-              voxblox::TsdfVoxel& voxel = block_ptr->getVoxelByCoordinates(vpoint);
+      // Cube around center with size radius + truncation_distance
+      for (double x = center.x() - radius - truncation_distance; x < center.x() + radius + truncation_distance; x += voxel_size) {
+        for (double y = center.y() - radius - truncation_distance; y < center.y() + radius + truncation_distance; y += voxel_size) {
+          for (double z = center.z() - radius - truncation_distance; z < center.z() + radius + truncation_distance; z += voxel_size) {
+            Eigen::Vector3d point(x, y, z);
+            float distance = static_cast<float>((center - point).norm() - radius);
 
-              // Check if voxel is already set
-              if (voxel.weight > 0) {
-                // we want to keep the distance value closest to the surface/zero
-                if (std::abs(distance) < std::abs(voxel.distance)) {
-                  voxel.distance = distance;
-                }
-              } else {
-                voxel.weight = 1.0;
+            voxblox::Point vpoint(x, y, z);
+            voxblox::Layer<voxblox::TsdfVoxel>::BlockType::Ptr block_ptr = tsdf->getTsdfLayerPtr()->allocateBlockPtrByCoordinates(vpoint);
+            voxblox::TsdfVoxel& voxel = block_ptr->getVoxelByCoordinates(vpoint);
+
+            // Check if voxel is already set
+            if (voxel.weight > 0) {
+              // we want to keep the distance value closest to the surface/zero
+              if (std::abs(distance) < std::abs(voxel.distance)) {
                 voxel.distance = distance;
               }
-
+            } else {
+              voxel.weight = 1.0;
+              voxel.distance = distance;
             }
+
           }
         }
       }
@@ -259,12 +258,6 @@ void RobotModel::publishCollisionSpheres()
   }
 
   collision_spheres_pub_.publish(marker_array);
-}
-
-void RobotModel::publishRobotTsdf()
-{
-  std::shared_ptr<voxblox::TsdfMap> tsdf = computeTsdfFromRobotModel(static_link_names_);
-  sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf);
 }
 
 std::vector<unsigned int> RobotModel::getBodyIndices(const std::vector<std::string> &bodies)

@@ -32,14 +32,13 @@ public:
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com, Eigen::MatrixXd &jacobian);
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com);
 
-  std::shared_ptr<voxblox::TsdfMap> computeTsdfFromRobotModel(const std::vector<std::string> &link_names);
+  std::shared_ptr<voxblox::TsdfMap> computeTsdfFromRobotModel(const std::vector<std::string> &link_names, double truncation_distance=0.4);
 
   void updateRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
   void publishRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
   void publishRobotState();
   void publishCollisionSpheres(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
   void publishCollisionSpheres();
-  void publishRobotTsdf();
 
   std::vector<unsigned int> getBodyIndices(const std::vector<std::string>& bodies);
   std::vector<unsigned int> getJointIndices(const std::vector<std::string>& joints);
@@ -73,12 +72,11 @@ private:
   std::shared_ptr<rbdl::Model> model_ptr_;
   std::shared_ptr<ADModel> ad_model_ptr_;
   urdf::Model urdf_model_;
-  unsigned int num_joints_;
-  std::vector<std::string> joint_names_;
-
-  std::vector<std::string> static_link_names_;
-
   robot_model::RobotModelPtr moveit_robot_model_;
+
+  std::vector<std::string> joint_names_;
+  unsigned int num_joints_;
+
   robot_state::RobotStatePtr moveit_robot_state_;
   Eigen::Affine3d robot_pose_;
   std::vector<double> joint_angles_;
@@ -88,7 +86,6 @@ private:
 
   ros::Publisher robot_state_pub_;
   ros::Publisher collision_spheres_pub_;
-  ros::Publisher robot_tsdf_pub_;
 };
 
 }

@@ -22,12 +22,6 @@ public:
   virtual bool Evaluate(double const* const* parameters,
                         double* residuals,
                         double** jacobians) const {
-//    std::vector<double> joint_positions(robot_model_->getNumJoints());
-//    for (unsigned int i = 0; i < robot_model_->getNumJoints(); i++) {
-//      joint_positions[i] = parameters[0][i];
-//    }
-
-//    std::vector<double> joint_positions(parameters[0][0], parameters[0][0] + robot_model_->getNumJoints());
     std::vector<double> joint_angles = init_angles_;
     for (unsigned int i = 0; i < this->parameter_block_sizes()[0]; i++) {
       joint_angles[param_idx_to_joint_idx_[i]] = parameters[0][i];

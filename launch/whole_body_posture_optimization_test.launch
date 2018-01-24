@@ -9,7 +9,9 @@
     <param name="marker_name" value="robot_pose" />
     <param name="frame_id" value="world" /> 
     <rosparam subst_value="true">
-      init_pose: [-0.054, 0, -0.7, 0, 0, 0]
+      # step
+      init_pose: [0.946, 0, -1.96, 0, 0, 0]
+      
       #init_pose: [-0.945384, -0.108783, -0.106525, 0.000000, 0.000000, -1.580228]
     </rosparam>
   </node> 
@@ -17,7 +19,7 @@
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen">
     <!-- node parameters -->
     <param name="interactive" value="false"/>
-    <param name="scenario" value="tsdf"/>
+    <param name="scenario" value="step"/>
     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_sim_vlp16.tsdf"/>
     
     <!-- posture optimization lib parameters -->

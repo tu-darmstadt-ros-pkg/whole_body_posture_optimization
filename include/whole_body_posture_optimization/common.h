@@ -5,6 +5,8 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <moveit/robot_state/conversions.h>
 
+#include <moveit/collision_distance_field/collision_distance_field_types.h>
+
 namespace whole_body_posture_optimization {
 
 template<typename T>
@@ -19,6 +21,15 @@ using Matrix3 = Eigen::Matrix<T, 3, 3>;
 template <typename T> T lorentzian(const T& x, const T& sigma) {
   return log(T(1) + pow(x, T(2))/(T(2) * pow(sigma, T(2))));
 }
+
+struct CollisionObject {
+  CollisionObject(const collision_detection::CollisionSphere& _collision_sphere, std::string _link_name, double _padding)
+    : collision_sphere(_collision_sphere), link_name(_link_name), padding(_padding) {}
+
+  collision_detection::CollisionSphere collision_sphere;
+  std::string link_name;
+  double padding;
+};
 
 template <typename T> std::vector<T> computeForceAngleStabilities(const std::vector<Vector3<T>>& contact_points, const Vector3<T>& external_force, const Vector3<T>& com) {
   std::vector<T> stabilities;

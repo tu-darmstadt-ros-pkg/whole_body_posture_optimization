@@ -13,8 +13,17 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
     ROS_ERROR_STREAM("Loading arm limits failed");
   }
   param_idx_to_jnt_idx_ = robot_model_->getJointIndices(free_joints_);
+
+  // Load Allowed Collision Matrix (ACM)
+  planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
+  acm_ = planning_scene->getAllowedCollisionMatrix();
+//  acm_.getAllEntryNames();
+
+  //Publisher
   result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com", 10, true);
   convex_hull_pub_ = nh.advertise<visualization_msgs::MarkerArray>("convex_hull", 10, true);
+  robot_tsdf_pub_ = nh.advertise<pcl::PointCloud<pcl::PointXYZI>>("robot_tsdf", 10, true);
+
 }
 
 bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -25,7 +34,10 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
   }
 
   nh.param("environment_collision_padding", environment_collision_padding_, 0.0);
+
+  nh.param<std::vector<std::string>>("static_link_names", static_link_names_, static_link_names_);
   nh.param("self_collision_padding", self_collision_padding_, 0.0);
+  nh.param("self_collision_tsdf_truncation_distance", self_collision_tsdf_truncation_distance_, 0.4);
 
   return true;
 }
@@ -82,18 +94,80 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   for (unsigned int chain_idx = 0; chain_idx < default_chain_angles.size(); chain_idx++) {
     default_chain_angles[chain_idx] = initial_angles[chain_idx_to_jnt_idx[chain_idx]];
   }
-  std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> constraints;
-  for (const std::string& collision_link: robot_model_->getCollisionGroupNames()) {
-    ROS_DEBUG_STREAM("Creating collision constraints for link: " << collision_link);
+  std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> environment_constraints;
+  // Environment collision constraints
+  std::vector<std::string> collision_group_names = robot_model_->getCollisionGroupNames();
+  for (const std::string& collision_link: collision_group_names) {
+    ROS_DEBUG_STREAM("Creating environment collision constraints for link: " << collision_link);
     for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
-      ceres::CostFunction* cost_function = ContactConstraint::Create(
-            robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_->getSdf(), sphere, collision_link, environment_collision_padding_);
-      auto wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
-      constraints.push_back(wrapper);
+      CollisionObject collision_object(sphere, collision_link, environment_collision_padding_);
+      ceres::CostFunction* cost_function = SdfContactConstraint::Create(
+            robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_->getSdf(), collision_object);
+      std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
+      wrapper->setName("constraint_environment_" + collision_link);
+      environment_constraints.push_back(wrapper);
       opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
     }
   }
-  ROS_INFO_STREAM("Created " << constraints.size() << " collision constraints.");
+  ROS_INFO_STREAM("Created " << environment_constraints.size() << " environment collision constraints.");
+
+  // self-collision tsdf constraints
+  std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_tsdf_constraints;
+  std::shared_ptr<voxblox::TsdfMap> tsdf = robot_model_->computeTsdfFromRobotModel(static_link_names_, self_collision_tsdf_truncation_distance_);
+  sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf);
+  sdf_contact_estimation::SdfWrapper robot_base_tsdf;
+  robot_base_tsdf.setTsdfMap(tsdf, self_collision_tsdf_truncation_distance_);
+
+  for (const std::string& collision_link: collision_group_names) {
+    if (collision_link == "arm_link_0") { // arm_link_0 is always in collision, TODO remove hardcoded link
+      continue;
+    }
+//    ROS_DEBUG_STREAM("Creating self-collision constraints for link: " << collision_link);
+    for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
+      CollisionObject collision_object(sphere, collision_link, self_collision_padding_);
+      ceres::CostFunction* cost_function = SdfContactConstraint::Create(
+            robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, robot_base_tsdf, collision_object);
+      std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
+      wrapper->setName("constraint_self_collision_tsdf_" + collision_link);
+      self_collision_tsdf_constraints.push_back(wrapper);
+      opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+    }
+  }
+  ROS_INFO_STREAM("Created " << self_collision_tsdf_constraints.size() << " self-collision tsdf constraints.");
+
+  // self-collision distance constraints
+  std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_constraints;
+  // Create constraint for each unique link-pair
+  for (unsigned int i = 0; i < collision_group_names.size()-1; i++) {
+    std::string link_name_1 = collision_group_names[i];
+    for (unsigned int j = i+1; j < collision_group_names.size(); j++) {
+      std::string link_name_2 = collision_group_names[j];
+
+      // Check acm
+      collision_detection::AllowedCollision::Type allowed_collision_type;
+      if (acm_.getAllowedCollision(link_name_1, link_name_2, allowed_collision_type)) {
+        if (allowed_collision_type == collision_detection::AllowedCollision::ALWAYS) {
+//          ROS_INFO_STREAM("Skipping collision between '" << link_name_1 << "' and '" << link_name_2 << "'.");
+          continue;
+        }
+      }
+
+      // Constraint for each sphere-pair
+      for (const collision_detection::CollisionSphere& sphere1: robot_model_->getCollisionSpheres(link_name_1)) {
+        for (const collision_detection::CollisionSphere& sphere2: robot_model_->getCollisionSpheres(link_name_2)) {
+          CollisionObject obj1(sphere1, link_name_1, self_collision_padding_);
+          CollisionObject obj2(sphere2, link_name_2, self_collision_padding_);
+          ceres::CostFunction* cost_function = SelfContactConstraint::Create(
+                robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, obj1, obj2);
+          std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
+          wrapper->setName("constraint_self_collision_" + link_name_1 + "_vs_" + link_name_2);
+          self_collision_constraints.push_back(wrapper);
+          opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+        }
+      }
+    }
+  }
+  ROS_INFO_STREAM("Created " << self_collision_constraints.size() << " self-collision constraints.");
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
@@ -127,8 +201,24 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
 
   // Check for collisions in solution  
-  if (!ceres_nlopt_wrapper::checkConstraints(parameters, constraints, 0.001)) {
-    ROS_WARN_STREAM("Detected collision!!");
+  std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
+  if (!ceres_nlopt_wrapper::checkConstraints(parameters, environment_constraints, 0.001, constraint_violations)) {
+    ROS_WARN_STREAM("Detected environment collision!");
+    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
+      ROS_WARN_STREAM(violation.toString());
+    }
+  }
+  if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_tsdf_constraints, 0.001, constraint_violations)) {
+    ROS_WARN_STREAM("Detected self-collision with tsdf!");
+    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
+      ROS_WARN_STREAM(violation.toString());
+    }
+  }
+  if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_constraints, 0.001, constraint_violations)) {
+    ROS_WARN_STREAM("Detected self-collision!");
+    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
+      ROS_WARN_STREAM(violation.toString());
+    }
   }
 
   ArmOptimizationResult result;

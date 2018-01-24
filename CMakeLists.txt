@@ -41,7 +41,8 @@ set(HEADERS
   include/${PROJECT_NAME}/driving_controller.h
   include/${PROJECT_NAME}/arm/stability_error.h
   include/${PROJECT_NAME}/arm/arm_optimization.h
-  include/${PROJECT_NAME}/arm/contact_constraint.h
+  include/${PROJECT_NAME}/arm/sdf_contact_constraint.h
+  include/${PROJECT_NAME}/arm/self_contact_constraint.h
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
   include/${PROJECT_NAME}/flipper/convex_hull_area_error.h
 )

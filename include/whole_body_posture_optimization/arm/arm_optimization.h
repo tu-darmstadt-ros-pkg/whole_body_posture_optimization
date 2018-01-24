@@ -5,6 +5,7 @@
 #include <geometry_msgs/PointStamped.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <Eigen/Eigen>
+#include <moveit/planning_scene/planning_scene.h>
 
 #include <nlopt.hpp>
 #include <chrono>
@@ -15,7 +16,8 @@
 #include <sdf_contact_estimation/visualisation.h>
 #include <whole_body_posture_optimization/common.h>
 #include <whole_body_posture_optimization/arm/stability_error.h>
-#include <whole_body_posture_optimization/arm/contact_constraint.h>
+#include <whole_body_posture_optimization/arm/sdf_contact_constraint.h>
+#include <whole_body_posture_optimization/arm/self_contact_constraint.h>
 
 namespace whole_body_posture_optimization {
 
@@ -42,10 +44,16 @@ private:
   std::vector<double> lower_bounds_;
   std::vector<double> upper_bounds_;
   double environment_collision_padding_;
+
+  std::vector<std::string> static_link_names_;
   double self_collision_padding_;
+  double self_collision_tsdf_truncation_distance_;
+  collision_detection::AllowedCollisionMatrix acm_;
 
   ros::Publisher result_com_pub_;
   ros::Publisher convex_hull_pub_;
+  ros::Publisher robot_tsdf_pub_;
+
 };
 
 }
