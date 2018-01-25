@@ -26,6 +26,12 @@ struct ArmOptimizationResult {
   Eigen::Vector3d center_of_mass; // optimal center of mass relative to base frame
 };
 
+enum CollisionType {
+  ENVIRONMENT,
+  SELF_COLLISION,
+  SELF_COLLISION_TSDF
+};
+
 class ArmOptimization {
 public:
   ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation);
@@ -33,17 +39,22 @@ public:
                                  const std::vector<double> &previous_joint_angles);
 private:
   bool loadParameters(const ros::NodeHandle &nh);
+  double getJointPadding(std::string joint_name, CollisionType collision_type);
+  double getDefaultJointPadding(CollisionType collision_type);
   bool loadLimits();
   std::vector<double> jointVectorToParamVector(const std::vector<double> &joint_vec);
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<unsigned int> param_idx_to_jnt_idx_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
 
-
   std::vector<std::string> free_joints_;
   std::vector<double> lower_bounds_;
   std::vector<double> upper_bounds_;
-  double environment_collision_padding_;
+  double environment_collision_default_padding_;
+  std::map<std::string, double> environment_collision_padding_map_;
+
+  // Optimization parameters
+  StabilityErrorParameters stability_error_params_;
 
   std::vector<std::string> static_link_names_;
   double self_collision_padding_;

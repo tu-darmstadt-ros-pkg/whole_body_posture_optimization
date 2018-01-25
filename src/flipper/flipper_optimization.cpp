@@ -25,6 +25,12 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
     ROS_ERROR_STREAM("Failed to find parameter 'joints' in namespace'" << nh.getNamespace() << "'.");
     return false;
   }
+
+  nh.param("regularization_weight", convex_hull_error_parameters_.regularization_weight, convex_hull_error_parameters_.regularization_weight);
+  nh.param("lorentzian_sigma", convex_hull_error_parameters_.lorentzian_sigma, convex_hull_error_parameters_.lorentzian_sigma);
+  nh.param("track_contact_weight", convex_hull_error_parameters_.track_contact_weight, convex_hull_error_parameters_.track_contact_weight);
+  nh.param("body_contact_weight", convex_hull_error_parameters_.body_contact_weight, convex_hull_error_parameters_.body_contact_weight);
+
   return true;
 }
 
@@ -61,7 +67,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   std::vector<double> previous_flipper_angles = jointVectorToParamVector(previous_joint_angles);
   int verbosity_level = 0;
   ceres_nlopt_wrapper::CeresCostFunctionWrapper support_area_cost(
-        ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact),
+        ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact, convex_hull_error_parameters_),
         verbosity_level);
   opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &support_area_cost);
 

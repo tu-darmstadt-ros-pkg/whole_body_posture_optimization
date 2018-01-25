@@ -17,7 +17,6 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   // Load Allowed Collision Matrix (ACM)
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
   acm_ = planning_scene->getAllowedCollisionMatrix();
-//  acm_.getAllEntryNames();
 
   //Publisher
   result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com", 10, true);
@@ -33,13 +32,56 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
     return false;
   }
 
-  nh.param("environment_collision_padding", environment_collision_padding_, 0.0);
+  nh.param("environment_collision_default_padding", environment_collision_default_padding_, 0.0);
+  nh.param<std::map<std::string, double>>("environment_collision_padding", environment_collision_padding_map_, environment_collision_padding_map_);
 
   nh.param<std::vector<std::string>>("static_link_names", static_link_names_, static_link_names_);
   nh.param("self_collision_padding", self_collision_padding_, 0.0);
   nh.param("self_collision_tsdf_truncation_distance", self_collision_tsdf_truncation_distance_, 0.4);
+  nh.param("lorentzian_sigma", stability_error_params_.lorentzian_sigma, stability_error_params_.lorentzian_sigma);
+  nh.param("regularization_weight", stability_error_params_.regularization_weight, stability_error_params_.regularization_weight);
 
   return true;
+}
+
+double ArmOptimization::getJointPadding(std::string joint_name, CollisionType collision_type)
+{
+  std::map<std::string, double>* padding_map;
+  switch(collision_type) {
+    case CollisionType::ENVIRONMENT:
+      padding_map = &environment_collision_padding_map_;
+      break;
+    default:
+      padding_map = nullptr;
+  }
+  bool found;
+  double padding;
+  if (padding_map) {
+    try {
+      padding = padding_map->at(joint_name);
+      found = true;
+      ROS_INFO_STREAM("Using padding " << padding << " for link '" << joint_name << "'.");
+    }  catch (const std::out_of_range&) {
+      found = false;
+    }
+  } else {
+    found = false;
+  }
+  if (found) {
+    return padding;
+  } else {
+    return getDefaultJointPadding(collision_type);
+  }
+}
+
+double ArmOptimization::getDefaultJointPadding(CollisionType collision_type)
+{
+  switch (collision_type) {
+    case ENVIRONMENT: return environment_collision_default_padding_;
+    case SELF_COLLISION: return self_collision_padding_;
+    case SELF_COLLISION_TSDF: return self_collision_padding_;
+  }
+  return 0.0;
 }
 
 bool ArmOptimization::loadLimits()
@@ -83,7 +125,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   // Add objective function
   std::vector<double> previous_parameters = jointVectorToParamVector(previous_joint_angles);
   ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost_(
-        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose), 0);
+        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0);
   opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost_);
 
   // Add constraints
@@ -100,7 +142,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   for (const std::string& collision_link: collision_group_names) {
     ROS_DEBUG_STREAM("Creating environment collision constraints for link: " << collision_link);
     for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
-      CollisionObject collision_object(sphere, collision_link, environment_collision_padding_);
+      CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, ENVIRONMENT));
       ceres::CostFunction* cost_function = SdfContactConstraint::Create(
             robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_->getSdf(), collision_object);
       std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
@@ -119,7 +161,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   robot_base_tsdf.setTsdfMap(tsdf, self_collision_tsdf_truncation_distance_);
 
   for (const std::string& collision_link: collision_group_names) {
-    if (collision_link == "arm_link_0") { // arm_link_0 is always in collision, TODO remove hardcoded link
+    if (collision_link == "arm_link_0" || collision_link == "arm_link_1") { // arm_link_0 is always in collision, TODO remove hardcoded link
       continue;
     }
 //    ROS_DEBUG_STREAM("Creating self-collision constraints for link: " << collision_link);

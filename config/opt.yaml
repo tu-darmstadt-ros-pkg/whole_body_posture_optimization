@@ -19,12 +19,18 @@ arm_optimization:
     - arm_joint_1
     - arm_joint_2
     #- sensor_head_pitch_joint
-  environment_collision_padding: 0.1
+  environment_collision_default_padding: 0.1
+  environment_collision_padding: {
+      gripper_palm_link: 0.3 
+  }
   self_collision_padding: 0.0
   self_collision_tsdf_truncation_distance: 0.4
   
+  lorentzian_sigma: 0.03
+  regularization_weight: 0.15
+  
   static_link_names:
-   # - chassis_link
+    - chassis_link
     - flipper_link_0
     - flipper_link_1
     - spin_lidar_lidar_mount_link
@@ -35,5 +41,10 @@ flipper_optimization:
   enabled: true
   joints:
     - flipper_joint_1
+    
+  lorentzian_sigma: 0.08
+  regularization_weight: 0.17
+  track_contact_weight: 3
+  body_contact_weight: 3
     
 

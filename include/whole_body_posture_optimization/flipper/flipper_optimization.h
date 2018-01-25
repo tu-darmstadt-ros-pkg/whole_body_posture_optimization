@@ -40,6 +40,8 @@ private:
   std::vector<double> upper_bounds_;
   std::vector<double> lower_bounds_;
 
+  ConvexHullAreaErrorParameters convex_hull_error_parameters_;
+
   ros::Publisher start_state_pub_;
   ros::Publisher result_state_pub_;
   ros::Publisher contact_points_pub_;
