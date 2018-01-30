@@ -1,7 +1,7 @@
 # default
 #default_joint_state: [0, 1, 4.5, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 #default_joint_state: [0, 2, 4.71612, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
-default_joint_state: [0, 2, 5.2, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
+default_joint_state: [0, 1, 5, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 
 
 #default_joint_state: [0, 0.6, 5.2, 0.5, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
@@ -23,11 +23,11 @@ arm_optimization:
   environment_collision_padding: {
       gripper_palm_link: 0.3 
   }
-  self_collision_padding: 0.0
+  self_collision_padding: 0.03
   self_collision_tsdf_truncation_distance: 0.4
   
-  lorentzian_sigma: 0.03
-  regularization_weight: 0.15
+  lorentzian_sigma: 0.1
+  regularization_weight: 0.03
   
   static_link_names:
     - chassis_link

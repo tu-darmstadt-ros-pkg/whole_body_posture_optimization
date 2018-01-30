@@ -49,9 +49,9 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 //    nlopt::opt opt(nlopt::GN_ISRES,  robot_shape_gen_->getDof()); // similar result to direct_l
 
   // Local, derivative-free
-//  nlopt::opt opt(nlopt::LN_COBYLA,  robot_shape_gen_->getDof()); // similar result to direct_l
+//  nlopt::opt opt(nlopt::LN_COBYLA, free_joints_.size()); // similar result to direct_l
 //    nlopt::opt opt(nlopt::LN_NELDERMEAD,  robot_shape_gen_->getDof()); // gets sometimes stuck in bounds
-//    nlopt::opt opt(nlopt::LN_SBPLX,  robot_shape_gen_->getDof()); // similar result to direct_l
+//    nlopt::opt opt(nlopt::LN_SBPLX,  free_joints_.size()); // similar result to direct_l
 
   // Global, derivative
 //  nlopt::opt opt(nlopt::GD_STOGO,  robot_shape_gen_->getDof()); // good result, but sloooow (3x compared to direct_l)

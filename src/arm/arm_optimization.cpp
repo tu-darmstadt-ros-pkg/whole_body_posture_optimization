@@ -38,6 +38,7 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param<std::vector<std::string>>("static_link_names", static_link_names_, static_link_names_);
   nh.param("self_collision_padding", self_collision_padding_, 0.0);
   nh.param("self_collision_tsdf_truncation_distance", self_collision_tsdf_truncation_distance_, 0.4);
+  nh.param("enabled", stability_error_params_.enabled, stability_error_params_.enabled);
   nh.param("lorentzian_sigma", stability_error_params_.lorentzian_sigma, stability_error_params_.lorentzian_sigma);
   nh.param("regularization_weight", stability_error_params_.regularization_weight, stability_error_params_.regularization_weight);
 
@@ -224,7 +225,9 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   auto start = std::chrono::high_resolution_clock::now();
   nlopt::result nlopt_result;
   try {
-    nlopt_result = opt.optimize(parameters, minf);
+    if (stability_error_params_.enabled) {
+      nlopt_result = opt.optimize(parameters, minf);
+    }
   }
   catch (std::invalid_argument e) {
     ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());

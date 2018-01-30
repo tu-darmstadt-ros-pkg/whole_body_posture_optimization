@@ -53,6 +53,7 @@ private:
 };
 
 struct StabilityErrorParameters {
+  bool enabled = true;
   double regularization_weight = 0.05;
   double lorentzian_sigma = 0.1;
 };

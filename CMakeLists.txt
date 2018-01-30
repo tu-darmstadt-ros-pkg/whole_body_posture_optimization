@@ -45,6 +45,7 @@ set(HEADERS
   include/${PROJECT_NAME}/arm/self_contact_constraint.h
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
   include/${PROJECT_NAME}/flipper/convex_hull_area_error.h
+  include/${PROJECT_NAME}/timing.h
 )
 
 set(SOURCES
