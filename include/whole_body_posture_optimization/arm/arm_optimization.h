@@ -56,6 +56,8 @@ private:
   // Optimization parameters
   StabilityErrorParameters stability_error_params_;
 
+  std::shared_ptr<voxblox::TsdfMap> partial_robot_tsdf_;
+  std::vector<std::string> semi_static_link_names_;
   std::vector<std::string> static_link_names_;
   double self_collision_padding_;
   double self_collision_tsdf_truncation_distance_;

@@ -97,15 +97,29 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   computeCenterOfMass(joint_angles, com, jacobian);
 }
 
-std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, double truncation_distance)
+std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance)
 {
-//  ROS_INFO_STREAM("Creating tsdf from robot model");
   // Create empty SDF
-  const double voxel_size = 0.05;
+  const float voxel_size = 0.05;
   voxblox::TsdfMap::Config tsdf_config;
-  tsdf_config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(voxel_size); // TODO parameter
-  std::shared_ptr<voxblox::TsdfMap> tsdf;
-  tsdf.reset(new voxblox::TsdfMap(tsdf_config));
+  tsdf_config.tsdf_voxel_size = voxel_size; // TODO parameter
+  std::shared_ptr<voxblox::TsdfMap> tsdf = std::make_shared<voxblox::TsdfMap>(tsdf_config);
+
+  computeTsdfFromRobotModel(link_names, truncation_distance, tsdf);
+
+  return tsdf;
+}
+
+std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance,
+                                                                  const std::shared_ptr<voxblox::TsdfMap> &init_tsdf)
+{
+  if (!init_tsdf) {
+    ROS_ERROR_STREAM("TSDF is null");
+    return std::shared_ptr<voxblox::TsdfMap>();
+  }
+
+  // Create copy
+  std::shared_ptr<voxblox::TsdfMap> tsdf = std::make_shared<voxblox::TsdfMap>(init_tsdf->getTsdfLayer());
 
   // Iterate over requested links
   for (const std::string& link_name: link_names) {
@@ -125,15 +139,16 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
     sphere_representation->updatePose(moveit_robot_state_->getGlobalLinkTransform(link_name));
     // Iterate over spheres and compute sdf
     for (unsigned int j = 0; j < sphere_representation->getCollisionSpheres().size(); j++) {
-      const Eigen::Vector3d& center = sphere_representation->getSphereCenters()[j];
+      Eigen::Vector3f center = sphere_representation->getSphereCenters()[j].cast<float>();
       double radius = sphere_representation->getCollisionSpheres()[j].radius_;
 
       // Cube around center with size radius + truncation_distance
-      for (double x = center.x() - radius - truncation_distance; x < center.x() + radius + truncation_distance; x += voxel_size) {
-        for (double y = center.y() - radius - truncation_distance; y < center.y() + radius + truncation_distance; y += voxel_size) {
-          for (double z = center.z() - radius - truncation_distance; z < center.z() + radius + truncation_distance; z += voxel_size) {
-            Eigen::Vector3d point(x, y, z);
-            float distance = static_cast<float>((center - point).norm() - radius);
+      float voxel_size = tsdf->getTsdfLayerPtr()->voxel_size();
+      for (float x = center.x() - radius - truncation_distance; x < center.x() + radius + truncation_distance; x += voxel_size) {
+        for (float y = center.y() - radius - truncation_distance; y < center.y() + radius + truncation_distance; y += voxel_size) {
+          for (float z = center.z() - radius - truncation_distance; z < center.z() + radius + truncation_distance; z += voxel_size) {
+            Eigen::Vector3f point(x, y, z);
+            float distance = (center - point).norm() - radius;
 
             voxblox::Point vpoint(x, y, z);
             voxblox::Layer<voxblox::TsdfVoxel>::BlockType::Ptr block_ptr = tsdf->getTsdfLayerPtr()->allocateBlockPtrByCoordinates(vpoint);
@@ -155,6 +170,7 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
       }
     }
   }
+
   return tsdf;
 }
 

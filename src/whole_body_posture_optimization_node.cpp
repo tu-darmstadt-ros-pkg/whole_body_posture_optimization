@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
     po.computeTimedTrajectory(result);
   }
 
-  whole_body_posture_optimization::Timing::printAverageTimes();
+  whole_body_posture_optimization::Timing::printTimeInfos();
 
   ros::spin();
 

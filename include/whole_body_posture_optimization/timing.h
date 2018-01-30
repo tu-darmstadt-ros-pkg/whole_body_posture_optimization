@@ -4,11 +4,22 @@
 #include <ros/ros.h>
 
 #include <iostream>
+#include <sstream>
 #include <stack>
 #include <unordered_map>
 #include <chrono>
 
 namespace whole_body_posture_optimization {
+
+// Allocates memory for static variables, use in .cpp
+  #define INIT_TIMING \
+  int whole_body_posture_optimization::IDFactory::id = 0; \
+  std::unordered_map<int, whole_body_posture_optimization::TimingInfo> whole_body_posture_optimization::Timing::timing_infos_; \
+  std::stack<whole_body_posture_optimization::TimePoint> whole_body_posture_optimization::Timing::timing_stack_; \
+  bool whole_body_posture_optimization::Timing::dont_print_times_ = false; \
+  unsigned int whole_body_posture_optimization::Timing::start_counter_ = 0; \
+  unsigned int whole_body_posture_optimization::Timing::stop_counter_ = 0; \
+
   #define START_TIMING(timerName) \
   Timing::startTiming(timerName);
 
@@ -20,29 +31,19 @@ namespace whole_body_posture_optimization {
 
   #define STOP_TIMING_AVG \
   { \
-  static int timing_timerId = -1; \
-  Timing::stopTiming(false, timing_timerId); \
+  static int timer_id = -1; \
+  Timing::stopTiming(false, timer_id); \
   }
 
   #define STOP_TIMING_AVG_PRINT \
   { \
-  static int timing_timerId = -1; \
-  Timing::stopTiming(true, timing_timerId); \
+  static int timer_id = -1; \
+  Timing::stopTiming(true, timer_id); \
   }
-
-#define INIT_TIMING \
-  int whole_body_posture_optimization::IDFactory::id = 0; \
-  std::unordered_map<int, whole_body_posture_optimization::AverageTime> whole_body_posture_optimization::Timing::m_averageTimes; \
-  std::stack<whole_body_posture_optimization::TimingHelper> whole_body_posture_optimization::Timing::m_timingStack; \
-  bool whole_body_posture_optimization::Timing::m_dontPrintTimes = false; \
-  unsigned int whole_body_posture_optimization::Timing::m_startCounter = 0; \
-  unsigned int whole_body_posture_optimization::Timing::m_stopCounter = 0;
-
-
 
   /** \brief Struct to store a time measurement.
   */
-  struct TimingHelper
+  struct TimePoint
   {
     std::chrono::time_point<std::chrono::high_resolution_clock> start;
     std::string name;
@@ -50,9 +51,9 @@ namespace whole_body_posture_optimization {
 
   /** \brief Struct to store the total time and the number of steps in order to compute the average time.
   */
-  struct AverageTime
+  struct TimingInfo
   {
-    double totalTime;
+    double total_time;
     unsigned int counter;
     std::string name;
   };
@@ -75,43 +76,43 @@ namespace whole_body_posture_optimization {
   class Timing
   {
   public:
-    static bool m_dontPrintTimes;
-    static unsigned int m_startCounter;
-    static unsigned int m_stopCounter;
-    static std::stack<TimingHelper> m_timingStack;
-    static std::unordered_map<int, AverageTime> m_averageTimes;
+    static bool dont_print_times_;
+    static unsigned int start_counter_;
+    static unsigned int stop_counter_;
+    static std::stack<TimePoint> timing_stack_;
+    static std::unordered_map<int, TimingInfo> timing_infos_;
 
     static void reset()
     {
-      while (!m_timingStack.empty())
-        m_timingStack.pop();
-      m_averageTimes.clear();
-      m_startCounter = 0;
-      m_stopCounter = 0;
+      while (!timing_stack_.empty())
+        timing_stack_.pop();
+      timing_infos_.clear();
+      start_counter_ = 0;
+      stop_counter_ = 0;
     }
 
     static void startTiming(const std::string& name = std::string(""))
     {
-      TimingHelper h;
-      h.start = std::chrono::high_resolution_clock::now();
-      h.name = name;
-      Timing::m_timingStack.push(h);
-      Timing::m_startCounter++;
+      TimePoint tp;
+      tp.start = std::chrono::high_resolution_clock::now();
+      tp.name = name;
+      Timing::timing_stack_.push(tp);
+      Timing::start_counter_++;
     }
 
     static double stopTiming(bool print = true)
     {
-      if (!Timing::m_timingStack.empty())
+      if (!Timing::timing_stack_.empty())
       {
-        Timing::m_stopCounter++;
+        Timing::stop_counter_++;
         std::chrono::time_point<std::chrono::high_resolution_clock> stop = std::chrono::high_resolution_clock::now();
-        TimingHelper h = Timing::m_timingStack.top();
-        Timing::m_timingStack.pop();
-        std::chrono::duration<double> elapsed_seconds = stop - h.start;
+        TimePoint tp = Timing::timing_stack_.top();
+        Timing::timing_stack_.pop();
+        std::chrono::duration<double> elapsed_seconds = stop - tp.start;
         double t = elapsed_seconds.count() * 1000.0;
 
         if (print)
-          ROS_INFO_STREAM("time " << h.name.c_str() << ": " << t << " ms");
+          ROS_INFO_STREAM("Time '" << tp.name.c_str() << "': " << t << " ms");
         return t;
       }
       return 0;
@@ -121,35 +122,35 @@ namespace whole_body_posture_optimization {
     {
       if (id == -1)
         id = IDFactory::getId();
-      if (!Timing::m_timingStack.empty())
+      if (!Timing::timing_stack_.empty())
       {
-        Timing::m_stopCounter++;
+        Timing::stop_counter_++;
         std::chrono::time_point<std::chrono::high_resolution_clock> stop = std::chrono::high_resolution_clock::now();
-        TimingHelper h = Timing::m_timingStack.top();
-        Timing::m_timingStack.pop();
+        TimePoint tp = Timing::timing_stack_.top();
+        Timing::timing_stack_.pop();
 
-        std::chrono::duration<double> elapsed_seconds = stop - h.start;
+        std::chrono::duration<double> elapsed_seconds = stop - tp.start;
         double t = elapsed_seconds.count() * 1000.0;
 
-        if (print && !Timing::m_dontPrintTimes)
-          ROS_INFO_STREAM("time " << h.name.c_str() << ": " << t << " ms");
+        if (print && !Timing::dont_print_times_)
+          ROS_INFO_STREAM("Time " << tp.name.c_str() << ": " << t << " ms");
 
         if (id >= 0)
         {
-          std::unordered_map<int, AverageTime>::iterator iter;
-          iter = Timing::m_averageTimes.find(id);
-          if (iter != Timing::m_averageTimes.end())
+          std::unordered_map<int, TimingInfo>::iterator iter;
+          iter = Timing::timing_infos_.find(id);
+          if (iter != Timing::timing_infos_.end())
           {
-            Timing::m_averageTimes[id].totalTime += t;
-            Timing::m_averageTimes[id].counter++;
+            Timing::timing_infos_[id].total_time += t;
+            Timing::timing_infos_[id].counter++;
           }
           else
           {
-            AverageTime at;
+            TimingInfo at;
             at.counter = 1;
-            at.totalTime = t;
-            at.name = h.name;
-            Timing::m_averageTimes[id] = at;
+            at.total_time = t;
+            at.name = tp.name;
+            Timing::timing_infos_[id] = at;
           }
         }
         return t;
@@ -157,32 +158,65 @@ namespace whole_body_posture_optimization {
       return 0;
     }
 
-    static void printAverageTimes()
-    {
-      std::unordered_map<int, AverageTime>::iterator iter;
-      for (iter = Timing::m_averageTimes.begin(); iter != Timing::m_averageTimes.end(); iter++)
-      {
-        AverageTime &at = iter->second;
-        const double avgTime = at.totalTime / at.counter;
-        ROS_INFO_STREAM("Average time " << at.name.c_str() << ": " << avgTime << " ms");
+    static std::string line(int length) {
+      std::string l = "";
+      for (unsigned int i = 0; i < length; i++) {
+        l += "-";
       }
-      if (Timing::m_startCounter != Timing::m_stopCounter)
-        ROS_INFO_STREAM("Problem: " << Timing::m_startCounter << " calls of startTiming and " << Timing::m_stopCounter << " calls of stopTiming.");
-      ROS_INFO_STREAM("---------------------------------------------------------------------------\n");
+      return l;
+    }
+
+    static void printTimeInfos()
+    {
+      // Find longest name
+      int column_width_name = 0;
+      for (auto it = begin(Timing::timing_infos_); it != end(Timing::timing_infos_); ++it) {
+        const TimingInfo &info = it->second;
+        if (info.name.size() > column_width_name) {
+          column_width_name = info.name.size();
+        }
+      }
+      const int column_width_avg = 10;
+      const int column_width_sum = 10;
+      const int column_width_count = 10;
+      std::stringstream ss;
+      ss << "TIMING INFOS:" << std::endl;
+      ss << "|" << std::setw(column_width_name) << "Name " << "|" << std::setw(column_width_avg) << "Avg (ms)" << "|" << std::setw(column_width_sum) << "Sum (ms)" << "|"
+         << std::setw(column_width_count) << "Count" << "|" << std::endl;
+      ss << line(column_width_name + column_width_avg + column_width_sum + column_width_count + 5) << std::endl;
+      for (auto it = begin(Timing::timing_infos_); it != end(Timing::timing_infos_); ++it) {
+        const TimingInfo &info = it->second;
+        double avg = info.total_time / info.counter;
+        ss << "|" << std::setw(column_width_name) << info.name << "|" << std::setw(column_width_avg) << avg << "|" << std::setw(column_width_sum) << info.total_time << "|"
+           << std::setw(column_width_count) << info.counter << "|" << std::endl;
+      }
+      ROS_INFO_STREAM(ss.str());
+    }
+
+    static void printAverageTimes()
+    {   
+      std::unordered_map<int, TimingInfo>::iterator iter;
+      for (iter = Timing::timing_infos_.begin(); iter != Timing::timing_infos_.end(); iter++)
+      {
+        const TimingInfo &at = iter->second;
+        double avgTime = at.total_time / at.counter;
+        ROS_INFO_STREAM("Average time '" << at.name.c_str() << "': " << avgTime << " ms [" << at.counter << "]");
+      }
+      if (Timing::start_counter_ != Timing::stop_counter_)
+        ROS_INFO_STREAM("Problem: " << Timing::start_counter_ << " calls of startTiming and " << Timing::stop_counter_ << " calls of stopTiming.");
     }
 
     static void printTimeSums()
     {
-      std::unordered_map<int, AverageTime>::iterator iter;
-      for (iter = Timing::m_averageTimes.begin(); iter != Timing::m_averageTimes.end(); iter++)
+      std::unordered_map<int, TimingInfo>::iterator iter;
+      for (iter = Timing::timing_infos_.begin(); iter != Timing::timing_infos_.end(); iter++)
       {
-        AverageTime &at = iter->second;
-        const double timeSum = at.totalTime;
+        const TimingInfo &at = iter->second;
+        const double timeSum = at.total_time;
         ROS_INFO_STREAM("Time sum " << at.name.c_str() << ": " << timeSum << " ms");
       }
-      if (Timing::m_startCounter != Timing::m_stopCounter)
-        ROS_INFO_STREAM("Problem: " << Timing::m_startCounter << " calls of startTiming and " << Timing::m_stopCounter << " calls of stopTiming. ");
-        ROS_INFO_STREAM("---------------------------------------------------------------------------\n");
+      if (Timing::start_counter_ != Timing::stop_counter_)
+        ROS_INFO_STREAM("Problem: " << Timing::start_counter_ << " calls of startTiming and " << Timing::stop_counter_ << " calls of stopTiming. ");
     }
   };
 }

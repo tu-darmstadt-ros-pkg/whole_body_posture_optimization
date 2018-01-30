@@ -1,5 +1,7 @@
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
 
+#include <whole_body_posture_optimization/timing.h>
+
 namespace whole_body_posture_optimization {
 
 FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel> &robot_model, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
@@ -83,6 +85,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   robot_shape_gen_->updateShape(parameters);
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
 
+  START_TIMING("Flipper optimization");
   double minf;
   auto start = std::chrono::high_resolution_clock::now();
   nlopt::result nlopt_result;
@@ -98,6 +101,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   catch (std::runtime_error e) {
     ROS_ERROR_STREAM("Optimization failed: " << e.what());
   }
+  STOP_TIMING_AVG;
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Flipper optimization took " << support_area_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms.");
