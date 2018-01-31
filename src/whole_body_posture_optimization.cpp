@@ -12,6 +12,10 @@
 
 #include <voxblox/io/layer_io.h>
 
+#include <whole_body_posture_optimization/timing.h>
+
+INIT_TIMING
+
 namespace whole_body_posture_optimization {
 
 WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle& nh, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen)
@@ -120,6 +124,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
                                                                            const std::vector<double> &previous_joint_angles,
                                                                            const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
 {
+  START_TIMING("findOptimalPosture");
   Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
   Eigen::Vector3d xyz = pose.translation();
   ROS_INFO_STREAM("**********************************************");
@@ -167,6 +172,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   robot_model_->publishRobotState();
   robot_model_->publishCollisionSpheres();
 //  robot_model_->publishRobotTsdf();
+
+  STOP_TIMING_AVG;
 
   return result;
 }

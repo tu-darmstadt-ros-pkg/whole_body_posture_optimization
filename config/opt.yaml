@@ -27,12 +27,15 @@ arm_optimization:
   self_collision_tsdf_truncation_distance: 0.4
   
   lorentzian_sigma: 0.1
-  regularization_weight: 0.03
+  regularization_weight: 0.02
+  
+  # moveable, but static regarding arm optimization
+  semi_static_link_names:
+    - flipper_link_0
+    - flipper_link_1
   
   static_link_names:
     - chassis_link
-    - flipper_link_0
-    - flipper_link_1
     - spin_lidar_lidar_mount_link
     - spin_lidar_pitch_hokuyo_laser_frame
     - structure_addons_link

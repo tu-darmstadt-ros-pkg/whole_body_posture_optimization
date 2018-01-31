@@ -2,6 +2,7 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 #include <sdf_contact_estimation/test_scenarios.h>
 #include <sdf_contact_estimation/body_shapes/argo_tracker_robot_shape.h>
+#include <whole_body_posture_optimization/timing.h>
 
 bool pose_updated_;
 Eigen::Affine3d robot_pose_;
@@ -116,6 +117,8 @@ int main(int argc, char** argv) {
     auto result = po.findOptimalPostures(path);
     po.computeTimedTrajectory(result);
   }
+
+  whole_body_posture_optimization::Timing::printTimeInfos();
 
   ros::spin();
 
