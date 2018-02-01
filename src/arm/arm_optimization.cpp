@@ -67,7 +67,7 @@ double ArmOptimization::getJointPadding(std::string joint_name, CollisionType co
     try {
       padding = padding_map->at(joint_name);
       found = true;
-      ROS_INFO_STREAM("Using padding " << padding << " for link '" << joint_name << "'.");
+      ROS_DEBUG_STREAM("Using padding " << padding << " for link '" << joint_name << "'.");
     }  catch (const std::out_of_range&) {
       found = false;
     }
