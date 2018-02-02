@@ -67,7 +67,6 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   rbdl::Math::VectorNd q(joint_angles.size());
   rbdl::Math::VectorNd qdot(joint_angles.size());
   for (unsigned int i = 0; i < joint_angles.size(); i++) {
-//    ROS_INFO_STREAM("Body name: " << joint_names_[i] << ", " << joint_angles[i]);
     q(i) = joint_angles[i];
     qdot(i) = 0;
   }

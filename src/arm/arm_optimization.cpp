@@ -116,7 +116,7 @@ std::vector<double> ArmOptimization::jointVectorToParamVector(const std::vector<
 ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose,
                                                 const std::vector<double>& previous_joint_angles)
 {
-  ROS_INFO_STREAM("Starting arm optimization");
+//  ROS_INFO_STREAM("Starting arm optimization");
   nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
 //  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size());
 //    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
@@ -126,8 +126,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   opt.set_lower_bounds(lower_bounds_);
   opt.set_upper_bounds(upper_bounds_);
 
-  ROS_INFO_STREAM("lower bounds: " << ceres_nlopt_wrapper::vecToString(lower_bounds_));
-  ROS_INFO_STREAM("upper bounds: " << ceres_nlopt_wrapper::vecToString(upper_bounds_));
+//  ROS_INFO_STREAM("lower bounds: " << ceres_nlopt_wrapper::vecToString(lower_bounds_));
+//  ROS_INFO_STREAM("upper bounds: " << ceres_nlopt_wrapper::vecToString(upper_bounds_));
 
   // Add objective function
   std::vector<double> previous_parameters = jointVectorToParamVector(previous_joint_angles);
@@ -159,7 +159,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
     }
   }
-  ROS_INFO_STREAM("Created " << environment_constraints.size() << " environment collision constraints.");
+//  ROS_INFO_STREAM("Created " << environment_constraints.size() << " environment collision constraints.");
   STOP_TIMING_AVG;
 
   // self-collision tsdf constraints
@@ -185,7 +185,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
     }
   }
-  ROS_INFO_STREAM("Created " << self_collision_tsdf_constraints.size() << " self-collision tsdf constraints.");
+//  ROS_INFO_STREAM("Created " << self_collision_tsdf_constraints.size() << " self-collision tsdf constraints.");
   STOP_TIMING_AVG;
 
   // self-collision distance constraints
@@ -221,7 +221,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       }
     }
   }
-  ROS_INFO_STREAM("Created " << self_collision_constraints.size() << " self-collision constraints.");
+//  ROS_INFO_STREAM("Created " << self_collision_constraints.size() << " self-collision constraints.");
   STOP_TIMING_AVG;
 
   // Set convergence criterion
@@ -256,8 +256,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Arm optimization took " << stability_cost_.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms.");
 
-  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
-  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
+//  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
+//  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
 
   // Check for collisions in solution  
   std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
@@ -295,8 +295,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   visualization_msgs::MarkerArray convex_hull_array_msg;
   sdf_contact_estimation::createPointMarkerArray(contact_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_points, com_pose.translation());
-  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-  ROS_INFO_STREAM("Stability after arm optimization: " << stability_min);
+//  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
+//  ROS_INFO_STREAM("Stability after arm optimization: " << stability_min);
   createConvexHullMarkerArray(contact_points, stabilities, convex_hull_array_msg);
   sdf_contact_estimation::deleteAllMarkers(convex_hull_pub_);
   convex_hull_pub_.publish(convex_hull_array_msg);

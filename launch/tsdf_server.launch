@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch> 
-    <node name="tsdf_server" pkg="voxblox_ros" type="tsdf_server" respawn="false" output="screen">
+    <node name="tsdf_server" pkg="voxblox_ros" type="tsdf_server" respawn="true" output="screen">
     <param name="world_frame" value="world"/>
     <param name="publish_tsdf_map" value="false"/>
     <param name="update_mesh_every_n_sec" value="1.0" />

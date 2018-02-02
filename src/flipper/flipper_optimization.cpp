@@ -39,7 +39,7 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
 FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_joint_angles,
                                                         const std::vector<double> &previous_joint_angles, const sdf_contact_estimation::ContactEstimationResult &init_contact)
 {
-  ROS_INFO_STREAM("Starting flipper optimization");
+//  ROS_INFO_STREAM("Starting flipper optimization");
   Eigen::Vector3d com_pos = base_to_com.translation();
   ROS_DEBUG_STREAM("COM position: [" << com_pos[0] << ", " << com_pos[1] << ", " << com_pos[2] << "]");
   // Global, derivative-free
@@ -106,8 +106,8 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Flipper optimization took " << support_area_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms.");
 
-  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
-  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
+//  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
+//  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
 
   FlipperOptimizationResult result;
   result.flipper_angles = parameters;
@@ -126,8 +126,8 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   Eigen::Affine3d result_com_pose = result.contact_result.estimated_pose * base_to_com;
   sdf_contact_estimation::publishPose(result_com_pub_, result_com_pose, "world");
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.contact_result.convex_hull_points, result_com_pose.translation());
-  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-  ROS_INFO_STREAM("Stability after flipper optimization: " << stability_min);
+//  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
+//  ROS_INFO_STREAM("Stability after flipper optimization: " << stability_min);
   createConvexHullMarkerArray(result.contact_result.convex_hull_points, stabilities, contact_points_array_msg);
   sdf_contact_estimation::deleteAllMarkers(contact_points_pub_);
   contact_points_pub_.publish(contact_points_array_msg);
