@@ -136,7 +136,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   result.init_joint_angles = init_joint_angles;
 
   // TODO we should be able to just take this from the previous time step. com shouldn't have changed
-  robot_model_->computeCenterOfMass(init_joint_angles, result.init_com);
+  robot_model_->computeCenterOfMass(previous_joint_angles, result.init_com);
   Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity();
   base_to_com.translation() = result.init_com;
 

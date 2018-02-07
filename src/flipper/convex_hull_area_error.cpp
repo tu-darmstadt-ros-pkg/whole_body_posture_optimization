@@ -26,20 +26,20 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 //    regularisation_cost += pow(diff, 2);
   }
 
-  double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
-  double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
-  cost[0] = -result.support_area - parameters_.track_contact_weight * track_contact_pct + parameters_.body_contact_weight * body_contact_pct
-      + parameters_.regularization_weight * regularization_cost;
+//  double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
+//  double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
+//  cost[0] = -result.support_area - parameters_.track_contact_weight * track_contact_pct + parameters_.body_contact_weight * body_contact_pct
+//      + parameters_.regularization_weight * regularization_cost;
 
-//  Eigen::Affine3d com_pose = result.estimated_pose * base_to_com_;
-//  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.convex_hull_points, com_pose.translation());
-//  std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [](double stability) -> double { return 1.0/(pow(std::max(stability, 0.01), 2)); });
-//  double stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), 0.0);
-//  stability_sum /= stabilities.size(); // normalize by number of axes
-////  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-////  double stability_sum = std::accumulate(begin(stabilities), end(stabilities), 0.0);
-////  ROS_INFO_STREAM("Stability: " << stability_min);
-//  cost[0] = stability_sum + parameters_.regularization_weight * regularization_cost;
+  Eigen::Affine3d com_pose = result.estimated_pose * base_to_com_;
+  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.convex_hull_points, com_pose.translation());
+  std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [](double stability) -> double { return 1.0/(pow(std::max(stability, 0.01), 2)); });
+  double stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), 0.0);
+  stability_sum /= stabilities.size(); // normalize by number of axes
+//  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
+//  double stability_sum = std::accumulate(begin(stabilities), end(stabilities), 0.0);
+//  ROS_INFO_STREAM("Stability: " << stability_min);
+  cost[0] = stability_sum + parameters_.regularization_weight * regularization_cost;
   return true;
 }
 

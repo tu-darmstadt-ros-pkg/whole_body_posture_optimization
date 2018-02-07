@@ -55,6 +55,7 @@ namespace whole_body_posture_optimization {
   */
   struct TimingInfo
   {
+    double max;
     double total_time;
     unsigned int counter;
     std::string name;
@@ -145,14 +146,18 @@ namespace whole_body_posture_optimization {
           {
             Timing::timing_infos_[id].total_time += t;
             Timing::timing_infos_[id].counter++;
+            if (t > Timing::timing_infos_[id].max) {
+              Timing::timing_infos_[id].max = t;
+            }
           }
           else
           {
-            TimingInfo at;
-            at.counter = 1;
-            at.total_time = t;
-            at.name = tp.name;
-            Timing::timing_infos_[id] = at;
+            TimingInfo ti;
+            ti.counter = 1;
+            ti.max = t;
+            ti.total_time = t;
+            ti.name = tp.name;
+            Timing::timing_infos_[id] = ti;
           }
         }
         return t;
@@ -173,18 +178,20 @@ namespace whole_body_posture_optimization {
         }
       }
       const int column_width_avg = 10;
+      const int column_width_max = 10;
       const int column_width_sum = 10;
       const int column_width_count = 10;
       std::stringstream ss;
       ss << "TIMING INFOS:" << std::endl;
-      ss << "|" << std::setw(column_width_name) << "Name " << "|" << std::setw(column_width_avg) << "Avg (ms)" << "|" << std::setw(column_width_sum) << "Sum (ms)" << "|"
-         << std::setw(column_width_count) << "Count" << "|" << std::endl;
-      ss << line(column_width_name + column_width_avg + column_width_sum + column_width_count + 5) << std::endl;
+      ss << "|" << std::setw(column_width_name) << "Name " << "|" << std::setw(column_width_avg) << "Avg (ms)" << "|" << std::setw(column_width_max) << "Max (ms)" << "|"
+         << std::setw(column_width_sum) << "Sum (ms)" << "|" << std::setw(column_width_count) << "Count" << "|" << std::endl;
+      ss << line(column_width_name + column_width_avg + column_width_max + column_width_sum + column_width_count + 5) << std::endl;
+
       for (auto it = begin(Timing::timing_infos_); it != end(Timing::timing_infos_); ++it) {
         const TimingInfo &info = it->second;
         double avg = info.total_time / info.counter;
-        ss << "|" << std::setw(column_width_name) << info.name << "|" << std::setw(column_width_avg) << avg << "|" << std::setw(column_width_sum) << info.total_time << "|"
-           << std::setw(column_width_count) << info.counter << "|" << std::endl;
+        ss << "|" << std::setw(column_width_name) << info.name << "|" << std::setw(column_width_avg) << avg << "|" << std::setw(column_width_max) << info.max << "|"
+           << std::setw(column_width_sum) << info.total_time << "|" << std::setw(column_width_count) << info.counter << "|" << std::endl;
       }
       ROS_INFO_STREAM(ss.str());
     }
