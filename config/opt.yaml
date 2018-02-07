@@ -26,7 +26,7 @@ arm_optimization:
   self_collision_padding: 0.05
   self_collision_tsdf_truncation_distance: 0.4
   
-  lorentzian_sigma: 0.1
+  lorentzian_sigma: 0.2
   regularization_weight: 0.02
   
   # moveable, but static regarding arm optimization
@@ -46,8 +46,8 @@ flipper_optimization:
     - flipper_joint_1
     
   lorentzian_sigma: 0.08
-  regularization_weight: 0.17
-  track_contact_weight: 3
+  regularization_weight: 0.08
+  track_contact_weight: 2
   body_contact_weight: 3
     
 

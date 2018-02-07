@@ -12,6 +12,7 @@
 namespace whole_body_posture_optimization {
 
 struct PostureOptimizationResult {
+  Eigen::Affine3d requested_pose;
   std::vector<double> init_joint_angles;
   std::vector<double> result_joint_angles;
 
@@ -20,6 +21,10 @@ struct PostureOptimizationResult {
 
   Eigen::Vector3d init_com;
   Eigen::Vector3d result_com;
+
+  double initial_stability;
+  double stability_flipper_opt;
+  double stability_arm_opt;
 };
 
 class WholeBodyPostureOptimization {
@@ -39,6 +44,8 @@ public:
   PostureOptimizationResult findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_state, const std::vector<double> &previous_joint_angles);
   std::vector<robot_trajectory::RobotTrajectory> computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
   void publishTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &robot_trajectory);
+
+  static void printResultInfo(const std::vector<PostureOptimizationResult>& results);
 private:
   ros::NodeHandle nh_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;

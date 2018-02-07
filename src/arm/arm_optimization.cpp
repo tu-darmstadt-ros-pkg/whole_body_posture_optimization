@@ -117,8 +117,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
                                                 const std::vector<double>& previous_joint_angles)
 {
 //  ROS_INFO_STREAM("Starting arm optimization");
-  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
-//  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size());
+//  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
+  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size());
 //    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
 
 
@@ -226,8 +226,9 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
-  opt.set_ftol_rel(1e-3);
-  opt.set_maxeval(100);
+//  opt.set_ftol_rel(1e-3);
+  opt.set_maxeval(200);
+  opt.set_maxtime(0.050);
 //  opt.set_ftol_abs(0.01);
 
   // Fill in initial joint state (from previous time step)
@@ -295,7 +296,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   visualization_msgs::MarkerArray convex_hull_array_msg;
   sdf_contact_estimation::createPointMarkerArray(contact_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_points, com_pose.translation());
-//  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
+  result.stability = *std::min_element(stabilities.begin(), stabilities.end());
 //  ROS_INFO_STREAM("Stability after arm optimization: " << stability_min);
   createConvexHullMarkerArray(contact_points, stabilities, convex_hull_array_msg);
   sdf_contact_estimation::deleteAllMarkers(convex_hull_pub_);

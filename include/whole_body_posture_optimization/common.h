@@ -67,6 +67,8 @@ void createConvexHullMarkerArray(const std::vector<Eigen::Vector3d>& points, con
 void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Affine3d& pose);
 //void updateState(robot_state::RobotState &state, const std::vector<double>& angles);
 
+std::string line(int length);
+
 }
 
 #endif

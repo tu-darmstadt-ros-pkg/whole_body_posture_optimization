@@ -132,6 +132,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   ROS_INFO_STREAM("**********************************************");
 
   PostureOptimizationResult result;
+  result.requested_pose = pose;
   result.init_joint_angles = init_joint_angles;
 
   // TODO we should be able to just take this from the previous time step. com shouldn't have changed
@@ -146,27 +147,27 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   } else {
     updated_init_contact = flipper_optimization_->computeContactEstimation(init_joint_angles, pose, base_to_com);
   }
-
   if (updated_init_contact.convex_hull_points.empty()) {
     ROS_WARN_STREAM("Updated init contact estimation failed.");
 //    result.result_joint_angles = init_joint_angles;
       updated_init_contact.estimated_pose = pose;
+  } else {
+    result.initial_stability = updated_init_contact.min_stability;
   }
 
   FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(updated_init_contact.estimated_pose, base_to_com, init_joint_angles, previous_joint_angles,
                                                                              updated_init_contact);
   result.result_contact = flipper_result.contact_result;
   result.result_joint_angles = flipper_result.joint_state;
+  result.stability_flipper_opt = flipper_result.contact_result.min_stability;
 
 
 
   ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points,
                                                                  flipper_result.contact_result.estimated_pose, previous_joint_angles);
-//  ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points,
-//                                                                 flipper_result.contact_result.estimated_pose, getDefaultJointPositions());
-//  ArmOptimizationResult arm_result = arm_optimization_->optimize(init_joint_state, updated_init_contact.convex_hull_points, updated_init_contact.estimated_pose);
   result.result_joint_angles = arm_result.joint_angles;
   result.result_com = arm_result.center_of_mass;
+  result.stability_arm_opt = arm_result.stability;
 
   robot_model_->updateRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
   robot_model_->publishRobotState();
@@ -213,7 +214,12 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
   robot_trajectory::RobotTrajectory trajectory_tmp(robot_model_->getMoveitRobotModel(), group_with_world);
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     // set start state
-    robot_model_->updateRobotState(opt_result[i].result_contact.estimated_pose, opt_result[i].result_joint_angles);
+    // x and y are taken from original path to prevent reversing during execution
+    Eigen::Affine3d robot_pose(opt_result[i].result_contact.estimated_pose);
+    robot_pose.translation() = Eigen::Vector3d(opt_result[i].requested_pose.translation().x(),
+                                               opt_result[i].requested_pose.translation().y(),
+                                               opt_result[i].result_contact.estimated_pose.translation().z());
+    robot_model_->updateRobotState(robot_pose, opt_result[i].result_joint_angles);
     robot_state::RobotState start_state = robot_model_->getMoveitRobotState();
     planning_scene->setCurrentState(start_state);
     moveit::core::robotStateToRobotStateMsg(start_state, req.start_state);
@@ -267,6 +273,12 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Trajectory planning took " << elapsed.count() << " s.");
+
+  double duration = 0.0;
+  for (const robot_trajectory::RobotTrajectory& trajectory: trajectories) {
+    duration += trajectory.getWayPointDurationFromStart(trajectory.getWayPointCount()-1);
+  }
+  ROS_INFO_STREAM("Trajectory duration: " << duration << " s.");
   return trajectories;
 }
 
@@ -289,6 +301,33 @@ void WholeBodyPostureOptimization::publishTrajectory(const std::vector<robot_tra
   }
 
   trajectory_pub_.publish(display_msg);
+}
+
+void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOptimizationResult> &results)
+{
+  std::vector<std::string> names = {"initial_stability", "flipper_opt", "arm_opt"};
+  std::vector<std::vector<double>> stabilities(names.size());
+  for (const PostureOptimizationResult& result: results) {
+    stabilities[0].push_back(result.initial_stability);
+    stabilities[1].push_back(result.stability_flipper_opt);
+    stabilities[2].push_back(result.stability_arm_opt);
+  }
+
+  const int column_width_name = 20;
+  const int column_width_avg = 10;
+  const int column_width_min = 10;
+  std::stringstream ss;
+  ss << "STABILITY INFOS:" << std::endl;
+  ss << "|" << std::setw(column_width_name) << "Name " << "|" << std::setw(column_width_avg) << "Avg" << "|" << std::setw(column_width_min) << "Min" << "|" << std::endl;
+  ss << line(column_width_name + column_width_avg + column_width_min + 5) << std::endl;
+  for (unsigned int i = 0; i < stabilities.size(); i++) {
+    std::string name = names[i];
+    const std::vector<double>& s = stabilities[i];
+    double min = *std::min_element(begin(s), end(s));
+    double avg = std::accumulate(begin(s), end(s), 0.0)/s.size();
+    ss << "|" << std::setw(column_width_name) << name << "|" << std::setw(column_width_avg) << avg << "|" << std::setw(column_width_min) << min << "|" << std::endl;
+  }
+  ROS_INFO_STREAM(ss.str());
 }
 
 }

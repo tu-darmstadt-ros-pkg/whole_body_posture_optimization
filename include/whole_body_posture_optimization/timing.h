@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <chrono>
 
+#include <whole_body_posture_optimization/common.h>
+
 namespace whole_body_posture_optimization {
 
 // Allocates memory for static variables, use in .cpp
@@ -158,13 +160,7 @@ namespace whole_body_posture_optimization {
       return 0;
     }
 
-    static std::string line(int length) {
-      std::string l = "";
-      for (unsigned int i = 0; i < length; i++) {
-        l += "-";
-      }
-      return l;
-    }
+
 
     static void printTimeInfos()
     {

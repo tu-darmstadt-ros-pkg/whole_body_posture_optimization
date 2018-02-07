@@ -61,4 +61,12 @@ void updateMoveitRobotState(moveit::core::RobotState &state, const Eigen::Affine
   moveit::core::jointStateToRobotState(virtual_link_joint_states, state);
 }
 
+std::string line(int length) {
+  std::string l = "";
+  for (unsigned int i = 0; i < length; i++) {
+    l += "-";
+  }
+  return l;
+}
+
 }

@@ -42,7 +42,10 @@ int main(int argc, char** argv) {
   if (pnh.param("interactive", false)) {
     // Try with one pose first
     robot_pose_ = Eigen::Affine3d::Identity();
-    robot_pose_.translation() = Eigen::Vector3d(0.946, 0, -1.96);
+    // tsdf
+    robot_pose_.translation() = Eigen::Vector3d(0.0, 0, 0.0);
+    // step
+//    robot_pose_.translation() = Eigen::Vector3d(0.946, 0, -1.96);
 //    robot_pose_.translation() = Eigen::Vector3d(0.5, 0, -1.96);
     pose_updated_ = true;
     bool reset = true;
@@ -116,6 +119,7 @@ int main(int argc, char** argv) {
     // Compute optimal postures
     auto result = po.findOptimalPostures(path);
     po.computeTimedTrajectory(result);
+    whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
   }
 
   whole_body_posture_optimization::Timing::printTimeInfos();

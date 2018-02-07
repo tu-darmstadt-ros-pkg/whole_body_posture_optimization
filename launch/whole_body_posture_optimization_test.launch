@@ -10,9 +10,10 @@
     <param name="frame_id" value="world" /> 
     <rosparam subst_value="true">
       # step
-      init_pose: [0.946, 0, -1.96, 0, 0, 0]
+      #init_pose: [0.946, 0, -1.96, 0, 0, 0]
       
-      #init_pose: [-0.945384, -0.108783, -0.106525, 0.000000, 0.000000, -1.580228]
+      # tsdf
+      init_pose: [0, 0, 0.5, 0.000000, 0.000000, 0]
     </rosparam>
   </node> 
   
