@@ -43,6 +43,7 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param<std::vector<std::string>>("static_link_names", static_link_names_, static_link_names_);
   nh.param<std::vector<std::string>>("semi_static_link_names", semi_static_link_names_, semi_static_link_names_);
   nh.param("self_collision_padding", self_collision_padding_, 0.0);
+  nh.param("self_collision_tsdf_padding", self_collision_tsdf_padding_, 0.0);
   nh.param("self_collision_tsdf_truncation_distance", self_collision_tsdf_truncation_distance_, 0.4);
   nh.param("enabled", stability_error_params_.enabled, stability_error_params_.enabled);
   nh.param("lorentzian_sigma", stability_error_params_.lorentzian_sigma, stability_error_params_.lorentzian_sigma);
@@ -86,7 +87,7 @@ double ArmOptimization::getDefaultJointPadding(CollisionType collision_type)
   switch (collision_type) {
     case ENVIRONMENT: return environment_collision_default_padding_;
     case SELF_COLLISION: return self_collision_padding_;
-    case SELF_COLLISION_TSDF: return self_collision_padding_;
+    case SELF_COLLISION_TSDF: return self_collision_tsdf_padding_;
   }
   return 0.0;
 }
@@ -132,7 +133,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   // Add objective function
   std::vector<double> previous_parameters = jointVectorToParamVector(previous_joint_angles);
   ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost_(
-        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0);
+        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 1);
+  stability_cost_.setName("stability_cost");
   opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost_);
 
   // Add constraints
@@ -176,7 +178,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     }
 //    ROS_DEBUG_STREAM("Creating self-collision constraints for link: " << collision_link);
     for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
-      CollisionObject collision_object(sphere, collision_link, self_collision_padding_);
+      CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, SELF_COLLISION_TSDF));
       ceres::CostFunction* cost_function = SdfContactConstraint::Create(
             robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, robot_base_tsdf, collision_object);
       std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
@@ -201,7 +203,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       collision_detection::AllowedCollision::Type allowed_collision_type;
       if (acm_.getAllowedCollision(link_name_1, link_name_2, allowed_collision_type)) {
         if (allowed_collision_type == collision_detection::AllowedCollision::ALWAYS) {
-//          ROS_INFO_STREAM("Skipping collision between '" << link_name_1 << "' and '" << link_name_2 << "'.");
+          ROS_DEBUG_STREAM("Skipping collision between '" << link_name_1 << "' and '" << link_name_2 << "'.");
           continue;
         }
       }
@@ -209,8 +211,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       // Constraint for each sphere-pair
       for (const collision_detection::CollisionSphere& sphere1: robot_model_->getCollisionSpheres(link_name_1)) {
         for (const collision_detection::CollisionSphere& sphere2: robot_model_->getCollisionSpheres(link_name_2)) {
-          CollisionObject obj1(sphere1, link_name_1, self_collision_padding_);
-          CollisionObject obj2(sphere2, link_name_2, self_collision_padding_);
+          CollisionObject obj1(sphere1, link_name_1, getJointPadding(link_name_1, SELF_COLLISION));
+          CollisionObject obj2(sphere2, link_name_2, getJointPadding(link_name_2, SELF_COLLISION));
           ceres::CostFunction* cost_function = SelfContactConstraint::Create(
                 robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, obj1, obj2);
           std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
@@ -226,9 +228,9 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
-//  opt.set_ftol_rel(1e-3);
+  opt.set_ftol_rel(1e-3);
   opt.set_maxeval(200);
-  opt.set_maxtime(0.050);
+//  opt.set_maxtime(0.10);
 //  opt.set_ftol_abs(0.01);
 
   // Fill in initial joint state (from previous time step)

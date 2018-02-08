@@ -92,12 +92,14 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     contact_estimation_->saveTsdfToFile(save_path);
   }
 
-  auto start_complete = std::chrono::high_resolution_clock::now();
+  // Iterate over path poses and run optimization
   std::vector<PostureOptimizationResult> results;
   PostureOptimizationResult last_result;
 //  ros::Rate rate(5);
   bool first = true;
+  int counter = 0;
   for (const geometry_msgs::PoseStamped& pose_msg: path.poses) {
+    ROS_INFO_STREAM("Pose: " << counter);
     Eigen::Affine3d pose;
     tf::poseMsgToEigen(pose_msg.pose, pose);
 
@@ -111,11 +113,15 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     }
     results.push_back(last_result);
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-    ROS_INFO_STREAM("Complete optimization took " << elapsed.count()*1000.0 << " ms.");
 //    rate.sleep();
+
+    double stability_limit = 1.0;
+    if (last_result.stability_arm_opt < stability_limit) {
+      ROS_WARN_STREAM("Robot instable (" << last_result.stability_arm_opt << " < " << stability_limit << "). Aborting!");
+      break;
+    }
+    counter++;
   }
-  std::chrono::duration<double> elapsed_complete = std::chrono::high_resolution_clock::now() - start_complete;
-  ROS_INFO_STREAM("Path planning took " << elapsed_complete.count() << " s.");
 
   return results;
 }
@@ -149,7 +155,6 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   }
   if (updated_init_contact.convex_hull_points.empty()) {
     ROS_WARN_STREAM("Updated init contact estimation failed.");
-//    result.result_joint_angles = init_joint_angles;
       updated_init_contact.estimated_pose = pose;
   } else {
     result.initial_stability = updated_init_contact.min_stability;
@@ -172,7 +177,6 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   robot_model_->updateRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
   robot_model_->publishRobotState();
   robot_model_->publishCollisionSpheres();
-//  robot_model_->publishRobotTsdf();
 
   STOP_TIMING_AVG;
 

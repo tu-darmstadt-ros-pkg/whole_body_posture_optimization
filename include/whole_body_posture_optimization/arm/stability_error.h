@@ -79,7 +79,9 @@ public:
 
     // Compute stabilities
     std::vector<T> stabilities = computeForceAngleStabilitiesWithGravity(contact_points_t, com_world);
-    std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [](T stability) -> T { return 1.0/(pow(stability, 2)); });
+
+//    std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [](T stability) -> T { return 1.0/(pow(stability, 2)); });
+    std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [](T stability) -> T { return T(14.0) * exp(-T(2.6)*stability+T(0.3)); });
     T stability_inverted_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));
     stability_inverted_sum = stability_inverted_sum / T(contact_points_.size()); // Normalize by number of edges
 //    T stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));

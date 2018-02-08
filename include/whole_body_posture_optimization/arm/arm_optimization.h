@@ -61,6 +61,7 @@ private:
   std::vector<std::string> semi_static_link_names_;
   std::vector<std::string> static_link_names_;
   double self_collision_padding_;
+  double self_collision_tsdf_padding_;
   double self_collision_tsdf_truncation_distance_;
   collision_detection::AllowedCollisionMatrix acm_;
 
