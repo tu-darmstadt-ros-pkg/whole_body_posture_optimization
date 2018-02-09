@@ -88,6 +88,7 @@ double ArmOptimization::getDefaultJointPadding(CollisionType collision_type)
     case ENVIRONMENT: return environment_collision_default_padding_;
     case SELF_COLLISION: return self_collision_padding_;
     case SELF_COLLISION_TSDF: return self_collision_tsdf_padding_;
+    default: ROS_WARN_STREAM("Unknown collision type. Defaulting to zero padding.");
   }
   return 0.0;
 }
@@ -117,9 +118,9 @@ std::vector<double> ArmOptimization::jointVectorToParamVector(const std::vector<
 ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose,
                                                 const std::vector<double>& previous_joint_angles)
 {
-//  ROS_INFO_STREAM("Starting arm optimization");
 //  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
-  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size());
+//  nlopt::opt opt(nlopt::LD_CCSAQ, free_joints_.size());
+  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size( ));
 //    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
 
 
@@ -127,13 +128,20 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   opt.set_lower_bounds(lower_bounds_);
   opt.set_upper_bounds(upper_bounds_);
 
+  // Set convergence criterion
+//  opt.set_xtol_rel(1e-4);
+//  opt.set_ftol_rel(1e-4);
+  opt.set_maxeval(100);
+//  opt.set_maxtime(0.1);
+//  opt.set_ftol_abs(0.01);
+
 //  ROS_INFO_STREAM("lower bounds: " << ceres_nlopt_wrapper::vecToString(lower_bounds_));
 //  ROS_INFO_STREAM("upper bounds: " << ceres_nlopt_wrapper::vecToString(upper_bounds_));
 
   // Add objective function
   std::vector<double> previous_parameters = jointVectorToParamVector(previous_joint_angles);
   ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost_(
-        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 1);
+        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0);
   stability_cost_.setName("stability_cost");
   opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost_);
 
@@ -173,14 +181,13 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   robot_base_tsdf.setTsdfMap(tsdf, self_collision_tsdf_truncation_distance_);
 
   for (const std::string& collision_link: collision_group_names) {
-    if (collision_link == "arm_link_0" || collision_link == "arm_link_1") { // arm_link_0 is always in collision, TODO remove hardcoded link
+    if (collision_link == "arm_link_0" || collision_link == "arm_link_1") { // arm_link_0 is always in collision, TODO remove hardcoded links
       continue;
     }
-//    ROS_DEBUG_STREAM("Creating self-collision constraints for link: " << collision_link);
     for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
       CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, SELF_COLLISION_TSDF));
       ceres::CostFunction* cost_function = SdfContactConstraint::Create(
-            robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, robot_base_tsdf, collision_object);
+            robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, Eigen::Affine3d::Identity(), robot_base_tsdf, collision_object);
       std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
       wrapper->setName("constraint_self_collision_tsdf_" + collision_link);
       self_collision_tsdf_constraints.push_back(wrapper);
@@ -225,13 +232,6 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   }
 //  ROS_INFO_STREAM("Created " << self_collision_constraints.size() << " self-collision constraints.");
   STOP_TIMING_AVG;
-
-  // Set convergence criterion
-//  opt.set_xtol_rel(1e-4);
-  opt.set_ftol_rel(1e-3);
-  opt.set_maxeval(200);
-//  opt.set_maxtime(0.10);
-//  opt.set_ftol_abs(0.01);
 
   // Fill in initial joint state (from previous time step)
   std::vector<double> parameters = jointVectorToParamVector(initial_angles);

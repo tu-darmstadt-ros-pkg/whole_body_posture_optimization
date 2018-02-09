@@ -104,9 +104,7 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
   tsdf_config.tsdf_voxel_size = voxel_size; // TODO parameter
   std::shared_ptr<voxblox::TsdfMap> tsdf = std::make_shared<voxblox::TsdfMap>(tsdf_config);
 
-  computeTsdfFromRobotModel(link_names, truncation_distance, tsdf);
-
-  return tsdf;
+  return computeTsdfFromRobotModel(link_names, truncation_distance, tsdf);
 }
 
 std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance,
@@ -119,6 +117,8 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
 
   // Create copy
   std::shared_ptr<voxblox::TsdfMap> tsdf = std::make_shared<voxblox::TsdfMap>(init_tsdf->getTsdfLayer());
+
+  updateMoveitRobotState(*moveit_robot_state_, Eigen::Affine3d::Identity());
 
   // Iterate over requested links
   for (const std::string& link_name: link_names) {

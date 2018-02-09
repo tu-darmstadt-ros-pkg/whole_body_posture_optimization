@@ -149,9 +149,10 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   sdf_contact_estimation::ContactEstimationResult updated_init_contact;
   if (init_contact_result != NULL) {
     result.init_contact = *init_contact_result;
-    updated_init_contact = flipper_optimization_->computeContactEstimation(init_joint_angles, pose, base_to_com, result.init_contact);
+//    updated_init_contact = flipper_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com, result.init_contact);
+    updated_init_contact = *init_contact_result;
   } else {
-    updated_init_contact = flipper_optimization_->computeContactEstimation(init_joint_angles, pose, base_to_com);
+    updated_init_contact = flipper_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com);
   }
   if (updated_init_contact.convex_hull_points.empty()) {
     ROS_WARN_STREAM("Updated init contact estimation failed.");
@@ -160,7 +161,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
     result.initial_stability = updated_init_contact.min_stability;
   }
 
-  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(updated_init_contact.estimated_pose, base_to_com, init_joint_angles, previous_joint_angles,
+  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(pose, base_to_com, init_joint_angles, previous_joint_angles,
                                                                              updated_init_contact);
   result.result_contact = flipper_result.contact_result;
   result.result_joint_angles = flipper_result.joint_state;

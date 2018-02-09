@@ -7,6 +7,8 @@
 
 #include <moveit/collision_distance_field/collision_distance_field_types.h>
 
+#include <ceres_nlopt_wrapper/utils.h>
+
 namespace whole_body_posture_optimization {
 
 template<typename T>
