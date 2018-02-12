@@ -55,6 +55,8 @@ private:
   std::map<std::string, double> environment_collision_padding_map_;
 
   // Optimization parameters
+  bool enabled_;
+  std::string algorithm_;
   StabilityErrorParameters stability_error_params_;
 
   std::shared_ptr<voxblox::TsdfMap> partial_robot_tsdf_;

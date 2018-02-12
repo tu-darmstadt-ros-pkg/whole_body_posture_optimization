@@ -53,7 +53,7 @@ private:
 };
 
 struct StabilityErrorParameters {
-  bool enabled = true;
+  double exp_parameters[3];
   double regularization_weight = 0.05;
   double lorentzian_sigma = 0.1;
 };
@@ -75,22 +75,28 @@ public:
     for (const Eigen::Vector3d& contact_point: contact_points_) {
       contact_points_t.push_back(contact_point.cast<T>());
     }
+    if (contact_points_t.empty()) {
+      return false;
+    }
 
     // Compute stabilities
     std::vector<T> stabilities = computeForceAngleStabilitiesWithGravity(contact_points_t, com_world);
-
-//    std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [](T stability) -> T { return 1.0/(pow(stability, 2)); });
 //    for (unsigned int i = 0; i < stabilities.size(); i++) {
 //      ROS_INFO_STREAM("Stability " << i << ": " << stabilities[i]);
 //    }
-    std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [](T stability) -> T { return T(14.0) * exp(-T(2.6)*stability+T(0.3)); });
+
+    // Transform stability to cost
+    std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [this](T stability) -> T {
+      return T(parameters_.exp_parameters[0]) * exp(T(parameters_.exp_parameters[1])*stability+T(parameters_.exp_parameters[2]));
+    });
 //    for (unsigned int i = 0; i < stabilities.size(); i++) {
 //      ROS_INFO_STREAM("Stability transformed" << i << ": " << stabilities[i]);
 //    }
-    T stability_inverted_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));
-    stability_inverted_sum = stability_inverted_sum / T(contact_points_.size()); // average cost per axis
-//    T stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));
-//    T stability_min = *std::min_element(stabilities.begin(), stabilities.end());
+
+    // Sum up and normalize by number of support vector edges
+    T stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), T(0));
+//    ROS_INFO_STREAM("Stability sum: " << stability_sum);
+    stability_sum = stability_sum / T(contact_points_.size()); // average cost per axis
 
     // Compute regularization
     T regularization_weight = T(parameters_.regularization_weight);
@@ -100,7 +106,7 @@ public:
       regularization_cost += lorentzian<T>(angle_diff, T(parameters_.lorentzian_sigma));
     }
 
-    cost[0] = stability_inverted_sum + regularization_weight * regularization_cost;
+    cost[0] = stability_sum + regularization_weight * regularization_cost;
     return true;
   }
 

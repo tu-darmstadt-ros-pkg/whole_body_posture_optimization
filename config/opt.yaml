@@ -14,6 +14,9 @@ collision_group: arm_with_gripper_group
 
 arm_optimization:
   enabled: true
+  algorithm: LD_SLSQP
+  #algorithm: LD_MMA
+  #algorithm: LN_COBYLA
   joints:
     #- arm_joint_0
     - arm_joint_1
@@ -21,14 +24,19 @@ arm_optimization:
     #- sensor_head_pitch_joint
   environment_collision_default_padding: 0.1
   environment_collision_padding: {
-      gripper_palm_link: 0.2
+      gripper_palm_link: 0.3
   }
   self_collision_padding: 0.05
   self_collision_tsdf_padding: 0.05
   self_collision_tsdf_truncation_distance: 0.4
   
+  #exp_parameters: [14.0, -2.6, 0.3] # too steep in negative area, gradient too big
+  exp_parameters: [4.0, -2.6, 0.3] # too steep in negative area, gradient too big
+  #exp_parameters: [0.7, -0.96, 0.0] # ease in from negative stability, ~0 at 2
+  #exp_parameters: [1.6, -1.7, 0.0] # steeper, so negative stabilities outweigh positive
+
   lorentzian_sigma: 0.2
-  regularization_weight: 0.0 #0.02
+  regularization_weight: 0.02
   
   # moveable, but static regarding arm optimization
   semi_static_link_names:

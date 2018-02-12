@@ -20,7 +20,7 @@
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen">
     <!-- node parameters -->
     <param name="interactive" value="false"/>
-    <param name="scenario" value="step"/>
+    <param name="scenario" value="tsdf"/>
     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_sim_vlp16.tsdf"/>
     
     <!-- posture optimization lib parameters -->

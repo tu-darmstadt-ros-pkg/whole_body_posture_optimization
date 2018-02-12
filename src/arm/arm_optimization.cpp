@@ -6,7 +6,7 @@ namespace whole_body_posture_optimization {
 
 ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model,
                                  const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation)
-  : robot_model_(robot_model), contact_estimation_(contact_estimation)
+  : robot_model_(robot_model), contact_estimation_(contact_estimation), enabled_(true), algorithm_("")
 {
   if (!loadParameters(nh)) {
     ROS_ERROR_STREAM("Loading arm parameters failed.");
@@ -32,9 +32,10 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
 
 bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
 {
+  bool success = true;
   if(!nh.getParam("joints", free_joints_)) {
     ROS_ERROR_STREAM("Failed to find parameter 'joints' in namespace'" << nh.getNamespace() << "'.");
-    return false;
+    success = false;
   }
 
   nh.param("environment_collision_default_padding", environment_collision_default_padding_, 0.0);
@@ -45,11 +46,22 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param("self_collision_padding", self_collision_padding_, 0.0);
   nh.param("self_collision_tsdf_padding", self_collision_tsdf_padding_, 0.0);
   nh.param("self_collision_tsdf_truncation_distance", self_collision_tsdf_truncation_distance_, 0.4);
-  nh.param("enabled", stability_error_params_.enabled, stability_error_params_.enabled);
+  nh.param("enabled", enabled_, enabled_);
+  nh.param<std::string>("algorithm", algorithm_, "LD_SLSQP");
+
+  std::vector<double> exp_parameters = {1.6, -1.7, 0.0};
+  nh.param("exp_parameters", exp_parameters, exp_parameters);
+  if (exp_parameters.size() != 3) {
+    ROS_ERROR_STREAM("Invalid size for parameter 'exp_parameter'. Got " << exp_parameters.size() << " expected 3");
+    success = false;
+    stability_error_params_.exp_parameters[0] = stability_error_params_.exp_parameters[1] = stability_error_params_.exp_parameters[2] = 0;
+  } else {
+    std::copy(begin(exp_parameters), end(exp_parameters), stability_error_params_.exp_parameters);
+  }
   nh.param("lorentzian_sigma", stability_error_params_.lorentzian_sigma, stability_error_params_.lorentzian_sigma);
   nh.param("regularization_weight", stability_error_params_.regularization_weight, stability_error_params_.regularization_weight);
 
-  return true;
+  return success;
 }
 
 double ArmOptimization::getJointPadding(std::string joint_name, CollisionType collision_type)
@@ -118,10 +130,18 @@ std::vector<double> ArmOptimization::jointVectorToParamVector(const std::vector<
 ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose,
                                                 const std::vector<double>& previous_joint_angles)
 {
+  // immediately return of there are no contact points with the ground (error)
+  if (contact_points.empty()) {
+    ArmOptimizationResult result;
+    result.joint_angles = initial_angles;
+    return result;
+  }
 //  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
 //  nlopt::opt opt(nlopt::LD_CCSAQ, free_joints_.size());
-  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size( ));
+//  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size( ));
 //    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
+
+  nlopt::opt opt(ceres_nlopt_wrapper::stringToAlgorithm(algorithm_), free_joints_.size());
 
 
   // Define parameter bounds
@@ -131,8 +151,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
 //  opt.set_ftol_rel(1e-4);
-  opt.set_maxeval(100);
-//  opt.set_maxtime(0.1);
+//  opt.set_maxeval(100);
+  opt.set_maxtime(0.1);
 //  opt.set_ftol_abs(0.01);
 
 //  ROS_INFO_STREAM("lower bounds: " << ceres_nlopt_wrapper::vecToString(lower_bounds_));
@@ -241,7 +261,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   auto start = std::chrono::high_resolution_clock::now();
   nlopt::result nlopt_result;
   try {
-    if (stability_error_params_.enabled) {
+    if (enabled_) {
       nlopt_result = opt.optimize(parameters, minf);
     }
   }
