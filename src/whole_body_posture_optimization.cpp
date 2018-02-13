@@ -19,7 +19,7 @@ INIT_TIMING
 namespace whole_body_posture_optimization {
 
 WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle& nh, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen)
-  : nh_(nh)
+  : nh_(nh), stability_limit_(0.0)
 {
   loadParameters(nh);
   robot_model_ = std::make_shared<RobotModel>(nh_);
@@ -49,6 +49,7 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
     return false;
   }
 
+  nh.param("stability_limit", stability_limit_, 0.0);
   nh.param<std::string>("tsdf_save_folder", tsdf_save_folder_, "");
 
   return true;
@@ -105,19 +106,18 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
 
     auto start = std::chrono::high_resolution_clock::now();
     if (first) {
-      last_result = findOptimalPosture(pose, getDefaultJointPositions(), getDefaultJointPositions());
+      last_result = findOptimalPosture(pose, getDefaultJointPositions(), std::vector<double>());
       first = false;
     } else {
 //      last_result = findOptimalPosture(pose, last_result.result_joint_angles, last_result.result_joint_angles, &last_result.result_contact);
       last_result = findOptimalPosture(pose, getDefaultJointPositions(), last_result.result_joint_angles, &last_result.result_contact);
     }
     results.push_back(last_result);
-    std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
+//    std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
 //    rate.sleep();
 
-    double stability_limit = 1.0;
-    if (last_result.stability_arm_opt < stability_limit) {
-      ROS_WARN_STREAM("Robot instable (" << last_result.stability_arm_opt << " < " << stability_limit << "). Aborting!");
+    if (last_result.stability_arm_opt < stability_limit_) {
+      ROS_WARN_STREAM("Robot instable (" << last_result.stability_arm_opt << " < " << stability_limit_ << "). Aborting!");
       break;
     }
     counter++;
@@ -142,7 +142,11 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   result.init_joint_angles = init_joint_angles;
 
   // TODO we should be able to just take this from the previous time step. com shouldn't have changed
-  robot_model_->computeCenterOfMass(previous_joint_angles, result.init_com);
+  if (!previous_joint_angles.empty()) {
+    robot_model_->computeCenterOfMass(previous_joint_angles, result.init_com);
+  } else {
+    robot_model_->computeCenterOfMass(init_joint_angles, result.init_com);
+  }
   Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity();
   base_to_com.translation() = result.init_com;
 
@@ -152,7 +156,11 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
 //    updated_init_contact = flipper_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com, result.init_contact);
     updated_init_contact = *init_contact_result;
   } else {
-    updated_init_contact = flipper_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com);
+    if (!previous_joint_angles.empty()) {
+      updated_init_contact = flipper_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com);
+    } else {
+      updated_init_contact = flipper_optimization_->computeContactEstimation(init_joint_angles, pose, base_to_com);
+    }
   }
   if (updated_init_contact.convex_hull_points.empty()) {
     ROS_WARN_STREAM("Updated init contact estimation failed.");

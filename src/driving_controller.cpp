@@ -175,7 +175,7 @@ bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, 
   follow_path_goal.follow_path_options.goal_pose_angle_tolerance = 0.01;
 
   driving_client_->sendGoal(follow_path_goal);
-  if (!driving_client_->waitForResult(ros::Duration(15))) {
+  if (!driving_client_->waitForResult()) {
     ROS_ERROR_STREAM("Follow path action timed out.");
     return false;
   }
@@ -201,7 +201,7 @@ bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, 
   //  move_group_goal.planning_options.planning_scene_diff = true;
 
   move_group_client_->sendGoal(move_group_goal);
-  if (!move_group_client_->waitForResult(ros::Duration(10))) {
+  if (!move_group_client_->waitForResult()) {
     ROS_ERROR_STREAM("Move group action timed out.");
     return false;
   }

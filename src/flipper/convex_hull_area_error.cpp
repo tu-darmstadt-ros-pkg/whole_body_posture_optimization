@@ -20,11 +20,13 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 
   // Robust regularization
   double regularization_cost = 0.0;
-  for (unsigned int idx = 0; idx < prev_flipper_angles_.size(); idx++) {
-    double diff = prev_flipper_angles_[idx] - flipper_angles[0][idx];
-    regularization_cost += lorentzian<double>(diff, parameters_.lorentzian_sigma);
-//    regularisation_cost += pow(diff, 2);
+  if (!prev_flipper_angles_.empty()) {
+    for (unsigned int idx = 0; idx < prev_flipper_angles_.size(); idx++) {
+      double diff = prev_flipper_angles_[idx] - flipper_angles[0][idx];
+      regularization_cost += lorentzian<double>(diff, parameters_.lorentzian_sigma);
+    }
   }
+
 
   double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
   double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;

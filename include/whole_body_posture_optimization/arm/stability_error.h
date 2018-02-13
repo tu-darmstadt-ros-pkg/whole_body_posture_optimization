@@ -99,14 +99,16 @@ public:
     stability_sum = stability_sum / T(contact_points_.size()); // average cost per axis
 
     // Compute regularization
-    T regularization_weight = T(parameters_.regularization_weight);
     T regularization_cost = T(0.0);
-    for (unsigned int idx = 0; idx < previous_param_angles_.size(); idx++) {
-      T angle_diff = T(previous_param_angles_[idx]) - parameters[0][idx];
-      regularization_cost += lorentzian<T>(angle_diff, T(parameters_.lorentzian_sigma));
+    if (!previous_param_angles_.empty()) {
+      for (unsigned int idx = 0; idx < previous_param_angles_.size(); idx++) {
+        T angle_diff = T(previous_param_angles_[idx]) - parameters[0][idx];
+        regularization_cost += lorentzian<T>(angle_diff, T(parameters_.lorentzian_sigma));
+      }
     }
+//    ROS_INFO_STREAM("regularization_cost: " << regularization_cost);
 
-    cost[0] = stability_sum + regularization_weight * regularization_cost;
+    cost[0] = stability_sum + T(parameters_.regularization_weight) * regularization_cost;
     return true;
   }
 

@@ -150,16 +150,20 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // Set convergence criterion
 //  opt.set_xtol_rel(1e-4);
-//  opt.set_ftol_rel(1e-4);
-//  opt.set_maxeval(100);
-  opt.set_maxtime(0.1);
-//  opt.set_ftol_abs(0.01);
+//  opt.set_ftol_rel(1e-5);
+//  opt.set_xtol_abs(0.0001);
+  opt.set_maxeval(200);
+//  opt.set_maxtime(0.1);
+  opt.set_ftol_abs(0.0001);
 
 //  ROS_INFO_STREAM("lower bounds: " << ceres_nlopt_wrapper::vecToString(lower_bounds_));
 //  ROS_INFO_STREAM("upper bounds: " << ceres_nlopt_wrapper::vecToString(upper_bounds_));
 
   // Add objective function
-  std::vector<double> previous_parameters = jointVectorToParamVector(previous_joint_angles);
+  std::vector<double> previous_parameters;
+  if (!previous_joint_angles.empty()) {
+    previous_parameters = jointVectorToParamVector(previous_joint_angles);
+  }
   ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost_(
         StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0);
   stability_cost_.setName("stability_cost");

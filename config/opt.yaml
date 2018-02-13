@@ -12,6 +12,8 @@ default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default f
 
 collision_group: arm_with_gripper_group
 
+stability_limit: 0.0
+
 arm_optimization:
   enabled: true
   algorithm: LD_SLSQP
@@ -31,12 +33,14 @@ arm_optimization:
   self_collision_tsdf_truncation_distance: 0.4
   
   #exp_parameters: [14.0, -2.6, 0.3] # too steep in negative area, gradient too big
-  exp_parameters: [4.0, -2.6, 0.3] # too steep in negative area, gradient too big
+  exp_parameters: [4.0, -3, 0.3] # weaker form of ^
+  
   #exp_parameters: [0.7, -0.96, 0.0] # ease in from negative stability, ~0 at 2
   #exp_parameters: [1.6, -1.7, 0.0] # steeper, so negative stabilities outweigh positive
 
   lorentzian_sigma: 0.2
   regularization_weight: 0.02
+
   
   # moveable, but static regarding arm optimization
   semi_static_link_names:

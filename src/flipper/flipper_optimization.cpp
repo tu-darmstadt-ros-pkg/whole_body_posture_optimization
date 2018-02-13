@@ -66,7 +66,10 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   opt.set_upper_bounds(upper_bounds_);
 
   // Add objective function
-  std::vector<double> previous_flipper_angles = jointVectorToParamVector(previous_joint_angles);
+  std::vector<double> previous_flipper_angles;
+  if (!previous_joint_angles.empty()) {
+    previous_flipper_angles = jointVectorToParamVector(previous_joint_angles);
+  }
   int verbosity_level = 0;
   ceres_nlopt_wrapper::CeresCostFunctionWrapper support_area_cost(
         ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact, convex_hull_error_parameters_),

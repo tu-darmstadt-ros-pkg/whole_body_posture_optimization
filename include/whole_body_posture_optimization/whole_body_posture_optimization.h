@@ -54,6 +54,7 @@ private:
   std::shared_ptr<RobotModel> robot_model_;
 
   std::vector<double> default_joint_state_;
+  double stability_limit_;
 
   ros::Publisher trajectory_pub_;
 
