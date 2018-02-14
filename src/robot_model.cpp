@@ -123,7 +123,8 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
   // Create copy
   std::shared_ptr<voxblox::TsdfMap> tsdf = std::make_shared<voxblox::TsdfMap>(init_tsdf->getTsdfLayer());
 
-  updateMoveitRobotState(*moveit_robot_state_, Eigen::Affine3d::Identity());
+//  updateMoveitRobotState(*moveit_robot_state_, Eigen::Affine3d::Identity());
+  moveit_robot_state_->setToDefaultValues();
 
   // Iterate over requested links
   for (const std::string& link_name: link_names) {
