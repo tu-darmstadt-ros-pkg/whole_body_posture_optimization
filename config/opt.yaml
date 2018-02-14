@@ -12,7 +12,7 @@ default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default f
 
 collision_group: arm_with_gripper_group
 
-stability_limit: 0.0
+stability_limit: 1.0
 
 arm_optimization:
   enabled: true

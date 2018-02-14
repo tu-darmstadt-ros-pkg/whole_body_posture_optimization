@@ -33,6 +33,9 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   cost[0] = -result.support_area - parameters_.track_contact_weight * track_contact_pct + parameters_.body_contact_weight * body_contact_pct
       + parameters_.regularization_weight * regularization_cost;
 
+//  ROS_INFO_STREAM("Support area: " << result.support_area << ", track contact: " << track_contact_pct
+//                  << ", body contact" << body_contact_pct << "regularization cost" << regularization_cost);
+
 //  Eigen::Affine3d com_pose = result.estimated_pose * base_to_com_;
 //  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.convex_hull_points, com_pose.translation());
 //  std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [](double stability) -> double { return 1.0/(pow(std::max(stability, 0.01), 2)); });

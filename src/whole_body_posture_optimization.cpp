@@ -90,6 +90,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     oss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S");
     std::string time_stamp = oss.str();
     std::string save_path =  tsdf_save_folder_ + "/tsdf_map_" + time_stamp + ".tsdf";
+    ROS_INFO_STREAM("Saving tsdf to " << save_path);
     contact_estimation_->saveTsdfToFile(save_path);
   }
 
@@ -104,7 +105,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     Eigen::Affine3d pose;
     tf::poseMsgToEigen(pose_msg.pose, pose);
 
-    auto start = std::chrono::high_resolution_clock::now();
+//    auto start = std::chrono::high_resolution_clock::now();
     if (first) {
       last_result = findOptimalPosture(pose, getDefaultJointPositions(), std::vector<double>());
       first = false;

@@ -110,7 +110,8 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   STOP_TIMING_AVG;
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-  ROS_INFO_STREAM("Flipper optimization took " << support_area_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms.");
+  ROS_INFO_STREAM("Flipper optimization took " << support_area_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
+                  << ceres_nlopt_wrapper::vecToString(parameters));
 
 //  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
 //  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));

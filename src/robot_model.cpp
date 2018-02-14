@@ -86,8 +86,13 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
 
   // Work-around because rbdl_reader assigns chassis mass to world frame
   rbdl::Body root = model_ptr_->mBodies[0];
+//  ROS_INFO_STREAM("Mass without chassis: " << mass);
   com = (mass * com + root.mMass * root.mCenterOfMass)/(mass + root.mMass);
-  mass += root.mMass;
+  double mass_with_root = mass + root.mMass;
+  double gradient_scaling = mass / mass_with_root;
+  mass  = mass_with_root;
+  jacobian *= gradient_scaling;
+//  ROS_INFO_STREAM("Mass with chassis: " << mass);
 }
 
 void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com)

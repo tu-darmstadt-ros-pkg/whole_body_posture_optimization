@@ -69,6 +69,7 @@ public:
     T com[3];
     (*compute_com_)(parameters, &com[0]);
     Vector3<T> com_base(com[0], com[1], com[2]); // TODO use eigen map to eliminate copy
+//    ROS_INFO_STREAM("com_base: " << com_base.x() << std::endl << com_base.y() << std::endl << com_base.z());
     Vector3<T> com_world = robot_pose_.cast<T>() * com_base;
     // Cast contact points
     std::vector<Vector3<T>> contact_points_t;

@@ -164,10 +164,10 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   if (!previous_joint_angles.empty()) {
     previous_parameters = jointVectorToParamVector(previous_joint_angles);
   }
-  ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost_(
+  ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost(
         StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0);
-  stability_cost_.setName("stability_cost");
-  opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost_);
+  stability_cost.setName("stability_cost");
+  opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost);
 
   // Add constraints
   // TODO move constraints creation to constructor
@@ -198,12 +198,12 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // self-collision tsdf constraints
   START_TIMING("Self-collision tsdf const. creation");
-  std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_tsdf_constraints;
   std::shared_ptr<voxblox::TsdfMap> tsdf = robot_model_->computeTsdfFromRobotModel(semi_static_link_names_, self_collision_tsdf_truncation_distance_, partial_robot_tsdf_);
-  sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf);
+  sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose);
   sdf_contact_estimation::SdfWrapper robot_base_tsdf;
   robot_base_tsdf.setTsdfMap(tsdf, self_collision_tsdf_truncation_distance_);
 
+  std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_tsdf_constraints;
   for (const std::string& collision_link: collision_group_names) {
     if (collision_link == "arm_link_0" || collision_link == "arm_link_1") { // arm_link_0 is always in collision, TODO remove hardcoded links
       continue;
@@ -260,6 +260,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   // Fill in initial joint state (from previous time step)
   std::vector<double> parameters = jointVectorToParamVector(initial_angles);
 
+//  stability_cost.checkGradient(parameters);
+
   START_TIMING("Arm optimization");
   double minf;
   auto start = std::chrono::high_resolution_clock::now();
@@ -281,7 +283,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   STOP_TIMING_AVG;
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-  ROS_INFO_STREAM("Arm optimization took " << stability_cost_.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms.");
+  ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
+                  << ceres_nlopt_wrapper::vecToString(parameters));
 
 //  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
 //  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
