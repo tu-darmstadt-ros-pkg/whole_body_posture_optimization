@@ -49,6 +49,7 @@ bool CombinedStabilityCost::operator()(double const* const* parameters, double* 
   Eigen::Affine3d base_to_com; base_to_com = Eigen::Translation3d(com_base);
   sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(robot_pose_, base_to_com, init_contact_);
   *result_robot_pose_ = result.estimated_pose;
+//  ROS_INFO_STREAM("Setting robot pose to " << result.estimated_pose.affine());
   if (result.convex_hull_points.empty()) {
     return false;
   }

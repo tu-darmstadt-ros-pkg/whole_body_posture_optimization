@@ -10,10 +10,10 @@ default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default f
 #default_joint_state: [1.0, 2, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 #default_joint_state: [0.0838013, 3.072, 4.68403, 0.86, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 
-optimization_type: split
+optimization_type: combined
 collision_group: arm_with_gripper_group
 
-stability_limit: 0.5
+stability_limit: 0.0
   
 arm_optimization:
   enabled: true

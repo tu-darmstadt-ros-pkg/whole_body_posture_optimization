@@ -281,27 +281,6 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
 
 //  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
 
-  // Check for collisions in solution
-  std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
-  if (!ceres_nlopt_wrapper::checkConstraints(parameters, environment_constraints, 0.001, constraint_violations)) {
-    ROS_WARN_STREAM("Detected environment collision!");
-    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
-      ROS_WARN_STREAM(violation.toString());
-    }
-  }
-  if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_tsdf_constraints, 0.001, constraint_violations)) {
-    ROS_WARN_STREAM("Detected self-collision with tsdf!");
-    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
-      ROS_WARN_STREAM(violation.toString());
-    }
-  }
-  if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_constraints, 0.001, constraint_violations)) {
-    ROS_WARN_STREAM("Detected self-collision!");
-    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
-      ROS_WARN_STREAM(violation.toString());
-    }
-  }
-
   CombinedOptimizationResult result;
   result.joint_angles = initial_state;
   for (unsigned int i = 0; i < parameters.size(); i++) {
@@ -325,6 +304,28 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
   Eigen::Affine3d com_pose = Eigen::Affine3d::Identity();
   com_pose.translation() = result.contact_result.estimated_pose * result.center_of_mass;
   sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
+
+  // Check for collisions in solution
+  std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
+  *result_robot_pose = result.contact_result.estimated_pose;
+  if (!ceres_nlopt_wrapper::checkConstraints(parameters, environment_constraints, 0.001, constraint_violations)) {
+    ROS_WARN_STREAM("Detected environment collision!");
+    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
+      ROS_WARN_STREAM(violation.toString());
+    }
+  }
+  if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_tsdf_constraints, 0.001, constraint_violations)) {
+    ROS_WARN_STREAM("Detected self-collision with tsdf!");
+    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
+      ROS_WARN_STREAM(violation.toString());
+    }
+  }
+  if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_constraints, 0.001, constraint_violations)) {
+    ROS_WARN_STREAM("Detected self-collision!");
+    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
+      ROS_WARN_STREAM(violation.toString());
+    }
+  }
 
   delete result_robot_pose;
 

@@ -30,6 +30,7 @@ public:
       joint_angles[param_idx_to_joint_idx_[i]] = parameters[0][i];
     }
 
+//    ROS_INFO_STREAM("Current robot_pose:" << robot_pose_->affine());
     robot_model_->updateRobotState(*robot_pose_, joint_angles);
 
     // Compute sphere position in world
