@@ -6,10 +6,16 @@
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <whole_body_posture_optimization/arm/arm_optimization.h>
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
+#include <whole_body_posture_optimization/combined/combined_optimization.h>
 
 #include <moveit/robot_trajectory/robot_trajectory.h>
 
 namespace whole_body_posture_optimization {
+
+enum OptimizationType {
+  SPLIT,
+  COMBINED
+};
 
 struct PostureOptimizationResult {
   Eigen::Affine3d requested_pose;
@@ -41,7 +47,17 @@ public:
   std::vector<PostureOptimizationResult> findOptimalPostures(const nav_msgs::Path& path);
   PostureOptimizationResult findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_angles, const std::vector<double> &previous_joint_angles,
                                                const sdf_contact_estimation::ContactEstimationResult *init_contact_result);
+
   PostureOptimizationResult findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_state, const std::vector<double> &previous_joint_angles);
+
+  PostureOptimizationResult findOptimalPostureSplit(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_angles, const std::vector<double> &previous_joint_angles,
+                                               const sdf_contact_estimation::ContactEstimationResult *init_contact_result);
+  PostureOptimizationResult findOptimalPostureCombined(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_angles, const std::vector<double> &previous_joint_angles,
+                                               const sdf_contact_estimation::ContactEstimationResult *init_contact_result);
+
+
+
+
   std::vector<robot_trajectory::RobotTrajectory> computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
   void publishTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &robot_trajectory);
 
@@ -49,10 +65,13 @@ public:
 private:
   ros::NodeHandle nh_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
+  std::shared_ptr<CombinedOptimization> combined_optimization_;
   std::shared_ptr<ArmOptimization> arm_optimization_;
   std::shared_ptr<FlipperOptimization> flipper_optimization_;
   std::shared_ptr<RobotModel> robot_model_;
 
+  // Parameters
+  OptimizationType optimization_type_;
   std::vector<double> default_joint_state_;
   double stability_limit_;
 

@@ -19,7 +19,7 @@ INIT_TIMING
 namespace whole_body_posture_optimization {
 
 WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle& nh, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen)
-  : nh_(nh), stability_limit_(0.0)
+  : nh_(nh), stability_limit_(0.0), optimization_type_(SPLIT)
 {
   loadParameters(nh);
   robot_model_ = std::make_shared<RobotModel>(nh_);
@@ -29,6 +29,8 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
   flipper_optimization_ = std::make_shared<FlipperOptimization>(flipper_nh, robot_model_, robot_shape_gen, contact_estimation_);
   ros::NodeHandle arm_nh(nh, "arm_optimization");
   arm_optimization_ = std::make_shared<ArmOptimization>(arm_nh, robot_model_, contact_estimation_);
+  ros::NodeHandle combined_nh(nh, "combined_optimization");
+  combined_optimization_ = std::make_shared<CombinedOptimization>(combined_nh, robot_model_, contact_estimation_);
 
   trajectory_pub_ = nh_.advertise<moveit_msgs::DisplayTrajectory>("trajectory", 10, true);
 }
@@ -51,6 +53,16 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 
   nh.param("stability_limit", stability_limit_, 0.0);
   nh.param<std::string>("tsdf_save_folder", tsdf_save_folder_, "");
+
+  std::string optimization_type_str;
+  nh.param<std::string>("optimization_type", optimization_type_str, "split");
+  if (optimization_type_str == "split") {
+    optimization_type_ = SPLIT;
+  } else if (optimization_type_str == "combined") {
+    optimization_type_ = COMBINED;
+  } else {
+    ROS_ERROR_STREAM("Unknown optimization type '" << optimization_type_str << "'.");
+  }
 
   return true;
 }
@@ -131,7 +143,27 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
                                                                            const std::vector<double> &previous_joint_angles,
                                                                            const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
 {
-  START_TIMING("findOptimalPosture");
+  if (optimization_type_ == SPLIT) {
+    return findOptimalPostureSplit(pose, init_joint_angles, previous_joint_angles, init_contact_result);
+  } else if (optimization_type_ == COMBINED) {
+    return findOptimalPostureCombined(pose, init_joint_angles, previous_joint_angles, init_contact_result);
+  } else {
+    ROS_ERROR_STREAM("Unknown optimization type");
+    return PostureOptimizationResult();
+  }
+}
+
+PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d &pose, const std::vector<double> &init_joint_state,
+                                                                           const std::vector<double> &previous_joint_angles)
+{
+  return findOptimalPosture(pose, init_joint_state, previous_joint_angles, NULL);
+}
+
+PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
+                                                                                const std::vector<double>& previous_joint_angles,
+                                                                                const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
+{
+  START_TIMING("findOptimalPostureSplit");
   Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
   Eigen::Vector3d xyz = pose.translation();
   ROS_INFO_STREAM("**********************************************");
@@ -193,9 +225,58 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   return result;
 }
 
-PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d &pose, const std::vector<double> &init_joint_state, const std::vector<double> &previous_joint_angles)
+PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombined(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles, const std::vector<double>& previous_joint_angles, const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
 {
-  return findOptimalPosture(pose, init_joint_state, previous_joint_angles, NULL);
+  START_TIMING("findOptimalPostureCombined");
+  Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
+  Eigen::Vector3d xyz = pose.translation();
+  ROS_INFO_STREAM("**********************************************");
+  ROS_INFO("Requested pose: [%f, %f, %f, %f, %f, %f]", xyz(0), xyz(1), xyz(2), rpy(0), rpy(1), rpy(2));
+  ROS_INFO_STREAM("**********************************************");
+
+  PostureOptimizationResult result;
+  result.requested_pose = pose;
+  result.init_joint_angles = init_joint_angles;
+
+  if (!previous_joint_angles.empty()) {
+    robot_model_->computeCenterOfMass(previous_joint_angles, result.init_com);
+  } else {
+    robot_model_->computeCenterOfMass(init_joint_angles, result.init_com);
+  }
+  Eigen::Affine3d base_to_com(Eigen::Translation3d(result.init_com));
+
+  sdf_contact_estimation::ContactEstimationResult updated_init_contact;
+  if (init_contact_result != NULL) {
+    result.init_contact = *init_contact_result;
+    updated_init_contact = *init_contact_result;
+  } else {
+    if (!previous_joint_angles.empty()) {
+      updated_init_contact = combined_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com);
+    } else {
+      updated_init_contact = combined_optimization_->computeContactEstimation(init_joint_angles, pose, base_to_com);
+    }
+  }
+  if (updated_init_contact.convex_hull_points.empty()) {
+    ROS_WARN_STREAM("Updated init contact estimation failed.");
+      updated_init_contact.estimated_pose = pose;
+  } else {
+    result.initial_stability = updated_init_contact.min_stability;
+  }
+
+  CombinedOptimizationResult combined_result = combined_optimization_->optimize(init_joint_angles, pose, previous_joint_angles, updated_init_contact);
+  result.result_joint_angles = combined_result.joint_angles;
+  result.result_com = combined_result.center_of_mass;
+  result.stability_arm_opt = combined_result.contact_result.min_stability;
+  result.result_contact = combined_result.contact_result;
+  result.stability_flipper_opt = result.initial_stability;
+
+  robot_model_->updateRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
+  robot_model_->publishRobotState();
+  robot_model_->publishCollisionSpheres();
+
+  STOP_TIMING_AVG;
+
+  return result;
 }
 
 std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)

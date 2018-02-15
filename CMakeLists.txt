@@ -45,6 +45,10 @@ set(HEADERS
   include/${PROJECT_NAME}/arm/self_contact_constraint.h
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
   include/${PROJECT_NAME}/flipper/convex_hull_area_error.h
+  include/${PROJECT_NAME}/combined/combined_optimization.h
+  include/${PROJECT_NAME}/combined/combined_stability_cost.h
+  include/${PROJECT_NAME}/combined/self_contact_constraint_no_gradient.h
+  include/${PROJECT_NAME}/combined/sdf_contact_constraint_no_gradient.h
 )
 
 set(SOURCES
@@ -56,6 +60,8 @@ set(SOURCES
   src/arm/arm_optimization.cpp
   src/flipper/flipper_optimization.cpp
   src/flipper/convex_hull_area_error.cpp
+  src/combined/combined_optimization.cpp
+  src/combined/combined_stability_cost.cpp
 )
 
 include_directories(

@@ -6,7 +6,7 @@ namespace whole_body_posture_optimization {
 
 FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel> &robot_model, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
                                          const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation)
-  : contact_estimation_(contact_estimation), robot_model_(robot_model), robot_shape_gen_(robot_shape_gen)
+  : contact_estimation_(contact_estimation), robot_model_(robot_model), robot_shape_gen_(robot_shape_gen), enabled_(true)
 {
   if (!loadParameters(nh)) {
     ROS_ERROR_STREAM("Loading flipper parameters failed.");
@@ -32,6 +32,7 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param("lorentzian_sigma", convex_hull_error_parameters_.lorentzian_sigma, convex_hull_error_parameters_.lorentzian_sigma);
   nh.param("track_contact_weight", convex_hull_error_parameters_.track_contact_weight, convex_hull_error_parameters_.track_contact_weight);
   nh.param("body_contact_weight", convex_hull_error_parameters_.body_contact_weight, convex_hull_error_parameters_.body_contact_weight);
+  nh.param("enabled", enabled_, enabled_);
 
   return true;
 }
@@ -96,7 +97,9 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   auto start = std::chrono::high_resolution_clock::now();
   nlopt::result nlopt_result;
   try {
-    nlopt_result = opt.optimize(parameters, minf);
+    if (enabled_) {
+      nlopt_result = opt.optimize(parameters, minf);
+    }
   }
   catch (std::invalid_argument e) {
     ROS_ERROR_STREAM("Optimization failed: " << e.what());

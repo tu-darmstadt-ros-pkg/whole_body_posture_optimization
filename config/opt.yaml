@@ -10,10 +10,11 @@ default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default f
 #default_joint_state: [1.0, 2, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 #default_joint_state: [0.0838013, 3.072, 4.68403, 0.86, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 
+optimization_type: split
 collision_group: arm_with_gripper_group
 
-stability_limit: 1.0
-
+stability_limit: 0.5
+  
 arm_optimization:
   enabled: true
   algorithm: LD_SLSQP
@@ -62,6 +63,34 @@ flipper_optimization:
   regularization_weight: 0.2
   track_contact_weight: 2
   body_contact_weight: 3
+  
+combined_optimization:
+  enabled: true
+  algorithm: LN_COBYLA
+  flipper_joints:
+    - flipper_joint_1
+  arm_joints:
+    - arm_joint_1
+    - arm_joint_2
+    
+  environment_collision_default_padding: 0.1
+  environment_collision_padding: {
+      gripper_palm_link: 0.3
+  }
+  self_collision_padding: 0.05
+  self_collision_tsdf_padding: 0.05
+  self_collision_tsdf_truncation_distance: 0.4
+  
+  exp_parameters: [4.0, -3, 0.3]
+
+  lorentzian_sigma: 0.2
+  regularization_weight: 0.02
+  
+  static_link_names:
+    - chassis_link
+    - spin_lidar_lidar_mount_link
+    - spin_lidar_pitch_hokuyo_laser_frame
+    - structure_addons_link
   
 contact_estimation:
   debug: false

@@ -27,12 +27,6 @@ struct ArmOptimizationResult {
   double stability;
 };
 
-enum CollisionType {
-  ENVIRONMENT,
-  SELF_COLLISION,
-  SELF_COLLISION_TSDF
-};
-
 class ArmOptimization {
 public:
   ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation);

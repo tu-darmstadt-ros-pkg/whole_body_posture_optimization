@@ -11,6 +11,12 @@
 
 namespace whole_body_posture_optimization {
 
+enum CollisionType {
+  ENVIRONMENT,
+  SELF_COLLISION,
+  SELF_COLLISION_TSDF
+};
+
 template<typename T>
 using Vector3 = Eigen::Matrix<T, 3, 1>;
 
