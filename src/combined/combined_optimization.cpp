@@ -17,7 +17,7 @@ CombinedOptimization::CombinedOptimization(ros::NodeHandle &nh, const std::share
   if (!loadLimits(free_joints_)) {
     ROS_ERROR_STREAM("Loading limits failed");
   }
-  param_idx_to_jnt_idx_ = robot_model_->getJointIndices(free_joints_);
+  param_idx_to_jnt_idx_ = robot_model_->getActuatedJointIndices(free_joints_);
 
   // Load Allowed Collision Matrix (ACM)
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());

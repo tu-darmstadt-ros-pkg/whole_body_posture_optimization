@@ -3,7 +3,7 @@
 namespace whole_body_posture_optimization {
 
 RobotModel::RobotModel(ros::NodeHandle &nh)
-  : num_joints_(0)
+  : num_joints_(0), num_actuated_joints_(0)
 {
   // Parameter loading
   if(!nh.getParam("/robot_description", robot_description_)) {
@@ -32,10 +32,17 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
     ROS_INFO_STREAM("Body id: " << body_id << ", name: " << body_name);
     ROS_INFO_STREAM("-- mass: " << model_ptr_->mBodies[body_id].mMass);
     if (body_id != 0) {
-      ROS_INFO_STREAM("-- Parent joint: " << getParentJointName(body_name));
+      std::string joint_name = getParentJointName(body_name);
+      ROS_INFO_STREAM("-- Parent joint: " << joint_name);
       ROS_INFO_STREAM("-- Joint type: " << model_ptr_->mJoints[body_id].mJointType);
-      joint_names_.push_back(getParentJointName(body_name));
+      joint_names_.push_back(joint_name);
+      updateActuatedJointMapping(joint_name, joint_names_.size()-1);
     }
+  }
+
+  // Second pass to find mimics
+  for (unsigned int i = 0; i < joint_names_.size(); i++) {
+    updateJointMimicMapping(joint_names_[i], i);
   }
 
   // Loading moveit model
@@ -60,14 +67,21 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
 
 void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com, Eigen::MatrixXd &jacobian)
 {
-  if (joint_angles.size() != num_joints_) {
-    ROS_ERROR_STREAM("[RobotModel::computeCenterOfMass] Joint positions size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_joints_ << ")");
+  if (joint_angles.size() != num_actuated_joints_) {
+    ROS_ERROR_STREAM("[RobotModel::computeCenterOfMass] Joint positions size (" << joint_angles.size()
+                     << ") doesn't match number of actuated joints in robot model (" << num_actuated_joints_ << ")");
     return;
   }
-  rbdl::Math::VectorNd q(joint_angles.size());
-  rbdl::Math::VectorNd qdot(joint_angles.size());
+
+  std::vector<double> full_joint_state(num_joints_, 0.0);
   for (unsigned int i = 0; i < joint_angles.size(); i++) {
-    q(i) = joint_angles[i];
+    setJointValuesFromActuated(i, joint_angles[i], full_joint_state);
+  }
+
+  rbdl::Math::VectorNd q(full_joint_state.size());
+  rbdl::Math::VectorNd qdot(full_joint_state.size());
+  for (unsigned int i = 0; i < full_joint_state.size(); i++) {
+    q(i) = full_joint_state[i];
     qdot(i) = 0;
   }
   int ndirs = num_joints_;
@@ -181,8 +195,8 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
 
 void RobotModel::updateRobotState(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
 {
-  if (joint_angles.size() != num_joints_) {
-    ROS_ERROR_STREAM("[RobotModel::publishRobotState] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_joints_ << ")");
+  if (joint_angles.size() != num_actuated_joints_) {
+    ROS_ERROR_STREAM("[RobotModel::publishRobotState] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_actuated_joints_ << ")");
     return;
   }
   robot_pose_ = robot_pose;
@@ -191,7 +205,8 @@ void RobotModel::updateRobotState(const Eigen::Affine3d &robot_pose, const std::
   updateMoveitRobotState(*moveit_robot_state_, robot_pose);
 
   sensor_msgs::JointState joint_state_msg;
-  joint_state_msg.name = joint_names_;
+
+  joint_state_msg.name = actuated_joint_names_;
   joint_state_msg.position = joint_angles;
   moveit::core::jointStateToRobotState(joint_state_msg, *moveit_robot_state_);
 }
@@ -294,12 +309,12 @@ std::vector<unsigned int> RobotModel::getBodyIndices(const std::vector<std::stri
   return indices;
 }
 
-std::vector<unsigned int> RobotModel::getJointIndices(const std::vector<std::string> &joints)
+std::vector<unsigned int> RobotModel::getActuatedJointIndices(const std::vector<std::string> &joints)
 {
   std::vector<unsigned int> indices;
   for (const std::string& joint: joints) {
-    ptrdiff_t idx = std::find(joint_names_.begin(), joint_names_.end(), joint) - joint_names_.begin();
-    if (idx >= joint_names_.size()) {
+    ptrdiff_t idx = std::find(actuated_joint_names_.begin(), actuated_joint_names_.end(), joint) - actuated_joint_names_.begin();
+    if (idx >= actuated_joint_names_.size()) {
       ROS_ERROR_STREAM("Joint '" << joint << "' wasn't found in model.");
     }
     indices.push_back(idx);
@@ -366,7 +381,7 @@ const std::vector<collision_detection::CollisionSphere>& RobotModel::getCollisio
 
 std::vector<unsigned int> RobotModel::getChainToJointIndexMapping()
 {
-  return getJointIndices(ad_chain_->getActuatedJointNames());
+  return getActuatedJointIndices(ad_chain_->getActuatedJointNames());
 }
 
 std::vector<int> RobotModel::getParamToChainIndexMapping(const std::vector<std::string> &free_joints)
@@ -393,9 +408,55 @@ void RobotModel::generateLinkBodyDecompositions(double resolution)
   }
 }
 
+void RobotModel::updateActuatedJointMapping(const std::string& joint_name, unsigned int joint_index)
+{
+  urdf::JointConstSharedPtr joint_ptr = urdf_model_.getJoint(joint_name);
+  if (!joint_ptr) {
+    ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
+  }
+  if (joint_ptr->type == urdf::Joint::REVOLUTE || joint_ptr->type == urdf::Joint::CONTINUOUS || joint_ptr->type == urdf::Joint::PRISMATIC) {
+    // Special case for fake fixed joints
+    if (joint_ptr->type == urdf::Joint::REVOLUTE && joint_ptr->limits->upper == 0.0 && joint_ptr->limits->lower == 0.0) {
+      return;
+    }
+    if (!joint_ptr->mimic) {
+      ROS_INFO_STREAM("Joint is actuated.");
+      actuated_joint_names_.push_back(joint_name);
+      actuated_idx_to_joint_idx_.push_back(joint_index);
+      actuated_joint_mimics_.push_back(std::vector<JointMimic>());
+      num_actuated_joints_++;
+    }
+  }
+}
+
+void RobotModel::updateJointMimicMapping(const std::string& joint_name, unsigned int joint_index)
+{
+  urdf::JointConstSharedPtr joint_ptr = urdf_model_.getJoint(joint_name);
+  if (!joint_ptr) {
+    ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
+  }
+  if (joint_ptr->mimic) {
+    std::vector<std::string>::const_iterator it = std::find(actuated_joint_names_.begin(), actuated_joint_names_.end(), joint_ptr->mimic->joint_name);
+    if (it != actuated_joint_names_.end()) {
+      ROS_INFO_STREAM("Adding mimic from " << joint_ptr->mimic->joint_name << " to " << joint_name);
+      unsigned int mimic_idx = it - actuated_joint_names_.begin();
+      JointMimic mimic(joint_index, joint_ptr->mimic->offset, joint_ptr->mimic->multiplier);
+      actuated_joint_mimics_[mimic_idx].push_back(mimic);
+    }
+  }
+}
+
 robot_model::RobotModelPtr RobotModel::getMoveitRobotModel() const
 {
   return moveit_robot_model_;
+}
+
+void RobotModel::setJointValuesFromActuated(double actuated_idx, double value, std::vector<double>& joint_state)
+{
+    joint_state[actuated_idx_to_joint_idx_[actuated_idx]] = value;
+    for (const JointMimic& mimic: actuated_joint_mimics_[actuated_idx]) {
+      joint_state[mimic.joint_index] = value * mimic.multiplier + mimic.offset;
+    }
 }
 
 robot_state::RobotState RobotModel::getMoveitRobotState() const

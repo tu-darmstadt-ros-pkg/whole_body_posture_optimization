@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
   while (ros::ok()) {
     ros::spinOnce();
     if (joint_state_received_) {
-      state_idx_to_rbdl_index = model.getJointIndices(last_joint_state_.name);
+      state_idx_to_rbdl_index = model.getActuatedJointIndices(last_joint_state_.name);
       std::vector<double> rbdl_state(state_idx_to_rbdl_index.size(), 0);
       for (unsigned int state_idx = 0; state_idx < last_joint_state_.position.size(); state_idx++) {
         rbdl_state[state_idx_to_rbdl_index[state_idx]] = last_joint_state_.position[state_idx];

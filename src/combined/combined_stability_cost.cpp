@@ -8,7 +8,7 @@ CombinedStabilityCost::CombinedStabilityCost(const std::shared_ptr<RobotModel>& 
  : robot_model_(robot_model), contact_estimation_(contact_estimation), free_flipper_joints_(free_flipper_joints), free_joints_(free_joints_),
    parameters_(parameters), result_robot_pose_(result_robot_pose)
 {
-  param_idx_to_joint_idx_ = robot_model_->getJointIndices(free_joints_);
+  param_idx_to_joint_idx_ = robot_model_->getActuatedJointIndices(free_joints_);
   if (free_flipper_joints.size() > free_joints_.size()) {
     ROS_ERROR_STREAM("Free flipper joints can't be larger than all free joints.");
   }

@@ -26,6 +26,14 @@ namespace rbdl = RigidBodyDynamics;
 
 namespace whole_body_posture_optimization {
 
+struct JointMimic {
+  JointMimic(unsigned int _joint_index, double _offset, double _multiplier)
+    : joint_index(_joint_index), offset(_offset), multiplier(_multiplier) {}
+  unsigned int joint_index; // target index
+  double offset;
+  double multiplier;
+};
+
 class RobotModel {
 public:
   RobotModel(ros::NodeHandle& nh);
@@ -42,7 +50,7 @@ public:
   void publishCollisionSpheres();
 
   std::vector<unsigned int> getBodyIndices(const std::vector<std::string>& bodies);
-  std::vector<unsigned int> getJointIndices(const std::vector<std::string>& joints);
+  std::vector<unsigned int> getActuatedJointIndices(const std::vector<std::string>& joints);
   std::string getParentJointName(const std::string& link_name);
   bool getJointLimits(const std::string& joint_name, double& lower_limit, double& upper_limit);
   unsigned int getNumJoints() const;
@@ -62,8 +70,12 @@ public:
 
   robot_model::RobotModelPtr getMoveitRobotModel() const;
 
+  void setJointValuesFromActuated(double actuated_idx, double value, std::vector<double>& joint_state);
+
 private:
   void generateLinkBodyDecompositions(double resolution);
+  void updateActuatedJointMapping(const std::string& joint_name, unsigned int joint_index);
+  void updateJointMimicMapping(const std::string& joint_name, unsigned int joint_index);
 
   std::string robot_description_;
 
@@ -75,8 +87,16 @@ private:
   urdf::Model urdf_model_;
   robot_model::RobotModelPtr moveit_robot_model_;
 
+  /// Contains all joints (revolute, prismatic, fixed, continuous, mimic)
   std::vector<std::string> joint_names_;
   unsigned int num_joints_;
+  /// Only actuated joints (no fixed, no mimic)
+  std::vector<std::string> actuated_joint_names_;
+  unsigned int num_actuated_joints_;
+  /// Maps actuated joints to the full joint index of rbdl (contains fixed joints, mimics..)
+  std::vector<unsigned int> actuated_idx_to_joint_idx_;
+  /// One entry for each actuated joint, multiple entries for ever joint that mimics the actuated joint
+  std::vector<std::vector<JointMimic>> actuated_joint_mimics_;
 
   robot_state::RobotStatePtr moveit_robot_state_;
   Eigen::Affine3d robot_pose_;

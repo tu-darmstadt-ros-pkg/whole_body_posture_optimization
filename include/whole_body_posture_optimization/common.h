@@ -26,6 +26,20 @@ using Affine3 = Eigen::Transform<T, 3, Eigen::Affine>;
 template<typename T>
 using Matrix3 = Eigen::Matrix<T, 3, 3>;
 
+template<typename T>
+std::string vecToString(const std::vector<T>& vec) {
+  std::stringstream ss;
+  ss << "[";
+  for (unsigned int i = 0; i < vec.size(); ++i) {
+    ss << vec[i];
+    if (i != vec.size() -1) {
+      ss << ", ";
+    }
+  }
+  ss << "]";
+  return ss.str();
+}
+
 template <typename T> T lorentzian(const T& x, const T& sigma) {
   return log(T(1) + pow(x, T(2))/(T(2) * pow(sigma, T(2))));
 }

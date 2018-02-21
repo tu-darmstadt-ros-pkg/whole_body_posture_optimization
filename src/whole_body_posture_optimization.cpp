@@ -310,21 +310,32 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     // set start state
     // x and y are taken from original path to prevent reversing during execution
-    Eigen::Affine3d robot_pose(opt_result[i].result_contact.estimated_pose);
-    robot_pose.translation() = Eigen::Vector3d(opt_result[i].requested_pose.translation().x(),
+    Eigen::Affine3d start_robot_pose(opt_result[i].result_contact.estimated_pose);
+    start_robot_pose.translation() = Eigen::Vector3d(opt_result[i].requested_pose.translation().x(),
                                                opt_result[i].requested_pose.translation().y(),
                                                opt_result[i].result_contact.estimated_pose.translation().z());
-    robot_model_->updateRobotState(robot_pose, opt_result[i].result_joint_angles);
+    robot_model_->updateRobotState(start_robot_pose, opt_result[i].result_joint_angles);
     robot_state::RobotState start_state = robot_model_->getMoveitRobotState();
     planning_scene->setCurrentState(start_state);
     moveit::core::robotStateToRobotStateMsg(start_state, req.start_state);
+//    ROS_INFO_STREAM("Start state:");
+//    ROS_INFO_STREAM("pose: " << start_robot_pose.affine());
+//    ROS_INFO_STREAM("joint state: " << vecToString(opt_result[i].result_joint_angles));
 
     // set goal state
-    robot_model_->updateRobotState(opt_result[i+1].result_contact.estimated_pose, opt_result[i+1].result_joint_angles);
+    Eigen::Affine3d goal_robot_pose(opt_result[i+1].result_contact.estimated_pose);
+    goal_robot_pose.translation() = Eigen::Vector3d(opt_result[i+1].requested_pose.translation().x(),
+                                               opt_result[i+1].requested_pose.translation().y(),
+                                               opt_result[i+1].result_contact.estimated_pose.translation().z());
+    robot_model_->updateRobotState(goal_robot_pose, opt_result[i+1].result_joint_angles);
     robot_state::RobotState goal_state = robot_model_->getMoveitRobotState();
     moveit_msgs::Constraints goal_constraint = kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
     req.goal_constraints.clear();
     req.goal_constraints.push_back(goal_constraint);
+//    ROS_INFO_STREAM("Goal state:");
+//    ROS_INFO_STREAM("pose: " << goal_robot_pose.affine());
+//    ROS_INFO_STREAM("joint state: " << vecToString(opt_result[i+1].result_joint_angles));
+
 
     // compute trajectory from start to goal
     planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);

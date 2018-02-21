@@ -8,7 +8,7 @@ StabilityError::StabilityError(const std::shared_ptr<RobotModel>& robot_model, c
   : robot_model_(robot_model), contact_points_(contact_points), initial_joint_angles(initial_joint_angles), robot_pose_(robot_pose), previous_param_angles_(previous_param_angles),
     parameters_(parameters)
 {
-  param_idx_to_joint_idx_ = robot_model_->getJointIndices(free_joints); // TODO remove duplicate mapping calculation
+  param_idx_to_joint_idx_ = robot_model_->getActuatedJointIndices(free_joints); // TODO remove duplicate mapping calculation
 
   compute_com_ = std::make_shared<ceres::DynamicCostFunctionToFunctor>(new ComputeCenterOfMass(robot_model, initial_joint_angles, param_idx_to_joint_idx_));
   if (contact_points.empty()) {
