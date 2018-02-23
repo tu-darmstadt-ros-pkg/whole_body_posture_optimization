@@ -7,6 +7,12 @@ int main(int argc, char** argv) {
   whole_body_posture_optimization::DrivingController driving_controller(pnh);
   ROS_INFO_STREAM("Finished initializing driving controller");
 
+  std::string tsdf_load_path;
+  pnh.param<std::string>("tsdf_load_path", tsdf_load_path, "");
+  if (tsdf_load_path != "") {
+    driving_controller.loadTsdfFromPath(tsdf_load_path);
+  }
+
   // Debug
   nav_msgs::Path path;
   path.header.stamp = ros::Time::now();

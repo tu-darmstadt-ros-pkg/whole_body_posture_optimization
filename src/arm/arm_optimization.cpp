@@ -21,7 +21,7 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   acm_ = planning_scene->getAllowedCollisionMatrix();
 
   // Precompute partial robot tsdf
-  partial_robot_tsdf_ = robot_model_->computeTsdfFromRobotModel(static_link_names_, self_collision_tsdf_truncation_distance_);
+  partial_robot_tsdf_ = robot_model_->computeTsdfFromRobotModel(static_link_names_, self_collision_tsdf_truncation_distance_, self_collision_tsdf_voxel_size_);
 
   //Publisher
   result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com", 10, true);
@@ -46,6 +46,7 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param("self_collision_padding", self_collision_padding_, 0.0);
   nh.param("self_collision_tsdf_padding", self_collision_tsdf_padding_, 0.0);
   nh.param("self_collision_tsdf_truncation_distance", self_collision_tsdf_truncation_distance_, 0.4);
+  nh.param("self_collision_tsdf_voxel_size", self_collision_tsdf_voxel_size_, 0.05);
   nh.param("enabled", enabled_, enabled_);
   nh.param<std::string>("algorithm", algorithm_, "LD_SLSQP");
 
@@ -136,13 +137,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     result.joint_angles = initial_angles;
     return result;
   }
-//  nlopt::opt opt(nlopt::LD_SLSQP,  free_joints_.size());
-//  nlopt::opt opt(nlopt::LD_CCSAQ, free_joints_.size());
-//  nlopt::opt opt(nlopt::LD_MMA,  free_joints_.size( ));
-//    nlopt::opt opt(nlopt::LN_COBYLA,  free_joints_.size());
 
   nlopt::opt opt(ceres_nlopt_wrapper::stringToAlgorithm(algorithm_), free_joints_.size());
-
 
   // Define parameter bounds
   opt.set_lower_bounds(lower_bounds_);
@@ -167,10 +163,11 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost(
         StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0);
   stability_cost.setName("stability_cost");
+  stability_cost.enableInfCheck(true);
+  stability_cost.enableNanCheck(true);
   opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost);
 
   // Add constraints
-  // TODO move constraints creation to constructor
   std::vector<int> param_idx_to_chain_idx = robot_model_->getParamToChainIndexMapping(free_joints_);
   std::vector<unsigned int> chain_idx_to_jnt_idx = robot_model_->getChainToJointIndexMapping();
   std::vector<double> default_chain_angles(chain_idx_to_jnt_idx.size());

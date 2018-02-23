@@ -1,7 +1,6 @@
 <?xml version="1.0"?>
 
 <launch>
-  
   <arg name="robot_type" default="argo_tracker" />
   <arg name="lidar_filter_target_frame" default="odom"/>
 
@@ -12,7 +11,7 @@
   <arg name="spawn_pitch" default="0.0" />    
   <arg name="spawn_yaw"   default="0" />
   
-  <arg name="world" default="$(find whole_body_posture_optimization)/worlds/step_test.world"/>
+  <arg name="world" default="step.world"/>
 
 
 <!--  <include file="$(find argo_sim_scenario_launch)/launch/argo_sim_common.launch">
@@ -38,7 +37,6 @@
   
   <!-- TSDF -->
   <include file="$(find whole_body_posture_optimization)/launch/tsdf_server.launch"/>
-
   
   <!-- Gazebo -->
   <include file="$(find argo_robot_gazebo_description)/launch/spawn_$(arg robot_type).launch">
@@ -52,7 +50,7 @@
   
   <param name="/use_sim_time" value="true" />
 
-  <node name="gazebo" pkg="gazebo_ros" type="gzserver" args="$(arg world) --verbose" respawn="false" output="screen"/>
+  <node name="gazebo" pkg="gazebo_ros" type="gzserver" args="$(find whole_body_posture_optimization)/worlds/$(arg world) --verbose --pause" respawn="false" output="screen"/>
   
   <!-- start gui -->
   <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen"/>

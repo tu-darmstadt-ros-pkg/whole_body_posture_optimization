@@ -13,7 +13,7 @@ default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0, 0, 0] # (12) default for all jo
 optimization_type: split
 collision_group: arm_with_gripper_group
 
-stability_limit: 0.0
+stability_limit: 0.5
   
 arm_optimization:
   enabled: true
@@ -24,7 +24,7 @@ arm_optimization:
     #- arm_joint_0
     - arm_joint_1
     - arm_joint_2
-    #- sensor_head_pitch_joint
+    - sensor_head_pitch_joint
   environment_collision_default_padding: 0.1
   environment_collision_padding: {
       gripper_palm_link: 0.3
@@ -45,14 +45,17 @@ arm_optimization:
   
   # moveable, but static regarding arm optimization
   semi_static_link_names:
-    - flipper_link_0
+    #- flipper_link_0
     - flipper_link_1
-  
+    - left_flipper_link
+    
   static_link_names:
     - chassis_link
     - spin_lidar_lidar_mount_link
     - spin_lidar_pitch_hokuyo_laser_frame
     - structure_addons_link
+    - left_track_link
+    - right_track_link
   
 flipper_optimization:
   enabled: true
@@ -93,6 +96,5 @@ combined_optimization:
     - structure_addons_link
   
 contact_estimation:
-  debug: false
-    
+  debug: false    
 

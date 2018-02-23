@@ -76,6 +76,8 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
         ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact, convex_hull_error_parameters_),
         verbosity_level);
   support_area_cost.setName("support_area_cost");
+  support_area_cost.enableInfCheck(true);
+  support_area_cost.enableNanCheck(true);
   opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &support_area_cost);
 
   // Set convergence criterion

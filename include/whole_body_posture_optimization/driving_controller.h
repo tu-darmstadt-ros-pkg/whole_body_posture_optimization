@@ -28,6 +28,7 @@ namespace whole_body_posture_optimization {
 class DrivingController {
 public:
   DrivingController(const ros::NodeHandle& nh);
+  bool loadTsdfFromPath(std::string tsdf_path);
 private:
   void pathCb(const nav_msgs::PathConstPtr& path_msg);
   void executeCb(const std_msgs::EmptyConstPtr& empty_msg);
@@ -49,6 +50,7 @@ private:
   sdf_contact_estimation::RobotShapeGeneratorBasePtr tracker_shape_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
 
+  std::shared_ptr<voxblox::TsdfMap> loaded_tsdf_;
   ros::ServiceClient get_tsdf_client_;
   std::shared_ptr<FollowPathClient> driving_client_;
   std::shared_ptr<MoveGroupClient> move_group_client_;

@@ -78,8 +78,7 @@ int main(int argc, char** argv) {
       double direction = 1.0;
       double step = direction * 0.02;
       double x_offset = 1;
-//      for (double x = (direction * -0.5) + x_offset; x < (direction * 0.75) + x_offset; x+=step) {
-      for (double x = 0.5; x < 0.53; x+=step) {
+      for (double x = (direction * -0.5) + x_offset; x < (direction * 0.75) + x_offset; x+=step) {
         geometry_msgs::PoseStamped pose_msg;
         pose_msg.header.frame_id = "world";
 

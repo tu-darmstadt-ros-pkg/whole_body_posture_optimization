@@ -1,16 +1,17 @@
 <?xml version="1.0"?>
 <launch>    
   <node pkg="whole_body_posture_optimization" type="driving_controller_node" name="driving_controller_node" output="screen">
+    
+    <param name="tsdf_load_path" value=""/>
+<!--     <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_sim_vlp16_2.tsdf"/> -->
+    
     <!-- posture optimization lib parameters -->
     <param name="tsdf_save_folder" value="$(find whole_body_posture_optimization)/tsdf"/>
     <rosparam file="$(find whole_body_posture_optimization)/config/opt.yaml" command="load" />
     
-     <!-- contact estimation lib parameters -->
-<!--    <param name="truncation_distance" value="0.4"/>
-    <param name="iteration_max_contact_distance" value="0.01"/>
-    <param name="final_max_contact_distance" value="0.05"/>-->
     
     <remap from="~tsdf" to="/tsdf_server/tsdf_map_out"/>
     <remap from="~get_tsdf" to="/tsdf_server/get_map"/>
+    
   </node>
 </launch>

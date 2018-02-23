@@ -59,6 +59,7 @@ private:
   double self_collision_padding_;
   double self_collision_tsdf_padding_;
   double self_collision_tsdf_truncation_distance_;
+  double self_collision_tsdf_voxel_size_;
   collision_detection::AllowedCollisionMatrix acm_;
 
   ros::Publisher result_com_pub_;

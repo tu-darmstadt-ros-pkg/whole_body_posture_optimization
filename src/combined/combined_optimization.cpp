@@ -24,7 +24,7 @@ CombinedOptimization::CombinedOptimization(ros::NodeHandle &nh, const std::share
   acm_ = planning_scene->getAllowedCollisionMatrix();
 
   // Compute robot tsdf
-  robot_tsdf_ = robot_model_->computeTsdfFromRobotModel(static_link_names_, self_collision_tsdf_truncation_distance_);
+  robot_tsdf_ = robot_model_->computeTsdfFromRobotModel(static_link_names_, self_collision_tsdf_truncation_distance_, 0.05);
 
   //Publisher
   result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com", 10, true);
@@ -169,6 +169,8 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
         CombinedStabilityCost::Create(robot_model_, contact_estimation_, free_joints_, free_flipper_joints_, stability_cost_parameters_, initial_state, previous_parameters, robot_pose,
                                       init_contact, result_robot_pose), 0);
   stability_cost.setName("stability_cost");
+  stability_cost.enableInfCheck(true);
+  stability_cost.enableNanCheck(true);
   opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost);
 
   // Add constraints

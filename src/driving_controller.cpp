@@ -5,11 +5,6 @@ namespace whole_body_posture_optimization {
 DrivingController::DrivingController(const ros::NodeHandle &nh)
   : nh_(nh), auto_start_(false)
 {
-  // Create tsdf
-  voxblox::TsdfMap::Config tsdf_config;
-  tsdf_config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(0.05);
-  tsdf_.reset(new voxblox::TsdfMap(tsdf_config));
-
   // Create robot shape
   tracker_shape_ = std::make_shared<argo_tracker::ArgoTrackerShape>();
   optimizer_= std::make_shared<WholeBodyPostureOptimization>(nh_, tracker_shape_);
@@ -45,6 +40,19 @@ DrivingController::DrivingController(const ros::NodeHandle &nh)
   // Start subscribers
   path_sub_ = nh_.subscribe("path_command", 10, &DrivingController::pathCb, this);
   execute_sub_ = nh_.subscribe("execute_planned_trajectory", 10, &DrivingController::executeCb, this);
+}
+
+bool DrivingController::loadTsdfFromPath(std::string tsdf_path)
+{
+  ROS_INFO_STREAM("Loading tsdf from path '" << tsdf_path << "'.");
+  voxblox::Layer<voxblox::TsdfVoxel>::Ptr layer_ptr;
+  if (voxblox::io::LoadLayer<voxblox::TsdfVoxel>(tsdf_path, &layer_ptr)) {
+    loaded_tsdf_ = std::make_shared<voxblox::TsdfMap>(layer_ptr);
+    return true;
+  } else {
+    ROS_ERROR_STREAM("Failed to load tsdf from file.");
+    return false;
+  }
 }
 
 bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &trajectories) {
@@ -102,7 +110,7 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
   follow_path_goal.target_path = path;
   follow_path_goal.follow_path_options.desired_speed = 0.0;
   follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
-  follow_path_goal.follow_path_options.reverse_allowed = true;
+  follow_path_goal.follow_path_options.reverse_allowed = false;
   follow_path_goal.follow_path_options.is_fixed = true;
   follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.01;
   follow_path_goal.follow_path_options.goal_pose_angle_tolerance = 0.01;
@@ -217,9 +225,9 @@ bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, 
 
 bool DrivingController::updateTsdf(std::shared_ptr<voxblox::TsdfMap> &tsdf)
 {
-  if (!tsdf) {
-    ROS_ERROR_STREAM("Tsdf pointer is null");
-    return false;
+  if (loaded_tsdf_) {
+    tsdf = loaded_tsdf_;
+    return true;
   }
 
   voxblox_msgs::GetLayer get_layer;
@@ -227,6 +235,11 @@ bool DrivingController::updateTsdf(std::shared_ptr<voxblox::TsdfMap> &tsdf)
   if (!get_tsdf_client_.call(get_layer)) {
     ROS_ERROR_STREAM("Failed to retrieve the latest tsdf map.");
     return false;
+  }
+  if (!tsdf_) {
+    voxblox::TsdfMap::Config tsdf_config;
+    tsdf_config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(get_layer.response.layer.voxel_size);
+    tsdf_.reset(new voxblox::TsdfMap(tsdf_config));
   }
   voxblox::deserializeMsgToLayer<voxblox::TsdfVoxel>(get_layer.response.layer, tsdf->getTsdfLayerPtr());
   return true;
@@ -243,6 +256,7 @@ void DrivingController::pathCb(const nav_msgs::PathConstPtr &path_msg) {
   optimizer_->updateWorldModel(tsdf_);
   auto result = optimizer_->findOptimalPostures(*path_msg);
   trajectory_ = optimizer_->computeTimedTrajectory(result);
+  whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
   if (auto_start_) {
     executeTrajectory(trajectory_);
   }

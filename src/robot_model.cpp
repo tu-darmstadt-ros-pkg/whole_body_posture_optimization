@@ -115,10 +115,9 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   computeCenterOfMass(joint_angles, com, jacobian);
 }
 
-std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance)
+std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance, float voxel_size)
 {
   // Create empty SDF
-  const float voxel_size = 0.05;
   voxblox::TsdfMap::Config tsdf_config;
   tsdf_config.tsdf_voxel_size = voxel_size; // TODO parameter
   std::shared_ptr<voxblox::TsdfMap> tsdf = std::make_shared<voxblox::TsdfMap>(tsdf_config);
