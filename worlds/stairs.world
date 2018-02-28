@@ -69,12 +69,12 @@
 
     <model name="stair_link">
       <static>true</static>
+      <pose>1.4 0 0 0 0 -1.5709</pose>
       <link name="stair">
-        <pose>0 4 0 0 0 0</pose>
         <collision name="stair_collision">
           <geometry>
             <mesh>
-              <uri>file://tuda_stair.stl</uri>
+              <uri>file://stairs_120_solid.dae</uri>
               <scale>1 1 1</scale>
             </mesh>
           </geometry>
@@ -83,7 +83,7 @@
         <visual name="stair_visual">
           <geometry>
             <mesh>
-              <uri>file://tuda_stair.dae</uri>
+              <uri>file://stairs_120_solid.dae</uri>
               <scale>1 1 1</scale>
             </mesh>
           </geometry>

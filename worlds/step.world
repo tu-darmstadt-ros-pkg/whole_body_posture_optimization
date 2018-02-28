@@ -69,7 +69,7 @@
     <model name='brick_box_3x1x3'>
       <static>1</static>
       <link name='chassis'>
-        <pose frame=''>2.5 0 -0.35 -1.57127 0 0</pose>
+        <pose frame=''>2.3 0 -0.35 -1.57127 0 0</pose>
         <collision name='collision'>
           <geometry>
             <box>
