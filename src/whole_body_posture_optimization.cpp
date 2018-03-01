@@ -343,7 +343,9 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
       ROS_ERROR_STREAM("Failed to construct planning context. Error: " << res.error_code_);
       return trajectories;
     }
+//    std::cout.setstate(std::ios_base::failbit);
     context->solve(res);
+//    std::cout.clear();
     if (res.error_code_.val != res.error_code_.SUCCESS)
     {
       ROS_ERROR("Could not compute plan successfully");

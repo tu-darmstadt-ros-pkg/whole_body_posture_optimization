@@ -16,9 +16,12 @@ int main(int argc, char** argv) {
   // Debug
   nav_msgs::Path path;
   path.header.stamp = ros::Time::now();
-  path.header.frame_id = "world";
-  double step = 0.02;
-  for (double x = 0.0; x < 2; x+=step) {
+  path.header.frame_id = "world";  
+  double path_start, path_stop, path_step;
+  pnh.param("path_start", path_start, 0.0);
+  pnh.param("path_stop", path_stop, 1.5);
+  pnh.param("path_step", path_step, 0.02);
+  for (double x = path_start; x < path_stop; x += path_step) {
     geometry_msgs::PoseStamped pose_msg;
     pose_msg.header.frame_id = "world";
 

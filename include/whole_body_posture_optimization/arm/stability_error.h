@@ -53,9 +53,38 @@ private:
 };
 
 struct StabilityErrorParameters {
+
+  static StabilityErrorParameters createFromServer(const ros::NodeHandle& nh) {
+    StabilityErrorParameters parameters;
+
+    std::vector<double> exp_parameters = {1.6, -1.7, 0.0};
+    nh.param("exp_parameters", exp_parameters, exp_parameters);
+    if (exp_parameters.size() != 3) {
+      ROS_ERROR_STREAM("Invalid size for parameter 'exp_parameter'. Got " << exp_parameters.size() << " expected 3");
+      parameters.exp_parameters[0] = parameters.exp_parameters[1] = parameters.exp_parameters[2] = 0;
+    } else {
+      std::copy(begin(exp_parameters), end(exp_parameters), parameters.exp_parameters);
+    }
+    nh.param("lorentzian_sigma", parameters.lorentzian_sigma, 0.1);
+    nh.param("regularization_weight", parameters.regularization_weight, 0.0);
+    nh.param("function_scale", parameters.function_scale, 1.0);
+    return parameters;
+  }
+
+  std::string toString() {
+    std::stringstream ss;
+    ss << "Stability cost parameters:" << std::endl;
+    ss << "lorentzian_sigma = " << lorentzian_sigma << std::endl;
+    ss << "regularization_weight = " << regularization_weight << std::endl;
+    ss << "function_scale = " << function_scale << std::endl;
+    ss << "exp_parameters = [" << exp_parameters[0] << ", " << exp_parameters[1] << ", " << exp_parameters[2] << "]" << std::endl;
+    return ss.str();
+  }
+
   double exp_parameters[3];
-  double regularization_weight = 0.05;
-  double lorentzian_sigma = 0.1;
+  double regularization_weight;
+  double lorentzian_sigma;
+  double function_scale;
 };
 
 class StabilityError {
@@ -109,7 +138,7 @@ public:
     }
 //    ROS_INFO_STREAM("regularization_cost: " << regularization_cost);
 
-    cost[0] = stability_sum + T(parameters_.regularization_weight) * regularization_cost;
+    cost[0] = parameters_.function_scale * (stability_sum + T(parameters_.regularization_weight) * regularization_cost);
     return true;
   }
 

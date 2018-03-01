@@ -1,7 +1,7 @@
 # default
 #default_joint_state: [0, 1, 4.5, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 #default_joint_state: [0, 2, 4.71612, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
-default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0, 0, 0] # (12) default for all joints
+default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0] # (12) default for all joints
 
 
 #default_joint_state: [0, 0.6, 5.2, 0.5, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
@@ -11,36 +11,42 @@ default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0, 0, 0] # (12) default for all jo
 #default_joint_state: [0.0838013, 3.072, 4.68403, 0.86, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 
 optimization_type: split
-collision_group: arm_with_gripper_group
+collision_group: arm_with_head_group
 
-stability_limit: 0.5
+stability_limit: 0.3
   
 arm_optimization:
   enabled: true
-  algorithm: LD_SLSQP
-  #algorithm: LD_MMA
+  #algorithm: LD_SLSQP
+  algorithm: LD_MMA
   #algorithm: LN_COBYLA
+  stopping_criteria:
+    #maxtime: 0.200
+    maxeval: 300
+    ftol_abs: 0.00001
   joints:
     #- arm_joint_0
     - arm_joint_1
     - arm_joint_2
     - sensor_head_pitch_joint
-  environment_collision_default_padding: 0.1
+  environment_collision_default_padding: 0.15
   environment_collision_padding: {
-      gripper_palm_link: 0.3
+      gripper_palm_link: 0.2
   }
   self_collision_padding: 0.05
   self_collision_tsdf_padding: 0.05
   self_collision_tsdf_truncation_distance: 0.4
   
-  #exp_parameters: [14.0, -2.6, 0.3] # too steep in negative area, gradient too big
-  exp_parameters: [4.0, -3, 0.3] # weaker form of ^
-  
-  #exp_parameters: [0.7, -0.96, 0.0] # ease in from negative stability, ~0 at 2
-  #exp_parameters: [1.6, -1.7, 0.0] # steeper, so negative stabilities outweigh positive
+  objective_parameters:
+    function_scale: 1
+    #exp_parameters: [14.0, -2.6, 0.3] # too steep in negative area, gradient too big
+    exp_parameters: [4.0, -3, 0.3] # weaker form of ^
+    
+    #exp_parameters: [0.7, -0.96, 0.0] # ease in from negative stability, ~0 at 2
+    #exp_parameters: [1.6, -1.7, 0.0] # steeper, so negative stabilities outweigh positive
 
-  lorentzian_sigma: 0.2
-  regularization_weight: 0.02
+    lorentzian_sigma: 0.2
+    regularization_weight: 0.0025
 
   
   # moveable, but static regarding arm optimization
@@ -59,6 +65,8 @@ arm_optimization:
   
 flipper_optimization:
   enabled: true
+  stopping_criteria:
+    maxeval: 10
   joints:
     - flipper_joint_1
     

@@ -38,6 +38,10 @@ private:
   double getDefaultJointPadding(CollisionType collision_type);
   bool loadLimits();
   std::vector<double> jointVectorToParamVector(const std::vector<double> &joint_vec);
+
+  ros::NodeHandle nh_;
+  nlopt::opt opt_;
+
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<unsigned int> param_idx_to_jnt_idx_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;

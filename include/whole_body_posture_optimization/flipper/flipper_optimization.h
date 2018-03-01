@@ -31,6 +31,8 @@ private:
   bool loadParameters(const ros::NodeHandle &nh);
   bool loadLimits();
 
+  ros::NodeHandle nh_;
+
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<unsigned int> param_idx_to_jnt_idx_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;

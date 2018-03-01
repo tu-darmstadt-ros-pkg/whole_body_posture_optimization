@@ -6,7 +6,7 @@ namespace whole_body_posture_optimization {
 
 FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel> &robot_model, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
                                          const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation)
-  : contact_estimation_(contact_estimation), robot_model_(robot_model), robot_shape_gen_(robot_shape_gen), enabled_(true)
+  : nh_(nh), contact_estimation_(contact_estimation), robot_model_(robot_model), robot_shape_gen_(robot_shape_gen), enabled_(true)
 {
   if (!loadParameters(nh)) {
     ROS_ERROR_STREAM("Loading flipper parameters failed.");
@@ -80,14 +80,10 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   support_area_cost.enableNanCheck(true);
   opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &support_area_cost);
 
-  // Set convergence criterion
-//  opt.set_xtol_rel(1e-4);
-//  opt.set_ftol_rel(1e-2);
-  opt.set_maxeval(10);
-//  opt.set_maxeval(200);
-//  opt.set_maxtime(0.070);
-//  opt.set_stopval(-0.510003);
-//  opt.set_ftol_abs(0.01);
+  // Set convergence criterion  
+//  ros::NodeHandle stopping_criteria_nh(nh_, "stopping_criteria");
+//  ceres_nlopt_wrapper::setParametersFromServer(stopping_criteria_nh, opt);
+  opt.set_maxeval(20);
 
   std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
   // Publish start state
