@@ -37,13 +37,13 @@ public:
     // Compute sphere positions in world
     Vector3<T> sphere_center1 = obj1_.collision_sphere.relative_vec_.cast<T>();
     Affine3<T> base_to_link1 = robot_model_->computeChainFK<T>(obj1_.link_name, chain_angles);
-    Vector3<T> sphere_center_world1 = robot_pose_.cast<T>() * base_to_link1 * sphere_center1;
+    Vector3<T> sphere_center_base1 = base_to_link1 * sphere_center1;
 
     Vector3<T> sphere_center2 = obj2_.collision_sphere.relative_vec_.cast<T>();
     Affine3<T> base_to_link2 = robot_model_->computeChainFK<T>(obj2_.link_name, chain_angles);
-    Vector3<T> sphere_center_world2 = robot_pose_.cast<T>() * base_to_link2 * sphere_center2;
+    Vector3<T> sphere_center_base2 = base_to_link2 * sphere_center2;
 
-    T distance = (sphere_center_world1 - sphere_center_world2).norm();
+    T distance = (sphere_center_base1 - sphere_center_base2).norm();
 
     // d - r1 - p1 - r2 - p2 > 0
     cost[0] = -(distance - T(obj1_.collision_sphere.radius_) - T(obj1_.padding) - T(obj2_.collision_sphere.radius_) - T(obj2_.padding)); // inequality constraints in nlopt have to be < 0

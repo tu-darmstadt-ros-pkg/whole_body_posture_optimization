@@ -35,8 +35,8 @@ public:
 
     // Compute sphere position in world
     const Eigen::Vector3d& sphere_center = obj_.collision_sphere.relative_vec_;
-    const Eigen::Affine3d& base_to_link = robot_model_->getMoveitRobotState().getGlobalLinkTransform(obj_.link_name);
-    Eigen::Vector3d sphere_center_world = *robot_pose_ * base_to_link * sphere_center;
+    const Eigen::Affine3d& world_to_link = robot_model_->getMoveitRobotState().getGlobalLinkTransform(obj_.link_name);
+    Eigen::Vector3d sphere_center_world = world_to_link * sphere_center;
 
     // Evaluate sdf at sphere position
     double sdf = sdf_->getSdf<double>(sphere_center_world.x(), sphere_center_world.y(), sphere_center_world.z());

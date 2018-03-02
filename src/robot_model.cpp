@@ -3,7 +3,7 @@
 namespace whole_body_posture_optimization {
 
 RobotModel::RobotModel(ros::NodeHandle &nh)
-  : num_joints_(0), num_actuated_joints_(0)
+  : num_joints_(0), num_actuated_joints_(0), total_mass_(0)
 {
   // Parameter loading
   if(!nh.getParam("/robot_description", robot_description_)) {
@@ -31,6 +31,7 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
     std::string body_name = model_ptr_->GetBodyName(body_id);
     ROS_INFO_STREAM("Body id: " << body_id << ", name: " << body_name);
     ROS_INFO_STREAM("-- mass: " << model_ptr_->mBodies[body_id].mMass);
+    total_mass_ += model_ptr_->mBodies[body_id].mMass;
     if (body_id != 0) {
       std::string joint_name = getParentJointName(body_name);
       ROS_INFO_STREAM("-- Parent joint: " << joint_name);
@@ -39,6 +40,7 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
       updateActuatedJointMapping(joint_name, joint_names_.size()-1);
     }
   }
+  ROS_INFO_STREAM("Total mass: " << getTotalMass());
 
   // Second pass to find mimics
   for (unsigned int i = 0; i < joint_names_.size(); i++) {
@@ -192,22 +194,30 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
   return tsdf;
 }
 
-void RobotModel::updateRobotState(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
+void RobotModel::updateJointAngles(const std::vector<double> joint_angles)
 {
   if (joint_angles.size() != num_actuated_joints_) {
-    ROS_ERROR_STREAM("[RobotModel::publishRobotState] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_actuated_joints_ << ")");
+    ROS_ERROR_STREAM("[RobotModel::updateJointAngles] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_actuated_joints_ << ")");
     return;
   }
-  robot_pose_ = robot_pose;
   joint_angles_ = joint_angles;
 
-  updateMoveitRobotState(*moveit_robot_state_, robot_pose);
-
   sensor_msgs::JointState joint_state_msg;
-
   joint_state_msg.name = actuated_joint_names_;
   joint_state_msg.position = joint_angles;
   moveit::core::jointStateToRobotState(joint_state_msg, *moveit_robot_state_);
+}
+
+void RobotModel::updatePose(const Eigen::Affine3d& robot_pose)
+{
+  robot_pose_ = robot_pose;
+  updateMoveitRobotState(*moveit_robot_state_, robot_pose);
+}
+
+void RobotModel::updateRobotState(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
+{
+  updateJointAngles(joint_angles);
+  updatePose(robot_pose);
 }
 
 void RobotModel::publishRobotState(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
@@ -443,6 +453,11 @@ void RobotModel::updateJointMimicMapping(const std::string& joint_name, unsigned
       actuated_joint_mimics_[mimic_idx].push_back(mimic);
     }
   }
+}
+
+double RobotModel::getTotalMass() const
+{
+  return total_mass_;
 }
 
 robot_model::RobotModelPtr RobotModel::getMoveitRobotModel() const

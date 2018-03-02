@@ -44,6 +44,8 @@ public:
   std::shared_ptr<voxblox::TsdfMap> computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance,
                                                               const std::shared_ptr<voxblox::TsdfMap>& init_tsdf);
 
+  void updateJointAngles(const std::vector<double> joint_angles);
+  void updatePose(const Eigen::Affine3d& robot_pose);
   void updateRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
   void publishRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
   void publishRobotState();
@@ -72,6 +74,8 @@ public:
   robot_model::RobotModelPtr getMoveitRobotModel() const;
 
   void setJointValuesFromActuated(double actuated_idx, double value, std::vector<double>& joint_state);
+
+  double getTotalMass() const;
 
 private:
   void generateLinkBodyDecompositions(double resolution);
@@ -108,6 +112,8 @@ private:
 
   ros::Publisher robot_state_pub_;
   ros::Publisher collision_spheres_pub_;
+
+  double total_mass_;
 };
 
 }

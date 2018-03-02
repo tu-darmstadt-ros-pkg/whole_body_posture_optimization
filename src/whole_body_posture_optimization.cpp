@@ -99,7 +99,8 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     std::ostringstream oss;
-    oss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S");
+//    oss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S");
+    oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
     std::string time_stamp = oss.str();
     std::string save_path =  tsdf_save_folder_ + "/tsdf_map_" + time_stamp + ".tsdf";
     ROS_INFO_STREAM("Saving tsdf to " << save_path);
@@ -220,6 +221,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   robot_model_->publishRobotState();
   robot_model_->publishCollisionSpheres();
 
+  ROS_INFO_STREAM("Stability: " << result.stability_arm_opt);
+
   STOP_TIMING_AVG;
 
   return result;
@@ -309,32 +312,17 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
   robot_trajectory::RobotTrajectory trajectory_tmp(robot_model_->getMoveitRobotModel(), group_with_world);
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     // set start state
-    // x and y are taken from original path to prevent reversing during execution
-    Eigen::Affine3d start_robot_pose(opt_result[i].result_contact.estimated_pose);
-    start_robot_pose.translation() = Eigen::Vector3d(opt_result[i].requested_pose.translation().x(),
-                                               opt_result[i].requested_pose.translation().y(),
-                                               opt_result[i].result_contact.estimated_pose.translation().z());
-    robot_model_->updateRobotState(start_robot_pose, opt_result[i].result_joint_angles);
+    robot_model_->updateJointAngles(opt_result[i].result_joint_angles);
     robot_state::RobotState start_state = robot_model_->getMoveitRobotState();
     planning_scene->setCurrentState(start_state);
     moveit::core::robotStateToRobotStateMsg(start_state, req.start_state);
-//    ROS_INFO_STREAM("Start state:");
-//    ROS_INFO_STREAM("pose: " << start_robot_pose.affine());
-//    ROS_INFO_STREAM("joint state: " << vecToString(opt_result[i].result_joint_angles));
 
     // set goal state
-    Eigen::Affine3d goal_robot_pose(opt_result[i+1].result_contact.estimated_pose);
-    goal_robot_pose.translation() = Eigen::Vector3d(opt_result[i+1].requested_pose.translation().x(),
-                                               opt_result[i+1].requested_pose.translation().y(),
-                                               opt_result[i+1].result_contact.estimated_pose.translation().z());
-    robot_model_->updateRobotState(goal_robot_pose, opt_result[i+1].result_joint_angles);
+    robot_model_->updateJointAngles(opt_result[i+1].result_joint_angles);
     robot_state::RobotState goal_state = robot_model_->getMoveitRobotState();
     moveit_msgs::Constraints goal_constraint = kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
     req.goal_constraints.clear();
     req.goal_constraints.push_back(goal_constraint);
-//    ROS_INFO_STREAM("Goal state:");
-//    ROS_INFO_STREAM("pose: " << goal_robot_pose.affine());
-//    ROS_INFO_STREAM("joint state: " << vecToString(opt_result[i+1].result_joint_angles));
 
 
     // compute trajectory from start to goal
@@ -343,9 +331,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
       ROS_ERROR_STREAM("Failed to construct planning context. Error: " << res.error_code_);
       return trajectories;
     }
-//    std::cout.setstate(std::ios_base::failbit);
     context->solve(res);
-//    std::cout.clear();
     if (res.error_code_.val != res.error_code_.SUCCESS)
     {
       ROS_ERROR("Could not compute plan successfully");
@@ -355,8 +341,14 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
 
     // The moveit trajectory planner can't handle/interpolate the virtual world joint
     // So we do it ourselves and override the respective states
-    Eigen::Vector3d start_position = opt_result[i].result_contact.estimated_pose.translation();
-    Eigen::Vector3d end_position = opt_result[i+1].result_contact.estimated_pose.translation();
+//    Eigen::Vector3d start_position = opt_result[i].result_contact.estimated_pose.translation();
+//    Eigen::Vector3d end_position = opt_result[i+1].result_contact.estimated_pose.translation();
+
+    Eigen::Vector3d start_position = opt_result[i].requested_pose.translation();
+    start_position.z() = opt_result[i].result_contact.estimated_pose.translation().z();
+    Eigen::Vector3d end_position = opt_result[i+1].requested_pose.translation();
+    end_position.z() = opt_result[i+1].result_contact.estimated_pose.translation().z();
+
     Eigen::Vector3d position_diff = end_position - start_position;
     Eigen::Quaterniond start_orientation(opt_result[i].result_contact.estimated_pose.rotation());
     Eigen::Quaterniond end_orientation(opt_result[i+1].result_contact.estimated_pose.rotation());
@@ -368,6 +360,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
       Eigen::Affine3d interpolated_pose(interpolated_orientation);
       interpolated_pose.translation() = interpolated_position;
       updateMoveitRobotState(*state, interpolated_pose);
+//      ROS_INFO_STREAM("Updated state " << j << ": " << interpolated_position);
     }
 
     // Compute time parameterization and push to vector

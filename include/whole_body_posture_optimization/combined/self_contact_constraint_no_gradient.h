@@ -30,21 +30,21 @@ public:
       joint_angles[param_idx_to_joint_idx_[i]] = parameters[0][i];
     }
 
-    robot_model_->updateRobotState(robot_pose_, joint_angles);
+    robot_model_->updateJointAngles(joint_angles);
 
     // Compute sphere position in world
     const Eigen::Vector3d& sphere_center1 = obj1_.collision_sphere.relative_vec_;
     const Eigen::Affine3d& base_to_link1 = robot_model_->getMoveitRobotState().getGlobalLinkTransform(obj1_.link_name);
-    Eigen::Vector3d sphere_center_world1 = robot_pose_ * base_to_link1 * sphere_center1;
+    Eigen::Vector3d sphere_center_base1 = base_to_link1 * sphere_center1;
 
     // Compute sphere position in world
     const Eigen::Vector3d& sphere_center2 = obj2_.collision_sphere.relative_vec_;
     const Eigen::Affine3d& base_to_link2 = robot_model_->getMoveitRobotState().getGlobalLinkTransform(obj2_.link_name);
-    Eigen::Vector3d sphere_center_world2 = robot_pose_ * base_to_link2 * sphere_center2;
+    Eigen::Vector3d sphere_center_base2 =  base_to_link2 * sphere_center2;
 
 
 
-    double distance = (sphere_center_world1 - sphere_center_world2).norm();
+    double distance = (sphere_center_base1 - sphere_center_base2).norm();
 
     // d - r1 - p1 - r2 - p2 > 0
     cost[0] = -(distance - obj1_.collision_sphere.radius_ - obj1_.padding - obj2_.collision_sphere.radius_ - obj2_.padding); // inequality constraints in nlopt have to be < 0

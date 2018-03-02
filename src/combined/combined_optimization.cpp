@@ -150,7 +150,7 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
 //  opt.set_xtol_rel(1e-4);
 //  opt.set_ftol_rel(1e-5);
 //  opt.set_xtol_abs(0.0001);
-  opt.set_maxeval(200);
+  opt.set_maxeval(300);
 //  opt.set_maxtime(0.1);
   opt.set_ftol_abs(0.00001);
 
@@ -307,6 +307,8 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
   com_pose.translation() = result.contact_result.estimated_pose * result.center_of_mass;
   sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
 
+  *result_robot_pose = result.contact_result.estimated_pose;
+
   // Check for collisions in solution
   std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
   *result_robot_pose = result.contact_result.estimated_pose;
@@ -328,6 +330,17 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
       ROS_WARN_STREAM(violation.toString());
     }
   }
+
+  // DEBUG print environment constraint values:
+//  for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& c: environment_constraints) {
+//    if (!c) {
+//      ROS_ERROR_STREAM("Constraint is null.");
+//      continue;
+//    }
+//    std::vector<double> gradient(parameters.size());
+//    double cost = c->operator ()(parameters, gradient);
+//    ROS_INFO_STREAM(c->getName() << ":" << cost);
+//  }
 
   delete result_robot_pose;
 
