@@ -230,7 +230,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
           CollisionObject obj1(sphere1, link_name_1, getJointPadding(link_name_1, SELF_COLLISION));
           CollisionObject obj2(sphere2, link_name_2, getJointPadding(link_name_2, SELF_COLLISION));
           ceres::CostFunction* cost_function = SelfContactConstraint::Create(
-                robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, obj1, obj2);
+                robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, obj1, obj2);
           std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
           wrapper->setName("constraint_self_collision_" + link_name_1 + "_vs_" + link_name_2);
           self_collision_constraints.push_back(wrapper);

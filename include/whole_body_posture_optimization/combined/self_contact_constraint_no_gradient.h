@@ -15,8 +15,8 @@ namespace  whole_body_posture_optimization {
 class SelfContactConstraintNoGradient {
 public:
   SelfContactConstraintNoGradient(const std::shared_ptr<RobotModel> &robot_model, const std::vector<unsigned int>& param_idx_to_joint_idx,
-                                  const std::vector<double>& initial_full_state, const Eigen::Affine3d& robot_pose, const CollisionObject& obj1, const CollisionObject& obj2)
-    : robot_model_(robot_model), param_idx_to_joint_idx_(param_idx_to_joint_idx), initial_full_state_(initial_full_state), robot_pose_(robot_pose), obj1_(obj1), obj2_(obj2)
+                                  const std::vector<double>& initial_full_state, const CollisionObject& obj1, const CollisionObject& obj2)
+    : robot_model_(robot_model), param_idx_to_joint_idx_(param_idx_to_joint_idx), initial_full_state_(initial_full_state), obj1_(obj1), obj2_(obj2)
   {
     if (!robot_model_) {
       ROS_ERROR_STREAM("Robot model is null!");
@@ -52,9 +52,9 @@ public:
   }
 
   static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<unsigned int>& param_idx_to_joint_idx,
-                                     const std::vector<double>& initial_full_state, const Eigen::Affine3d& robot_pose, const CollisionObject& obj1, const CollisionObject& obj2) {
+                                     const std::vector<double>& initial_full_state, const CollisionObject& obj1, const CollisionObject& obj2) {
     ceres::DynamicNumericDiffCostFunction<SelfContactConstraintNoGradient>* cost_function = new ceres::DynamicNumericDiffCostFunction<SelfContactConstraintNoGradient>(
-          new SelfContactConstraintNoGradient(robot_model, param_idx_to_joint_idx, initial_full_state, robot_pose, obj1, obj2));
+          new SelfContactConstraintNoGradient(robot_model, param_idx_to_joint_idx, initial_full_state, obj1, obj2));
 
     cost_function->AddParameterBlock(param_idx_to_joint_idx.size());
     cost_function->SetNumResiduals(1);
@@ -66,7 +66,6 @@ private:
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<unsigned int> param_idx_to_joint_idx_; // Transforms parameter index to chain index
   std::vector<double> initial_full_state_; // default values for all chain joints
-  Eigen::Affine3d robot_pose_; // current robot pose in world
 
   CollisionObject obj1_;
   CollisionObject obj2_;
