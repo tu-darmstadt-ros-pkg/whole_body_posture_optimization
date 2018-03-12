@@ -12,15 +12,6 @@
   <arg name="spawn_yaw"   default="0" />
   
   <arg name="world" default="step.world"/>
-
-
-<!--  <include file="$(find argo_sim_scenario_launch)/launch/argo_sim_common.launch">
-    <arg name="robot_type" value="$(arg robot_type)"/>
-    <arg name="spawn_x_pos" value="$(arg spawn_x_pos)" />
-    <arg name="spawn_y_pos" value="$(arg spawn_y_pos)" />
-    <arg name="spawn_z_pos" value="$(arg spawn_z_pos)" />
-    <arg name="spawn_yaw"   value="$(arg spawn_yaw)" />
-  </include>-->
     
   <include file="$(find argo_robot_gazebo_description)/launch/publish_ground_truth_state.launch"/> 
   
@@ -31,6 +22,9 @@
   <include file="$(find hector_argo_tracker_onboard_launch)/launch/lidar_proc/lidar_proc_$(arg robot_type).launch">
     <arg name="lidar_filter_target_frame" value="$(arg lidar_filter_target_frame)"/>
   </include>
+  
+  <!-- depth cam self filter -->
+  <include file="$(find hector_argo_tracker_onboard_launch)/launch/depth_proc/realsense_box_filter.launch"/>
   
   <!-- vehicle controller -->
   <include file="$(find argo_nav_launch)/launch/navigation.launch"/>

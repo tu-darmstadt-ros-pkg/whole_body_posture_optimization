@@ -24,11 +24,12 @@
     <!--<remap from="pointcloud" to="/arm_rgbd_cam/depth/points"/>-->
   </node>
   
+  <!-- relays to combined topic -->
   <node name="filtered_laser_relay" pkg="topic_tools" type="relay" args="/scan_cloud_filtered /scans_combined">
     <param name="lazy" value="true"/>
   </node>
   
-  <node name="depth_cam_throttle" pkg="topic_tools" type="throttle" args="messages /arm_rgbd_cam/depth/points 1.0 /scans_combined">
+  <node name="filtered_depth_relay" pkg="topic_tools" type="relay" args="/arm_rgbd_cam/depth/points_filtered /scans_combined">
     <param name="lazy" value="true"/>
   </node>
 </launch>
