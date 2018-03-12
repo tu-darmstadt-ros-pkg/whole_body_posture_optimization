@@ -38,6 +38,7 @@ private:
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
   sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape_gen_;
 
+  nlopt::opt opt_;
   bool enabled_;
   std::vector<std::string> free_joints_;
   std::vector<double> upper_bounds_;

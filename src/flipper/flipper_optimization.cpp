@@ -15,10 +15,24 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
     ROS_ERROR_STREAM("Loading flipper limits failed");
   }
   param_idx_to_jnt_idx_ = robot_model_->getActuatedJointIndices(free_joints_);
+
+  // Publisher
   start_state_pub_ = nh.advertise<visualization_msgs::MarkerArray>("start_state", 10, true);
   result_state_pub_ = nh.advertise<visualization_msgs::MarkerArray>("result_state", 10, true);
   contact_points_pub_ = nh.advertise<visualization_msgs::MarkerArray>("contact_points", 10, true);
   result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com_pose", 10, true);
+
+  // Create nlopt optimizer
+  std::string algorithm;
+  nh.param<std::string>("algorithm", algorithm, "GN_DIRECT_L");
+  opt_ = nlopt::opt(ceres_nlopt_wrapper::stringToAlgorithm(algorithm), free_joints_.size());
+  // Define parameter bounds
+  opt_.set_lower_bounds(lower_bounds_);
+  opt_.set_upper_bounds(upper_bounds_);
+
+  // Set convergence criterion
+  ros::NodeHandle stopping_criteria_nh(nh_, "stopping_criteria");
+  ceres_nlopt_wrapper::setParametersFromServer(stopping_criteria_nh, opt_);
 }
 
 bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -40,31 +54,8 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
 FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_joint_angles,
                                                         const std::vector<double> &previous_joint_angles, const sdf_contact_estimation::ContactEstimationResult &init_contact)
 {
-//  ROS_INFO_STREAM("Starting flipper optimization");
   Eigen::Vector3d com_pos = base_to_com.translation();
   ROS_DEBUG_STREAM("COM position: [" << com_pos[0] << ", " << com_pos[1] << ", " << com_pos[2] << "]");
-  // Global, derivative-free
-  nlopt::opt opt(nlopt::GN_DIRECT_L,  free_joints_.size());
-//  nlopt::opt opt(nlopt::GN_DIRECT,  robot_shape_gen_->getDof());
-//    nlopt::opt opt(nlopt::GN_ORIG_DIRECT_L,  robot_shape_gen_->getDof());
-//  nlopt::opt opt(nlopt::GN_CRS2_LM,  robot_shape_gen_->getDof()); // similar results to direct_l, 154
-//  nlopt::opt opt(nlopt::GN_ISRES,  robot_shape_gen_->getDof()); // similar result to direct_l
-//    nlopt::opt opt(nlopt::GN_ISRES,  robot_shape_gen_->getDof()); // similar result to direct_l
-
-  // Local, derivative-free
-//  nlopt::opt opt(nlopt::LN_COBYLA, free_joints_.size()); // violates bounds
-//    nlopt::opt opt(nlopt::LN_NELDERMEAD,  free_joints_.size()); // violates bounds
-//    nlopt::opt opt(nlopt::LN_SBPLX,  free_joints_.size()); // violates bounds
-
-  // Global, derivative
-//  nlopt::opt opt(nlopt::GD_STOGO,  robot_shape_gen_->getDof()); // good result, but sloooow (3x compared to direct_l)
-
-  // Local, derivative
-//  nlopt::opt opt(nlopt::LD_LBFGS,  robot_shape_gen_->getDof()); // didn't work at all, only 0s
-
-  // Define parameter bounds
-  opt.set_lower_bounds(lower_bounds_);
-  opt.set_upper_bounds(upper_bounds_);
 
   // Add objective function
   std::vector<double> previous_flipper_angles;
@@ -78,12 +69,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   support_area_cost.setName("support_area_cost");
   support_area_cost.enableInfCheck(true);
   support_area_cost.enableNanCheck(true);
-  opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &support_area_cost);
-
-  // Set convergence criterion  
-//  ros::NodeHandle stopping_criteria_nh(nh_, "stopping_criteria");
-//  ceres_nlopt_wrapper::setParametersFromServer(stopping_criteria_nh, opt);
-  opt.set_maxeval(20);
+  opt_.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &support_area_cost);
 
   std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
   // Publish start state
@@ -96,7 +82,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   nlopt::result nlopt_result;
   try {
     if (enabled_) {
-      nlopt_result = opt.optimize(parameters, minf);
+      nlopt_result = opt_.optimize(parameters, minf);
     }
   }
   catch (std::invalid_argument e) {

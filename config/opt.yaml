@@ -65,6 +65,7 @@ arm_optimization:
   
 flipper_optimization:
   enabled: true
+  algorithm: GN_DIRECT_L
   stopping_criteria:
     maxeval: 10
   joints:

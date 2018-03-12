@@ -28,7 +28,7 @@
 <!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_cinder_block2.tsdf"/> -->
     
     <param name="path_start" value="0.0"/>    
-    <param name="path_stop" value="2.5"/>
+    <param name="path_stop" value="1.89"/>
     <param name="path_step" value="0.02"/>
     
     <!-- posture optimization lib parameters -->
