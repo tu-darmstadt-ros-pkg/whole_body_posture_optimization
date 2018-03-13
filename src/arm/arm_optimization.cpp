@@ -129,6 +129,16 @@ std::vector<double> ArmOptimization::jointVectorToParamVector(const std::vector<
   return parameters;
 }
 
+bool ArmOptimization::getEnabled() const
+{
+  return enabled_;
+}
+
+void ArmOptimization::setEnabled(bool enabled)
+{
+  enabled_ = enabled;
+}
+
 ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose,
                                                 const std::vector<double>& previous_joint_angles)
 {

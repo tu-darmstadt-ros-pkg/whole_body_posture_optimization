@@ -165,4 +165,14 @@ bool FlipperOptimization::loadLimits()
   return true;
 }
 
+bool FlipperOptimization::enabled() const
+{
+  return enabled_;
+}
+
+void FlipperOptimization::setEnabled(bool enabled)
+{
+  enabled_ = enabled;
+}
+
 }

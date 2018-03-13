@@ -32,6 +32,9 @@ public:
   ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation);
   ArmOptimizationResult optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d>& contact_points, const Eigen::Affine3d &robot_pose,
                                  const std::vector<double> &previous_joint_angles);
+  bool getEnabled() const;
+  void setEnabled(bool enabled);
+
 private:
   bool loadParameters(const ros::NodeHandle &nh);
   double getJointPadding(std::string joint_name, CollisionType collision_type);

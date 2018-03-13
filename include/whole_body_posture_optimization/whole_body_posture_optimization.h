@@ -31,6 +31,8 @@ struct PostureOptimizationResult {
   double initial_stability;
   double stability_flipper_opt;
   double stability_arm_opt;
+
+  bool success;
 };
 
 class WholeBodyPostureOptimization {

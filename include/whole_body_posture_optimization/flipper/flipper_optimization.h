@@ -26,6 +26,9 @@ public:
   sdf_contact_estimation::ContactEstimationResult computeContactEstimation(const std::vector<double>& joint_angles,const Eigen::Affine3d& pose, const Eigen::Affine3d &base_to_com,
                                                                            const sdf_contact_estimation::ContactEstimationResult& last_result);
   sdf_contact_estimation::ContactEstimationResult computeContactEstimation(const std::vector<double>& joint_angles,const Eigen::Affine3d& pose, const Eigen::Affine3d &base_to_com);
+  bool enabled() const;
+  void setEnabled(bool enabled);
+
 private:
   std::vector<double> jointVectorToParamVector(const std::vector<double>& joint_vec);
   bool loadParameters(const ros::NodeHandle &nh);
