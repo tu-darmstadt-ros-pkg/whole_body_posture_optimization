@@ -530,7 +530,7 @@ void WholeBodyPostureOptimization::saveResultInfo(const std::vector<PostureOptim
   std::ofstream file;
   file.open(save_path);
 
-  file << "time path_x path_y stability" << std::endl;
+  file << "time pos_x pos_y stability" << std::endl;
   double time_from_start = 0.0;
   for (unsigned int i = 0; i < results.size(); i++) {
     const PostureOptimizationResult& result = results[i];
