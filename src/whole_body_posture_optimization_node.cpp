@@ -121,11 +121,20 @@ int main(int argc, char** argv) {
 
     // Compute optimal postures
     auto result = po.findOptimalPostures(path);
-    po.computeTimedTrajectory(result);
+    auto trajectories = po.computeTimedTrajectory(result);
     whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
+
+    std::string stability_info_save_folder;
+    if (pnh.getParam("stability_info_save_folder", stability_info_save_folder)) {
+      std::string time_stamp = whole_body_posture_optimization::getTimestamp();
+      std::string save_path = stability_info_save_folder + "/stability_" + time_stamp + ".dat";
+      whole_body_posture_optimization::WholeBodyPostureOptimization::saveResultInfo(result, trajectories, save_path);
+    }
   }
 
   whole_body_posture_optimization::Timing::printTimeInfos();
+
+
 
   ros::spin();
 

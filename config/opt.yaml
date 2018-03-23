@@ -14,6 +14,7 @@ optimization_type: split
 collision_group: arm_with_head_group
 
 stability_limit: 0.3
+front_tip_stability_limit: 0.5
   
 arm_optimization:
   enabled: true
@@ -39,8 +40,8 @@ arm_optimization:
   
   objective_parameters:
     function_scale: 1
-    #exp_parameters: [14.0, -2.6, 0.3] # too steep in negative area, gradient too big
-    exp_parameters: [4.0, -3, 0.3] # weaker form of ^
+    exp_parameters: [14.0, -2.6, 0.3] # too steep in negative area, gradient too big
+    #exp_parameters: [4.0, -3, 0.3] # weaker form of ^
     
     #exp_parameters: [0.7, -0.96, 0.0] # ease in from negative stability, ~0 at 2
     #exp_parameters: [1.6, -1.7, 0.0] # steeper, so negative stabilities outweigh positive

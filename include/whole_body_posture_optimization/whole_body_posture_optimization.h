@@ -64,6 +64,7 @@ public:
   void publishTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &robot_trajectory);
 
   static void printResultInfo(const std::vector<PostureOptimizationResult>& results);
+  static void saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories, std::string save_path);
 private:
   ros::NodeHandle nh_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
@@ -76,8 +77,10 @@ private:
   OptimizationType optimization_type_;
   std::vector<double> default_joint_state_;
   double stability_limit_;
+  double front_tip_stability_limit_;
 
   ros::Publisher trajectory_pub_;
+  ros::Publisher sdf_pub_;
 
   std::string tsdf_save_folder_;
 };

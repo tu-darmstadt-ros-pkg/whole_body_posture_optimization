@@ -77,6 +77,8 @@ public:
 
   double getTotalMass() const;
 
+  std::vector<std::string> getActuatedJointNames() const;
+
 private:
   void generateLinkBodyDecompositions(double resolution);
   void updateActuatedJointMapping(const std::string& joint_name, unsigned int joint_index);

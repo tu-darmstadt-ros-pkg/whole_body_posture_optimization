@@ -1,5 +1,7 @@
 #include <whole_body_posture_optimization/common.h>
 
+#include <ctime>
+
 namespace whole_body_posture_optimization {
 void createConvexHullMarkerArray(const std::vector<Eigen::Vector3d>& points, const std::vector<double>& stabilities, visualization_msgs::MarkerArray &marker_array)
 {
@@ -67,6 +69,15 @@ std::string line(int length) {
     l += "-";
   }
   return l;
+}
+
+std::string getTimestamp()
+{
+  auto t = std::time(nullptr);
+  auto tm = *std::localtime(&t);
+  std::ostringstream oss;
+  oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
+  return oss.str();
 }
 
 }

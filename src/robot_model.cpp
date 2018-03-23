@@ -3,7 +3,7 @@
 namespace whole_body_posture_optimization {
 
 RobotModel::RobotModel(ros::NodeHandle &nh)
-  : num_joints_(0), num_actuated_joints_(0), total_mass_(0)
+  : num_joints_(0), num_actuated_joints_(0), total_mass_(0), collision_group_("")
 {
   // Parameter loading
   if(!nh.getParam("/robot_description", robot_description_)) {
@@ -11,7 +11,7 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   }
 
   if (!nh.getParam("collision_group", collision_group_)) {
-    ROS_ERROR_STREAM("Failed to load collision group name.");
+    ROS_WARN_STREAM("Failed to load collision group name.");
   }
 
   // Loading urdf
@@ -453,6 +453,11 @@ void RobotModel::updateJointMimicMapping(const std::string& joint_name, unsigned
       actuated_joint_mimics_[mimic_idx].push_back(mimic);
     }
   }
+}
+
+std::vector<std::string> RobotModel::getActuatedJointNames() const
+{
+  return actuated_joint_names_;
 }
 
 double RobotModel::getTotalMass() const

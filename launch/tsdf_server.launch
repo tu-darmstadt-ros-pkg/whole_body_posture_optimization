@@ -9,7 +9,7 @@
     <param name="min_time_between_msgs_sec" value="0.0" />
     <param name="verbose" value="false" />
     <param name="color_mode" value="normals" />
-    <param name="method" value="merged" />
+    <param name="method" value="fast" />
     
     <param name="tsdf_voxel_size" value="0.025" />
     <param name="tsdf_voxels_per_side" value="16" />
@@ -18,10 +18,10 @@
     
     <param name="publish_slices" value="true" />
 
-    <remap from="pointcloud" to="/scans_combined"/>
-<!--     <remap from="pointcloud" to="/scan_cloud_filtered"/> -->
+<!--     <remap from="pointcloud" to="/scans_combined"/> -->
+    <remap from="pointcloud" to="/scan_cloud_filtered"/>
     
-    <!--<remap from="pointcloud" to="/arm_rgbd_cam/depth/points"/>-->
+<!--     <remap from="pointcloud" to="/arm_rgbd_cam/depth/points"/> -->
   </node>
   
   <!-- relays to combined topic -->

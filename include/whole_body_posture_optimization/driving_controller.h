@@ -45,7 +45,6 @@ private:
   ros::Subscriber execute_sub_;
 
   std::shared_ptr<voxblox::TsdfMap> tsdf_;
-  bool auto_start_;
   std::vector<robot_trajectory::RobotTrajectory> trajectory_;
   sdf_contact_estimation::RobotShapeGeneratorBasePtr tracker_shape_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
@@ -58,6 +57,10 @@ private:
 
   moveit_msgs::ExecuteTrajectoryGoal execute_trajectory_goal_;
   ros::Time starting_time_;
+
+  // Parameters
+  bool auto_start_;
+  std::string stability_info_save_folder_;
 };
 
 }

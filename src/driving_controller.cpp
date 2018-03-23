@@ -5,6 +5,9 @@ namespace whole_body_posture_optimization {
 DrivingController::DrivingController(const ros::NodeHandle &nh)
   : nh_(nh), auto_start_(false)
 {
+  // Parameters
+  nh_.param("auto_start", auto_start_, false);
+  nh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
   // Create robot shape
   tracker_shape_ = std::make_shared<argo_tracker::ArgoTrackerShape>();
   optimizer_= std::make_shared<WholeBodyPostureOptimization>(nh_, tracker_shape_);
@@ -68,8 +71,8 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
   // Drive to starting pose
   ROS_INFO_STREAM("Moving to starting pose");
   if (!planAndMove(trajectories[0].getFirstWayPoint(), combined_trajectory.getGroup())) {
-    ROS_ERROR_STREAM("Moving to initial state failed.");
-    return false;
+    ROS_WARN_STREAM("Moving to initial state failed.");
+//    return false;
   }
 
   // Assemble arm motion plan
@@ -257,6 +260,11 @@ void DrivingController::pathCb(const nav_msgs::PathConstPtr &path_msg) {
   auto result = optimizer_->findOptimalPostures(*path_msg);
   trajectory_ = optimizer_->computeTimedTrajectory(result);
   whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
+  if (stability_info_save_folder_ != "") {
+    std::string time_stamp = whole_body_posture_optimization::getTimestamp();
+    std::string save_path = stability_info_save_folder_ + "/stability_" + time_stamp + ".dat";
+    whole_body_posture_optimization::WholeBodyPostureOptimization::saveResultInfo(result, trajectory_, save_path);
+  }
   if (auto_start_) {
     executeTrajectory(trajectory_);
   }

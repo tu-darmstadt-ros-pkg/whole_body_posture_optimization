@@ -1,7 +1,6 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
 #include <iomanip>
-#include <ctime>
 
 #include <pluginlib/class_loader.h>
 #include <moveit/planning_interface/planning_interface.h>
@@ -13,6 +12,8 @@
 #include <voxblox/io/layer_io.h>
 
 #include <whole_body_posture_optimization/timing.h>
+
+#include <voxblox_msgs/Layer.h>
 
 INIT_TIMING
 
@@ -33,6 +34,7 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
   combined_optimization_ = std::make_shared<CombinedOptimization>(combined_nh, robot_model_, contact_estimation_);
 
   trajectory_pub_ = nh_.advertise<moveit_msgs::DisplayTrajectory>("trajectory", 10, true);
+  sdf_pub_ = nh_.advertise<voxblox_msgs::Layer>("planning_sdf", 10, true);
 }
 
 bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -52,6 +54,7 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
   }
 
   nh.param("stability_limit", stability_limit_, 0.0);
+  nh.param("front_tip_stability_limit", front_tip_stability_limit_, 0.5);
   nh.param<std::string>("tsdf_save_folder", tsdf_save_folder_, "");
 
   std::string optimization_type_str;
@@ -70,6 +73,13 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 void WholeBodyPostureOptimization::updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf)
 {
   contact_estimation_->loadTsdf(tsdf, 0.4, true);
+
+  // Publish esdf layer
+  const bool only_updated = false;
+  voxblox_msgs::Layer layer_msg;
+  voxblox::serializeLayerAsMsg<voxblox::EsdfVoxel>(contact_estimation_->getSdf().getEsdf()->getESDF()->getEsdfLayer(), only_updated,
+                                 &layer_msg);
+  sdf_pub_.publish(layer_msg);
 }
 
 void WholeBodyPostureOptimization::updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud)
@@ -96,11 +106,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
 {
   // Save the current tsdf for later debugging
   if (tsdf_save_folder_ != "") {
-    auto t = std::time(nullptr);
-    auto tm = *std::localtime(&t);
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
-    std::string time_stamp = oss.str();
+    std::string time_stamp = getTimestamp();
     std::string save_path =  tsdf_save_folder_ + "/tsdf_map_" + time_stamp + ".tsdf";
     ROS_INFO_STREAM("Saving tsdf to " << save_path);
     contact_estimation_->saveTsdfToFile(save_path);
@@ -236,10 +242,10 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       }
     }
     double front_stability = updated_init_contact.stabilities[front_idx];
-//    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << front_stability);
+    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << front_stability);
 
     // check if stability is low
-    if (front_stability < 0.5) {
+    if (front_stability < front_tip_stability_limit_) {
       ROS_INFO_STREAM("Trying to tip over front..");
       front_tip = true;
 
@@ -314,7 +320,9 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   return result;
 }
 
-PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombined(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles, const std::vector<double>& previous_joint_angles, const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
+PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombined(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
+                                                                                   const std::vector<double>& previous_joint_angles,
+                                                                                   const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
 {
   START_TIMING("findOptimalPostureCombined");
   Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
@@ -514,6 +522,28 @@ void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOpti
     ss << "|" << std::setw(column_width_name) << name << "|" << std::setw(column_width_avg) << avg << "|" << std::setw(column_width_min) << min << "|" << std::endl;
   }
   ROS_INFO_STREAM(ss.str());
+}
+
+void WholeBodyPostureOptimization::saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories,
+                                                  std::string save_path)
+{
+  std::ofstream file;
+  file.open(save_path);
+
+  file << "time path_x path_y stability" << std::endl;
+  double time_from_start = 0.0;
+  for (unsigned int i = 0; i < results.size(); i++) {
+    const PostureOptimizationResult& result = results[i];
+    file << time_from_start << " ";
+    file << result.requested_pose.translation().x() << " ";
+    file << result.requested_pose.translation().y() << " ";
+    file << result.stability_arm_opt << std::endl;
+    if (i < trajectories.size()) {
+      time_from_start += trajectories[i].getWaypointDurationFromStart(trajectories[i].getWayPointCount()-1);
+    }
+  }
+
+  file.close();
 }
 
 }

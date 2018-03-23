@@ -89,6 +89,11 @@ add_executable(driving_controller_node src/driving_controller_node.cpp)
 add_dependencies(driving_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(driving_controller_node ${PROJECT_NAME})
 
+## Declare an executable
+add_executable(stability_benchmark_node src/stability_benchmark_node.cpp)
+add_dependencies(stability_benchmark_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(stability_benchmark_node ${PROJECT_NAME})
+
 #############
 ## Testing ##
 #############

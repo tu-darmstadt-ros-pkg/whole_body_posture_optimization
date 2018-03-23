@@ -22,13 +22,14 @@
     <param name="interactive" value="false"/>
     <param name="scenario" value="tsdf"/>
 <!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/real_robot1.tsdf"/> -->
-    <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_step.tsdf"/>
+<!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_step.tsdf"/> -->
 <!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_ramp3.tsdf"/> -->
-<!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_stairs.tsdf"/> -->
-<!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_cinder_block2.tsdf"/> -->
+<!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_stairs2.tsdf"/> -->
+    <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_cinder_block2.tsdf"/>
+    <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/test"/>
     
     <param name="path_start" value="0.0"/>    
-    <param name="path_stop" value="2"/>
+    <param name="path_stop" value="1.5"/>
     <param name="path_step" value="0.02"/>
     
     <!-- posture optimization lib parameters -->

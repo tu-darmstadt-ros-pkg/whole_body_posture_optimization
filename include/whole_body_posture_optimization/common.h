@@ -91,6 +91,8 @@ void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Affine3
 
 std::string line(int length);
 
+std::string getTimestamp();
+
 }
 
 #endif

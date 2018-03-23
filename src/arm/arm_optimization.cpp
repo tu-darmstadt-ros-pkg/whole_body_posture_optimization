@@ -144,8 +144,11 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 {
   // immediately return if there are no contact points with the ground (error)
   if (contact_points.empty()) {
+    ROS_ERROR_STREAM("No contact points with the ground, aborting arm optimization.");
     ArmOptimizationResult result;
     result.joint_angles = initial_angles;
+    result.stability = -1;
+    result.center_of_mass = Eigen::Vector3d::Zero();
     return result;
   }
 
