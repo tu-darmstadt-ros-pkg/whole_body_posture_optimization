@@ -70,7 +70,9 @@ double max_recording_duration_;
 double recording_frequency_;
 
 
-// Predeclare functions
+// Declarations
+void startTimedRecording(double recording_duration);
+void finishTimedRecording();
 void startRecordingCb(const std_msgs::EmptyConstPtr&);
 void recordingTimerCb(const ros::TimerEvent& event);
 void goalCb(const move_base_lite_msgs::FollowPathActionGoalConstPtr& goal_msg);
@@ -82,6 +84,7 @@ void recordStability(bool use_path);
 void saveToDisk(std::string save_path);
 std::vector<double> stateFromList(const std::vector<std::string>& joint_names);
 
+// Definitions
 std::vector<double> stateFromList(const std::vector<std::string>& joint_names) {
   std::vector<double> state(joint_names.size(), 0);
   for (unsigned int name_idx = 0; name_idx < joint_names.size(); name_idx++) {
@@ -97,11 +100,10 @@ std::vector<double> stateFromList(const std::vector<std::string>& joint_names) {
   return state;
 }
 
-void startRecordingCb(const std_msgs::EmptyConstPtr&) {
-  ROS_INFO_STREAM("Starting recording for " << max_recording_duration_ << " seconds.");
+void startTimedRecording(double recording_duration) {
+  ROS_INFO_STREAM("Starting recording for " << recording_duration << " seconds.");
   start_time_ = ros::Time::now();
-  ros::Duration recording_duration(max_recording_duration_);
-  end_time_ = start_time_ + recording_duration;
+  end_time_ = start_time_ + ros::Duration(recording_duration);;
   data_.clear();
 
   current_state_ = TRACKING;
@@ -109,52 +111,62 @@ void startRecordingCb(const std_msgs::EmptyConstPtr&) {
   recording_timer_ = nh.createTimer(ros::Duration(recording_frequency_), &recordingTimerCb);
 }
 
+void finishTimedRecording() {
+  std::string time_stamp = whole_body_posture_optimization::getTimestamp();
+  std::string save_path = save_folder_ + "/stability_benchmark_" + time_stamp + ".dat";
+  ROS_INFO_STREAM("Saving results to '" << save_path << "'.");
+  saveToDisk(save_path);
+  current_state_ = IDLE;
+  recording_timer_.stop();
+}
+
+void startRecordingCb(const std_msgs::EmptyConstPtr&) {
+  startTimedRecording(max_recording_duration_);
+}
+
 void recordingTimerCb(const ros::TimerEvent& event) {
   if (current_state_ = TRACKING) {
-    if (event.current_expected > end_time_) {
-      // Finish recording
-      std::string time_stamp = whole_body_posture_optimization::getTimestamp();
-      std::string save_path = save_folder_ + "/stability_benchmark_" + time_stamp + ".dat";
-      ROS_INFO_STREAM("Saving results to '" << save_path << "'.");
-      saveToDisk(save_path);
-      current_state_ = IDLE;
-      recording_timer_.stop();
-    } else {
+    if (event.current_expected < end_time_) {
       recordStability(false);
+    } else {
+      finishTimedRecording();
     }
   }
 }
 
 void goalCb(const move_base_lite_msgs::FollowPathActionGoalConstPtr& goal_msg) {
   ROS_INFO_STREAM("Received path of size " << goal_msg->goal.target_path.poses.size());
-  path_ = goal_msg->goal.target_path;
-  current_waypoint_id_ = 0;
-  start_time_ = ros::Time::now();
-  data_.clear();
-  current_state_ = TRACKING;
-  recordStability(true);
+  const double recording_duration = 60.0; // Set high because resultCb will stop anyway
+  startTimedRecording(recording_duration);
+//  path_ = goal_msg->goal.target_path;
+//  current_waypoint_id_ = 0;
+//  start_time_ = ros::Time::now();
+//  data_.clear();
+//  current_state_ = TRACKING;
+//  recordStability(true);
 }
 
 void feedbackCb(const move_base_lite_msgs::FollowPathActionFeedbackConstPtr& feedback_msg) {
-  if (current_state_ == TRACKING) {
-    while (current_waypoint_id_ < feedback_msg->feedback.current_waypoint) {
-      current_waypoint_id_++;
-      recordStability(true);
-    }
-  }
+//  if (current_state_ == TRACKING) {
+//    while (current_waypoint_id_ < feedback_msg->feedback.current_waypoint) {
+//      current_waypoint_id_++;
+//      recordStability(true);
+//    }
+//  }
 }
 
 void resultCb(const move_base_lite_msgs::FollowPathActionResultConstPtr&) {
   if (current_state_ == TRACKING) {
-    current_waypoint_id_ = path_.poses.size()-1; // set to last waypoint
-    recordStability(true);
+    finishTimedRecording();
+//    current_waypoint_id_ = path_.poses.size()-1; // set to last waypoint
+//    recordStability(true);
 
-    // Path execution finished, save to disk
-    std::string time_stamp = whole_body_posture_optimization::getTimestamp();
-    std::string save_path = save_folder_ + "/stability_benchmark_" + time_stamp + ".dat";
-    ROS_INFO_STREAM("Saving results to '" << save_path << "'.");
-    saveToDisk(save_path);
-    current_state_ = IDLE;
+//    // Path execution finished, save to disk
+//    std::string time_stamp = whole_body_posture_optimization::getTimestamp();
+//    std::string save_path = save_folder_ + "/stability_benchmark_" + time_stamp + ".dat";
+//    ROS_INFO_STREAM("Saving results to '" << save_path << "'.");
+//    saveToDisk(save_path);
+//    current_state_ = IDLE;
   }
 }
 
@@ -301,12 +313,12 @@ int main(int argc, char** argv) {
   sdf_contact_estimation::RobotShapeGeneratorBasePtr tracker_shape = std::make_shared<argo_tracker::ArgoTrackerShape>();
   contact_estimation_ = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(nh, tracker_shape);
 
-  // Subscribers
+  // Publishers and subscribers
   stability_vis_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("stability", 10, true);
   com_pub_ = pnh.advertise<geometry_msgs::PoseStamped>("com", 10, true);
   ros::Subscriber joint_states_sub = nh.subscribe("/joint_states", 10, &jointStateCb);
   ros::Subscriber goal_sub = nh.subscribe("goal", 10, &goalCb);
-  ros::Subscriber feedback_sub = nh.subscribe("feedback", 10, &feedbackCb);
+//  ros::Subscriber feedback_sub = nh.subscribe("feedback", 10, &feedbackCb);
   ros::Subscriber result_sub = nh.subscribe("result", 10, &resultCb);
   ros::Subscriber sdf_sub = nh.subscribe("sdf", 10, &sdfCb);
 

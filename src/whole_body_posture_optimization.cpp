@@ -242,7 +242,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       }
     }
     double front_stability = updated_init_contact.stabilities[front_idx];
-    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << front_stability);
+//    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << front_stability);
 
     // check if stability is low
     if (front_stability < front_tip_stability_limit_) {
