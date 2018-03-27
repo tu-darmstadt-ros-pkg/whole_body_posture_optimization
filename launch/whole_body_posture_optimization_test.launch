@@ -25,14 +25,17 @@
 <!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_step.tsdf"/> -->
 <!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_ramp3.tsdf"/> -->
 <!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_stairs2.tsdf"/> -->
-    <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_cinder_block2.tsdf"/>
+<!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_cinder_block2.tsdf"/> -->
+    <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_asym2.tsdf"/>
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/test"/>
     
     <param name="path_start" value="0.0"/>    
-    <param name="path_stop" value="0.83"/>
+    <param name="path_stop" value="2"/>
     <param name="path_step" value="0.02"/>
     
     <!-- posture optimization lib parameters -->
+    <param name="stepping" value="true"/>
+    <param name="stepping_start" value="39"/>
     <param name="posture_optimization_debug" value="false"/>
 <!--     <param name="debug_computation_rate" value="0"/> -->
 <!--     <param name="tsdf_save_folder" value="$(find whole_body_posture_optimization)/tsdf"/> -->

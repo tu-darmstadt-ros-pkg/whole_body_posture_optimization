@@ -80,6 +80,9 @@ private:
   double stability_limit_;
   double front_tip_stability_limit_;
 
+  bool stepping_;
+  int stepping_start_;
+
   ros::Publisher trajectory_pub_;
   ros::Publisher sdf_pub_;
 

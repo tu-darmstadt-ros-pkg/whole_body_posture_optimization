@@ -55,6 +55,8 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 
   nh.param("stability_limit", stability_limit_, 0.0);
   nh.param("front_tip_stability_limit", front_tip_stability_limit_, 0.5);
+  nh.param<bool>("stepping", stepping_, false);
+  nh.param<int>("stepping_start", stepping_start_, 0);
   nh.param<std::string>("tsdf_save_folder", tsdf_save_folder_, "");
 
   std::string optimization_type_str;
@@ -138,6 +140,12 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     if (last_result.stability_arm_opt < stability_limit_) {
       ROS_WARN_STREAM("Robot instable (" << last_result.stability_arm_opt << " < " << stability_limit_ << "). Aborting!");
       break;
+    }
+
+    if (stepping_ && stepping_start_ < counter) {
+      std::cout << '\n' << "Press ENTER to continue...";
+      do {
+      } while (std::cin.get() != '\n');
     }
     counter++;
   }
@@ -242,7 +250,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       }
     }
     double front_stability = updated_init_contact.stabilities[front_idx];
-//    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << front_stability);
+    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << front_stability);
 
     // check if stability is low
     if (front_stability < front_tip_stability_limit_) {
