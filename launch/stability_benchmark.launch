@@ -4,7 +4,7 @@
     
     <param name="save_folder" value="$(find whole_body_posture_optimization)/data/benchmark"/>
     <param name="max_recording_duration" value="25"/>
-    <param name="recording_frequency" value="0.25"/>
+    <param name="recording_frequency" value="0.2"/>
     
     <rosparam subst_value="true">
       flipper_joint_names:

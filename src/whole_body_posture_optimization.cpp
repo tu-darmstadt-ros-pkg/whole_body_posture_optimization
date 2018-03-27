@@ -497,6 +497,13 @@ void WholeBodyPostureOptimization::publishTrajectory(const std::vector<robot_tra
   trajectory_pub_.publish(display_msg);
 }
 
+void WholeBodyPostureOptimization::printContactEstimationStatistics()
+{
+  double pct = static_cast<double>(contact_estimation_->getFailedEstimationCount()) / static_cast<double>(contact_estimation_->getTotalEstimationCount());
+  ROS_INFO_STREAM("Failed contact estimations: [" << contact_estimation_->getFailedEstimationCount() << "/" << contact_estimation_->getTotalEstimationCount()
+                  << "] (" << pct << " %)");
+}
+
 void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOptimizationResult> &results)
 {
   std::vector<std::string> names = {"initial_stability", "flipper_opt", "arm_opt"};

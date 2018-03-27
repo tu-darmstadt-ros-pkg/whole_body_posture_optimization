@@ -63,6 +63,7 @@ public:
   std::vector<robot_trajectory::RobotTrajectory> computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
   void publishTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &robot_trajectory);
 
+  void printContactEstimationStatistics();
   static void printResultInfo(const std::vector<PostureOptimizationResult>& results);
   static void saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories, std::string save_path);
 private:

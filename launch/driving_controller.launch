@@ -5,16 +5,17 @@
 <!--     <param name="tsdf_load_path" value=""/> -->
 <!--     <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_sim_vlp16_2.tsdf"/> -->
 <!--     <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_flat_ramp.tsdf"/> -->
-   <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_step.tsdf"/>
-<!--     <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_stairs2.tsdf"/> -->
+<!--    <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_step.tsdf"/> -->
+    <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_stairs2.tsdf"/>
     
     <param name="path_start" value="0.0"/>    
-    <param name="path_stop" value="1.5"/>
+    <param name="path_stop" value="2.5"/>
     <param name="path_step" value="0.02"/>
     
     <!-- posture optimization lib parameters -->
     <param name="tsdf_save_folder" value="$(find whole_body_posture_optimization)/tsdf"/>
     <rosparam file="$(find whole_body_posture_optimization)/config/opt.yaml" command="load" />
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" />  
     
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
     

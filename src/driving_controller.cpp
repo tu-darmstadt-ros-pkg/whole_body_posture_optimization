@@ -259,12 +259,17 @@ void DrivingController::pathCb(const nav_msgs::PathConstPtr &path_msg) {
   optimizer_->updateWorldModel(tsdf_);
   auto result = optimizer_->findOptimalPostures(*path_msg);
   trajectory_ = optimizer_->computeTimedTrajectory(result);
+
+  // Statistics
   whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
+  optimizer_->printContactEstimationStatistics();
   if (stability_info_save_folder_ != "") {
     std::string time_stamp = whole_body_posture_optimization::getTimestamp();
     std::string save_path = stability_info_save_folder_ + "/stability_" + time_stamp + ".dat";
     whole_body_posture_optimization::WholeBodyPostureOptimization::saveResultInfo(result, trajectory_, save_path);
   }
+
+  // Execute
   if (auto_start_) {
     executeTrajectory(trajectory_);
   }

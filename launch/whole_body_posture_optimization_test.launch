@@ -29,7 +29,7 @@
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/test"/>
     
     <param name="path_start" value="0.0"/>    
-    <param name="path_stop" value="1.5"/>
+    <param name="path_stop" value="0.83"/>
     <param name="path_step" value="0.02"/>
     
     <!-- posture optimization lib parameters -->
@@ -44,6 +44,7 @@
     <param name="truncation_distance" value="0.4"/>
     <param name="iteration_max_contact_distance" value="0.01"/>
     <param name="final_max_contact_distance" value="0.05"/>  -->
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" />  
     
     <remap from="~set_robot_pose" to="/whole_body_posture_optimization_node/interactive_marker/set_robot_pose"/>
   </node>

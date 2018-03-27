@@ -133,6 +133,7 @@ int main(int argc, char** argv) {
   }
 
   whole_body_posture_optimization::Timing::printTimeInfos();
+  po.printContactEstimationStatistics();
 
 
 
