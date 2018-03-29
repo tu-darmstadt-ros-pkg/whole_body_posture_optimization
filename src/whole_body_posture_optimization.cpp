@@ -145,7 +145,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     if (stepping_ && stepping_start_ < counter) {
       std::cout << '\n' << "Press ENTER to continue...";
       do {
-      } while (std::cin.get() != '\n');
+      } while (ros::ok() && std::cin.get() != '\n');
     }
     counter++;
   }
@@ -232,7 +232,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 
     // Check if tipping to front makes sense
     // Find frontal support polygon edge
-    double max = -100;
+    double min_stability = std::numeric_limits<double>::max();
     unsigned int front_idx = -1;
     for (unsigned int i = 0; i < updated_init_contact.convex_hull_points.size(); i++) {
       const Eigen::Vector3d& p0 = updated_init_contact.convex_hull_points[i];
@@ -242,18 +242,23 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       Eigen::Vector3d p0_base = updated_init_contact.estimated_pose.inverse() * p0;
       Eigen::Vector3d p1_base = updated_init_contact.estimated_pose.inverse() * p1;
 
-      // Find points at front
-      double min_x = std::min(p0_base.x(), p1_base.x());
-      if (min_x > max) {
-        front_idx = i;
-        max = min_x;
+      // Check if forward edge
+      Eigen::Vector3d a = p1_base - p0_base;
+      Eigen::Vector3d cross = Eigen::Vector3d::UnitX().cross(a);
+      if (cross.z() < -0.01) {
+        // Check if stability is lower
+        double stability = updated_init_contact.stabilities[i];
+        if (stability < min_stability) {
+          min_stability = stability;
+          front_idx = i;
+        }
+//        ROS_INFO_STREAM(i << " is a forward edge. Stability: " << stability);
       }
     }
-    double front_stability = updated_init_contact.stabilities[front_idx];
-    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << front_stability);
+//    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << min_stability);
 
     // check if stability is low
-    if (front_stability < front_tip_stability_limit_) {
+    if (min_stability < front_tip_stability_limit_) {
       ROS_INFO_STREAM("Trying to tip over front..");
       front_tip = true;
 

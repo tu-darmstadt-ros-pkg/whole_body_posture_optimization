@@ -7,9 +7,10 @@
 <!--     <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_flat_ramp.tsdf"/> -->
 <!--    <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_step.tsdf"/> -->
 <!--     <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_stairs2.tsdf"/> -->
+    <param name="tsdf_load_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_asym2.tsdf"/>
     
     <param name="path_start" value="0.0"/>    
-    <param name="path_stop" value="1.5"/>
+    <param name="path_stop" value="2.5"/>
     <param name="path_step" value="0.02"/>
     
     <!-- posture optimization lib parameters -->

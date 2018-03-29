@@ -14,7 +14,7 @@ optimization_type: split
 collision_group: arm_with_head_group
 
 stability_limit: 0.3
-front_tip_stability_limit: 0.5
+front_tip_stability_limit: 0.8
   
 arm_optimization:
   enabled: true
