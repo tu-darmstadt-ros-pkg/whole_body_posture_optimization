@@ -147,6 +147,9 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
       do {
       } while (ros::ok() && std::cin.get() != '\n');
     }
+    if (!ros::ok()) {
+      break;
+    }
     counter++;
   }
 
@@ -258,30 +261,51 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 //    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << min_stability);
 
     // check if stability is low
-    if (min_stability < front_tip_stability_limit_) {
-      ROS_INFO_STREAM("Trying to tip over front..");
+    ROS_INFO_STREAM("Convex hull size: " << updated_init_contact.support_area);
+    if (updated_init_contact.support_area < front_tip_stability_limit_) {
+      ROS_INFO_STREAM("Trying to tip over front axis " << front_idx);
       front_tip = true;
 
       // Move COM to front
-      // introduce new frame, aligned with base_link but xy-plane is parallel to ground
-      Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(updated_init_contact.estimated_pose.linear());
-      Eigen::Affine3d world_to_basex(Eigen::AngleAxisd(pose_rpy[2], Eigen::Vector3d::UnitZ()));
-      world_to_basex.translation() = updated_init_contact.estimated_pose.translation();
 
       const Eigen::Vector3d& p0 = updated_init_contact.convex_hull_points[front_idx];
       const Eigen::Vector3d& p1 = updated_init_contact.convex_hull_points[(front_idx+1) % updated_init_contact.convex_hull_points.size()];
+      Eigen::Vector3d com_world = updated_init_contact.estimated_pose * result.init_com;
 
-      // Transform points of tipping edge and com to new frame
-      Eigen::Vector3d p0_basex = world_to_basex.inverse() * p0;
-      Eigen::Vector3d p1_basex = world_to_basex.inverse() * p1;
+      // Project to 2D
+      Eigen::Vector3d p0_xy(p0.x(), p0.y(), 0);
+      Eigen::Vector3d p1_xy(p1.x(), p1.y(), 0);
+      Eigen::Vector3d com_xy(com_world.x(), com_world.y(), 0);
 
-      Eigen::Affine3d basex_to_base = world_to_basex.inverse() * updated_init_contact.estimated_pose;
-      Eigen::Vector3d com_basex = basex_to_base * result.init_com;
+      // Compute orthogonal projection
+      Eigen::Vector3d axis = p1_xy - p0_xy;
+      Eigen::Vector3d axis_norm = axis / axis.norm();
+      Eigen::Vector3d axis_normal = (Eigen::Matrix3d::Identity() - axis_norm * axis_norm.transpose()) * (p1_xy - com_xy); // l_i
+      Eigen::Vector3d axis_normal_norm = axis_normal / axis_normal.norm();
 
-      // Move com in front of tipping edge, parallel to ground
-      Eigen::Vector3d new_com_basex(std::max(p0_basex.x(), p1_basex.y()) + 0.05, com_basex.y(), com_basex.z());
-      Eigen::Vector3d new_com_base = basex_to_base.inverse() * new_com_basex;
-      front_tip_base_to_com.translation() = new_com_base;
+      // Move com across axis
+      Eigen::Vector3d com_world_new = com_xy + axis_normal + 0.05 * axis_normal_norm;
+      com_world_new.z() = com_world.z();
+      front_tip_base_to_com.translation() = updated_init_contact.estimated_pose.inverse() * com_world_new;
+
+      // introduce new frame, aligned with base_link but xy-plane is parallel to ground
+//      Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(updated_init_contact.estimated_pose.linear());
+//      Eigen::Affine3d world_to_basex(Eigen::AngleAxisd(pose_rpy[2], Eigen::Vector3d::UnitZ()));
+//      world_to_basex.translation() = updated_init_contact.estimated_pose.translation();
+//      // Transform points of tipping edge and com to new frame
+//      Eigen::Vector3d p0_basex = world_to_basex.inverse() * p0;
+//      Eigen::Vector3d p1_basex = world_to_basex.inverse() * p1;
+
+//      Eigen::Affine3d basex_to_base = world_to_basex.inverse() * updated_init_contact.estimated_pose;
+//      Eigen::Vector3d com_basex = basex_to_base * result.init_com;
+
+//      // Move com in front of tipping edge, parallel to ground
+//      Eigen::Vector3d new_com_basex(std::max(p0_basex.x(), p1_basex.x()) + 0.05, com_basex.y(), com_basex.z());
+//      Eigen::Vector3d new_com_base = basex_to_base.inverse() * new_com_basex;
+//      front_tip_base_to_com.translation() = new_com_base;
+
+      ROS_INFO_STREAM("old com: " << result.init_com);
+      ROS_INFO_STREAM("new com: " << front_tip_base_to_com.translation());
 
       // rerun contact estimation
       front_tip_contact = flipper_optimization_->computeContactEstimation(previous_joint_angles, pose, front_tip_base_to_com, updated_init_contact);
