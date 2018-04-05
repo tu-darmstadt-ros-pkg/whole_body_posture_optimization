@@ -42,10 +42,10 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
     return false;
   }
 
-  nh.param("regularization_weight", convex_hull_error_parameters_.regularization_weight, convex_hull_error_parameters_.regularization_weight);
-  nh.param("lorentzian_sigma", convex_hull_error_parameters_.lorentzian_sigma, convex_hull_error_parameters_.lorentzian_sigma);
-  nh.param("track_contact_weight", convex_hull_error_parameters_.track_contact_weight, convex_hull_error_parameters_.track_contact_weight);
-  nh.param("body_contact_weight", convex_hull_error_parameters_.body_contact_weight, convex_hull_error_parameters_.body_contact_weight);
+  nh.param("regularization_weight", convex_hull_error_parameters_.regularization_weight, 0.2);
+  nh.param("lorentzian_sigma", convex_hull_error_parameters_.lorentzian_sigma, 0.2);
+  nh.param("track_contact_weight", convex_hull_error_parameters_.track_contact_weight, 2.0);
+  nh.param("body_contact_weight", convex_hull_error_parameters_.body_contact_weight, 4.0);
   nh.param("enabled", enabled_, enabled_);
 
   return true;
@@ -129,14 +129,16 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   return result;
 }
 
-sdf_contact_estimation::ContactEstimationResult FlipperOptimization::computeContactEstimation(const std::vector<double> &joint_angles, const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com, const sdf_contact_estimation::ContactEstimationResult &last_result)
+sdf_contact_estimation::ContactEstimationResult FlipperOptimization::computeContactEstimation(const std::vector<double> &joint_angles, const Eigen::Affine3d &pose,
+                                                                                              const Eigen::Affine3d &base_to_com, const sdf_contact_estimation::ContactEstimationResult &last_result)
 {
   std::vector<double> flipper_angles = jointVectorToParamVector(joint_angles);
   contact_estimation_->updateJointStates(flipper_angles);
   return contact_estimation_->estimateSupportPolygon(pose, base_to_com, last_result);
 }
 
-sdf_contact_estimation::ContactEstimationResult FlipperOptimization::computeContactEstimation(const std::vector<double> &joint_angles, const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com)
+sdf_contact_estimation::ContactEstimationResult FlipperOptimization::computeContactEstimation(const std::vector<double> &joint_angles, const Eigen::Affine3d &pose,
+                                                                                              const Eigen::Affine3d &base_to_com)
 {
   std::vector<double> flipper_angles = jointVectorToParamVector(joint_angles);
   contact_estimation_->updateJointStates(flipper_angles);

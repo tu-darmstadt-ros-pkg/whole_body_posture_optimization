@@ -147,6 +147,9 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
       do {
       } while (ros::ok() && std::cin.get() != '\n');
     }
+    if (!ros::ok()) {
+      break;
+    }
     counter++;
   }
 
