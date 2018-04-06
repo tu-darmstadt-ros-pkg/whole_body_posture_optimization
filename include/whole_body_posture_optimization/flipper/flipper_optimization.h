@@ -8,6 +8,7 @@
 #include <whole_body_posture_optimization/common.h>
 #include <whole_body_posture_optimization/robot_model.h>
 #include <whole_body_posture_optimization/flipper/convex_hull_area_error.h>
+#include <whole_body_posture_optimization/flipper/flipper_stability_cost.h>
 
 namespace whole_body_posture_optimization {
 
@@ -46,8 +47,10 @@ private:
   std::vector<std::string> free_joints_;
   std::vector<double> upper_bounds_;
   std::vector<double> lower_bounds_;
+  std::string objective_;
 
   ConvexHullAreaErrorParameters convex_hull_error_parameters_;
+  FlipperStabilityCostParameters stability_cost_parameters_;
 
   ros::Publisher start_state_pub_;
   ros::Publisher result_state_pub_;

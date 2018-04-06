@@ -4,7 +4,8 @@
 
 namespace whole_body_posture_optimization {
 
-FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel> &robot_model, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
+FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel> &robot_model,
+                                         const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
                                          const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation)
   : nh_(nh), contact_estimation_(contact_estimation), robot_model_(robot_model), robot_shape_gen_(robot_shape_gen), enabled_(true)
 {
@@ -42,11 +43,11 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
     return false;
   }
 
-  nh.param("regularization_weight", convex_hull_error_parameters_.regularization_weight, 0.2);
-  nh.param("lorentzian_sigma", convex_hull_error_parameters_.lorentzian_sigma, 0.2);
-  nh.param("track_contact_weight", convex_hull_error_parameters_.track_contact_weight, 2.0);
-  nh.param("body_contact_weight", convex_hull_error_parameters_.body_contact_weight, 4.0);
+  nh.param<std::string>("objective", objective_, "heuristic");
   nh.param("enabled", enabled_, enabled_);
+
+  convex_hull_error_parameters_ = ConvexHullAreaErrorParameters::createFromServer(ros::NodeHandle(nh, "heuristic"));
+  stability_cost_parameters_ = FlipperStabilityCostParameters::createFromServer(ros::NodeHandle(nh, "stability"));
 
   return true;
 }
@@ -63,13 +64,23 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
     previous_flipper_angles = jointVectorToParamVector(previous_joint_angles);
   }
   int verbosity_level = 0;
-  ceres_nlopt_wrapper::CeresCostFunctionWrapper support_area_cost(
-        ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact, convex_hull_error_parameters_),
-        verbosity_level);
-  support_area_cost.setName("support_area_cost");
-  support_area_cost.enableInfCheck(true);
-  support_area_cost.enableNanCheck(true);
-  opt_.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &support_area_cost);
+
+  std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
+  if (objective_ == "heuristic") {
+    objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
+          ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact, convex_hull_error_parameters_),
+          verbosity_level);
+  } else if (objective_ == "stability") {
+    objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
+          FlipperStabilityCost::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact, stability_cost_parameters_),
+          verbosity_level);
+  } else {
+    ROS_ERROR_STREAM("Unknown objective '" << objective_ << "'!");
+  }
+  objective->setName("flipper_objective");
+  objective->enableInfCheck(true);
+  objective->enableNanCheck(true);
+  opt_.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, objective.get());
 
   std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
   // Publish start state
@@ -97,7 +108,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   STOP_TIMING_AVG;
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-  ROS_INFO_STREAM("Flipper optimization took " << support_area_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
+  ROS_INFO_STREAM("Flipper optimization took " << objective->getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                   << ceres_nlopt_wrapper::vecToString(parameters));
 
 //  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));

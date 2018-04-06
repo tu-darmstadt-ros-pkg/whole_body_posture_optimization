@@ -26,7 +26,7 @@ arm_optimization:
     maxeval: 300
     ftol_abs: 0.00001
   joints:
-    - arm_joint_0
+    #- arm_joint_0
     - arm_joint_1
     - arm_joint_2
     - sensor_head_pitch_joint
@@ -72,10 +72,18 @@ flipper_optimization:
   joints:
     - flipper_joint_1
     
-  lorentzian_sigma: 0.2
-  regularization_weight: 0.2
-  track_contact_weight: 2.0
-  body_contact_weight: 3.0
+  objective: stability
+    
+  heuristic:
+    lorentzian_sigma: 0.2
+    regularization_weight: 0 #0.2
+    track_contact_weight: 4
+    body_contact_weight: 3.0
+    
+  stability:
+    exp_parameters: [14.0, -2.6, 0.3] 
+    lorentzian_sigma: 0.2
+    regularization_weight: 0.02
   
 combined_optimization:
   enabled: true
