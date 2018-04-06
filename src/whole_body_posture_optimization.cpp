@@ -215,10 +215,9 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
     }
   }
 
-  // Parameters for front tip
-  bool front_tip = false;
-  Eigen::Affine3d front_tip_base_to_com = Eigen::Affine3d::Identity();
-  sdf_contact_estimation::ContactEstimationResult front_tip_contact;
+  // Collect requests to optimization
+  std::vector<Eigen::Affine3d> request_com;
+  std::vector<sdf_contact_estimation::ContactEstimationResult> request_contact;
 
   // Check if updating contact was successful
   if (updated_init_contact.convex_hull_points.empty()) {
@@ -228,7 +227,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
     result.initial_stability = updated_init_contact.min_stability;
 
     if (result.initial_stability < 0) {
-      ROS_ERROR_STREAM("Robot fell over during updating pose estimate. Try increasing the sampling density.");
+      ROS_ERROR_STREAM("Robot fell over during pose estimate update. Try increasing the sampling density.");
       result.success = false;
       return result;
     }
@@ -264,8 +263,6 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
     ROS_INFO_STREAM("Convex hull size: " << updated_init_contact.support_area);
     if (updated_init_contact.support_area < front_tip_stability_limit_) {
       ROS_INFO_STREAM("Trying to tip over front axis " << front_idx);
-      front_tip = true;
-
       // Move COM to front
 
       const Eigen::Vector3d& p0 = updated_init_contact.convex_hull_points[front_idx];
@@ -286,62 +283,62 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       // Move com across axis
       Eigen::Vector3d com_world_new = com_xy + axis_normal + 0.05 * axis_normal_norm;
       com_world_new.z() = com_world.z();
-      front_tip_base_to_com.translation() = updated_init_contact.estimated_pose.inverse() * com_world_new;
+      Eigen::Affine3d new_world_to_com(Eigen::Translation3d(updated_init_contact.estimated_pose.inverse() * com_world_new));
 
-      // introduce new frame, aligned with base_link but xy-plane is parallel to ground
-//      Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(updated_init_contact.estimated_pose.linear());
-//      Eigen::Affine3d world_to_basex(Eigen::AngleAxisd(pose_rpy[2], Eigen::Vector3d::UnitZ()));
-//      world_to_basex.translation() = updated_init_contact.estimated_pose.translation();
-//      // Transform points of tipping edge and com to new frame
-//      Eigen::Vector3d p0_basex = world_to_basex.inverse() * p0;
-//      Eigen::Vector3d p1_basex = world_to_basex.inverse() * p1;
-
-//      Eigen::Affine3d basex_to_base = world_to_basex.inverse() * updated_init_contact.estimated_pose;
-//      Eigen::Vector3d com_basex = basex_to_base * result.init_com;
-
-//      // Move com in front of tipping edge, parallel to ground
-//      Eigen::Vector3d new_com_basex(std::max(p0_basex.x(), p1_basex.x()) + 0.05, com_basex.y(), com_basex.z());
-//      Eigen::Vector3d new_com_base = basex_to_base.inverse() * new_com_basex;
-//      front_tip_base_to_com.translation() = new_com_base;
-
-      ROS_INFO_STREAM("old com: " << result.init_com);
-      ROS_INFO_STREAM("new com: " << front_tip_base_to_com.translation());
+//      ROS_INFO_STREAM("old com: " << result.init_com);
+//      ROS_INFO_STREAM("new com: " << front_tip_base_to_com.translation());
 
       // rerun contact estimation
-      front_tip_contact = flipper_optimization_->computeContactEstimation(previous_joint_angles, pose, front_tip_base_to_com, updated_init_contact);
+      sdf_contact_estimation::ContactEstimationResult front_tip_contact = flipper_optimization_->computeContactEstimation(
+            previous_joint_angles, pose, new_world_to_com, updated_init_contact);
+
+      // Push new com and contact to request list
+      request_com.push_back(new_world_to_com);
+      request_contact.push_back(front_tip_contact);
     }
   }
 
+  // Push back original updated pose
+  request_com.push_back(base_to_com);
+  request_contact.push_back(updated_init_contact);
 
-  bool done = false;
-  while (!done) {
-    // Optimizer the flipper
-    Eigen::Affine3d flipper_base_to_com;
-    sdf_contact_estimation::ContactEstimationResult flipper_init_contact;
-    if (front_tip) {
-      flipper_base_to_com = front_tip_base_to_com;
-      flipper_init_contact = front_tip_contact;
-    } else {
-      flipper_base_to_com = base_to_com;
-      flipper_init_contact = updated_init_contact;
-    }
-    FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(pose, flipper_base_to_com, init_joint_angles, previous_joint_angles,
-                                                                               flipper_init_contact);
-    result.result_contact = flipper_result.contact_result;
-    result.result_joint_angles = flipper_result.joint_state;
-    result.stability_flipper_opt = flipper_result.contact_result.min_stability;
+
+  // Collect results
+  std::vector<PostureOptimizationResult> results;
+  for(unsigned int i = 0; i < request_com.size(); i++) {
+    PostureOptimizationResult prelim_result = result;
+    FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(pose, request_com[i], init_joint_angles, previous_joint_angles,
+                                                                               request_contact[i]);
+    prelim_result.result_contact = flipper_result.contact_result;
+    prelim_result.result_joint_angles = flipper_result.joint_state;
+    prelim_result.stability_flipper_opt = flipper_result.contact_result.min_stability;
 
 
     // Optimize the arm
     ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points,
                                                                    flipper_result.contact_result.estimated_pose, previous_joint_angles);
-    result.result_joint_angles = arm_result.joint_angles;
-    result.result_com = arm_result.center_of_mass;
-    result.stability_arm_opt = arm_result.stability;
+    prelim_result.result_joint_angles = arm_result.joint_angles;
+    prelim_result.result_com = arm_result.center_of_mass;
+    prelim_result.stability_arm_opt = arm_result.stability;
 
-    done = result.stability_arm_opt > 0 || !front_tip; // don't try again if it isn't a front tip
-    front_tip = false;
+    results.push_back(prelim_result);
   }
+
+  // Find best result
+  if (!results.empty()) {
+    unsigned int best_idx = 10000;
+    double best_stability = -std::numeric_limits<double>::max();
+    for (unsigned int i = 0; i < results.size(); i++) {
+      if (results[i].stability_arm_opt > best_stability) {
+        best_idx = i;
+        best_stability = results[i].stability_arm_opt;
+      }
+    }
+    result = results[best_idx];
+  } else {
+    ROS_ERROR_STREAM("No result available!");
+  }
+
 
   result.success = result.stability_arm_opt > 0;
 

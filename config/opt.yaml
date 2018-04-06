@@ -14,7 +14,7 @@ optimization_type: split
 collision_group: arm_with_head_group
 
 stability_limit: 0.3
-front_tip_stability_limit: 0.3
+front_tip_stability_limit: 0.25
   
 arm_optimization:
   enabled: true
@@ -72,11 +72,11 @@ flipper_optimization:
   joints:
     - flipper_joint_1
     
-  objective: stability
+  objective: heuristic
     
   heuristic:
     lorentzian_sigma: 0.2
-    regularization_weight: 0 #0.2
+    regularization_weight: 0.2
     track_contact_weight: 4
     body_contact_weight: 3.0
     
