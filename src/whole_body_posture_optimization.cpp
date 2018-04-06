@@ -54,7 +54,7 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
   }
 
   nh.param("stability_limit", stability_limit_, 0.0);
-  nh.param("front_tip_stability_limit", front_tip_stability_limit_, 0.5);
+  nh.param("front_tip_support_area_limit", front_tip_support_area_limit_, 0.5);
   nh.param<bool>("stepping", stepping_, false);
   nh.param<int>("stepping_start", stepping_start_, 0);
   nh.param<std::string>("tsdf_save_folder", tsdf_save_folder_, "");
@@ -232,39 +232,38 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       return result;
     }
 
-    // Check if tipping to front makes sense
-    // Find frontal support polygon edge
-    double min_stability = std::numeric_limits<double>::max();
-    unsigned int front_idx = -1;
-    for (unsigned int i = 0; i < updated_init_contact.convex_hull_points.size(); i++) {
-      const Eigen::Vector3d& p0 = updated_init_contact.convex_hull_points[i];
-      const Eigen::Vector3d& p1 = updated_init_contact.convex_hull_points[(i+1) % updated_init_contact.convex_hull_points.size()];
-
-      // Transform points to base link
-      Eigen::Vector3d p0_base = updated_init_contact.estimated_pose.inverse() * p0;
-      Eigen::Vector3d p1_base = updated_init_contact.estimated_pose.inverse() * p1;
-
-      // Check if forward edge
-      Eigen::Vector3d a = p1_base - p0_base;
-      Eigen::Vector3d cross = Eigen::Vector3d::UnitX().cross(a);
-      if (cross.z() < -0.01) {
-        // Check if stability is lower
-        double stability = updated_init_contact.stabilities[i];
-        if (stability < min_stability) {
-          min_stability = stability;
-          front_idx = i;
-        }
-//        ROS_INFO_STREAM(i << " is a forward edge. Stability: " << stability);
-      }
-    }
-//    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << min_stability);
-
-    // check if stability is low
     ROS_INFO_STREAM("Convex hull size: " << updated_init_contact.support_area);
-    if (updated_init_contact.support_area < front_tip_stability_limit_) {
-      ROS_INFO_STREAM("Trying to tip over front axis " << front_idx);
-      // Move COM to front
 
+    // Check if tipping to front makes sense
+    if (updated_init_contact.support_area < front_tip_support_area_limit_) {
+      // Find axis we want to tip over
+      double min_stability = std::numeric_limits<double>::max();
+      unsigned int front_idx = -1;
+      for (unsigned int i = 0; i < updated_init_contact.convex_hull_points.size(); i++) {
+        const Eigen::Vector3d& p0 = updated_init_contact.convex_hull_points[i];
+        const Eigen::Vector3d& p1 = updated_init_contact.convex_hull_points[(i+1) % updated_init_contact.convex_hull_points.size()];
+
+        // Transform points to base link
+        Eigen::Vector3d p0_base = updated_init_contact.estimated_pose.inverse() * p0;
+        Eigen::Vector3d p1_base = updated_init_contact.estimated_pose.inverse() * p1;
+
+        // Check if forward edge
+        Eigen::Vector3d a = p1_base - p0_base;
+        Eigen::Vector3d cross = Eigen::Vector3d::UnitX().cross(a);
+        if (cross.z() < -0.01) {
+          // Check if stability is lower
+          double stability = updated_init_contact.stabilities[i];
+          if (stability < min_stability) {
+            min_stability = stability;
+            front_idx = i;
+          }
+  //        ROS_INFO_STREAM(i << " is a forward edge. Stability: " << stability);
+        }
+      }
+//    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << min_stability);
+      ROS_INFO_STREAM("Trying to tip over front axis " << front_idx);
+
+      // Move COM to front
       const Eigen::Vector3d& p0 = updated_init_contact.convex_hull_points[front_idx];
       const Eigen::Vector3d& p1 = updated_init_contact.convex_hull_points[(front_idx+1) % updated_init_contact.convex_hull_points.size()];
       Eigen::Vector3d com_world = updated_init_contact.estimated_pose * result.init_com;
@@ -333,6 +332,9 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
         best_idx = i;
         best_stability = results[i].stability_arm_opt;
       }
+    }
+    if (results.size() > 1) {
+      ROS_INFO_STREAM("Chose result " << best_idx);
     }
     result = results[best_idx];
   } else {

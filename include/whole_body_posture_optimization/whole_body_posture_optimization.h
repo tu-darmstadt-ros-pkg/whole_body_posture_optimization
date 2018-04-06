@@ -78,7 +78,7 @@ private:
   OptimizationType optimization_type_;
   std::vector<double> default_joint_state_;
   double stability_limit_;
-  double front_tip_stability_limit_;
+  double front_tip_support_area_limit_;
 
   bool stepping_;
   int stepping_start_;
