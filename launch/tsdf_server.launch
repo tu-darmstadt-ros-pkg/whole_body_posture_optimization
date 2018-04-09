@@ -9,7 +9,7 @@
     <param name="min_time_between_msgs_sec" value="0.0" />
     <param name="verbose" value="false" />
     <param name="color_mode" value="normals" />
-    <param name="method" value="fast" />
+    <param name="method" value="simple" />
     
     <param name="tsdf_voxel_size" value="0.025" />
     <param name="tsdf_voxels_per_side" value="16" />
@@ -21,11 +21,15 @@
 <!--     <remap from="pointcloud" to="/scans_combined"/> -->
     <remap from="pointcloud" to="/scan_cloud_filtered"/>
     
-<!--     <remap from="pointcloud" to="/arm_rgbd_cam/depth/points"/> -->
+<!--     <remap from="pointcloud" to="/arm_rgbd_cam/depth/points_throttle"/> -->
   </node>
   
   <!-- relays to combined topic -->
   <node name="filtered_laser_relay" pkg="topic_tools" type="relay" args="/scan_cloud_filtered /scans_combined">
+    <param name="lazy" value="true"/>
+  </node>
+  
+  <node name="depth_trottled" pkg="topic_tools" type="throttle" args="messages /arm_rgbd_cam/depth/points 1.0">
     <param name="lazy" value="true"/>
   </node>
   

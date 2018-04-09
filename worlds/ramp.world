@@ -83,8 +83,9 @@
     <!-- ramp up -->
     <model name='nist_simple_ramp_120'>
       <static>1</static>
-      <pose frame=''>1.3 0 -0.07 -0.1 0 -1.57079</pose>
+      <pose frame=''>0.7 0 0 -0.1 0 -1.57079</pose>
       <link name='nist_simple_ramp_120_link'>
+      <pose frame=''>0 0.589290 0 0 0 0</pose>
         <collision name='collision'>
           <geometry>
             <mesh>
@@ -123,7 +124,7 @@
     <!-- elevated floor -->
     <model name='nist_elevated_floor_120'>
       <static>1</static>
-      <pose frame=''>2.597 0 -0.13 0 0 0</pose>
+      <pose frame=''>2.581838 0 -0.123606 0 0 0</pose>
       <link name='nist_elevated_floor_120'>
         <collision name='collision'>
           <geometry>
@@ -163,8 +164,9 @@
     <!-- ramp down -->
     <model name='nist_simple_ramp_120_0'>
       <static>1</static>
-      <pose frame=''>3.897 0 -0.07 -0.1 0 1.57079</pose>
+      <pose frame=''>4.465617 0 0 -0.1 0 1.57079</pose>
       <link name='nist_simple_ramp_120_link'>
+        <pose frame=''>0 0.589290 0 0 0 0</pose>
         <collision name='collision'>
           <geometry>
             <mesh>
@@ -201,9 +203,9 @@
     </model>
     
     <!-- wall to force esdf updates -->
-        <model name='brick_box_3x1x3'>
+    <model name='brick_box_3x1x3'>
       <static>1</static>
-      <pose frame=''>6.25 0 1.5 0 0 -1.5709</pose>
+      <pose frame=''>6.5 0 1.5 0 0 -1.5709</pose>
       <link name='chassis'>
         <collision name='collision'>
           <geometry>

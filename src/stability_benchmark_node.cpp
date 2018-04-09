@@ -76,7 +76,6 @@ void finishTimedRecording();
 void startRecordingCb(const std_msgs::EmptyConstPtr&);
 void recordingTimerCb(const ros::TimerEvent& event);
 void goalCb(const move_base_lite_msgs::FollowPathActionGoalConstPtr& goal_msg);
-void feedbackCb(const move_base_lite_msgs::FollowPathActionFeedbackConstPtr& feedback_msg);
 void resultCb(const move_base_lite_msgs::FollowPathActionResultConstPtr&);
 void jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg);
 void sdfCb(const voxblox_msgs::LayerConstPtr& layer_msg);
@@ -136,37 +135,14 @@ void recordingTimerCb(const ros::TimerEvent& event) {
 
 void goalCb(const move_base_lite_msgs::FollowPathActionGoalConstPtr& goal_msg) {
   ROS_INFO_STREAM("Received path of size " << goal_msg->goal.target_path.poses.size());
-  const double recording_duration = 60.0; // Set high because resultCb will stop anyway
+  const double recording_duration = 600.0; // Set high because resultCb will stop anyway
   startTimedRecording(recording_duration);
-//  path_ = goal_msg->goal.target_path;
-//  current_waypoint_id_ = 0;
-//  start_time_ = ros::Time::now();
-//  data_.clear();
-//  current_state_ = TRACKING;
-//  recordStability(true);
 }
 
-void feedbackCb(const move_base_lite_msgs::FollowPathActionFeedbackConstPtr& feedback_msg) {
-//  if (current_state_ == TRACKING) {
-//    while (current_waypoint_id_ < feedback_msg->feedback.current_waypoint) {
-//      current_waypoint_id_++;
-//      recordStability(true);
-//    }
-//  }
-}
 
 void resultCb(const move_base_lite_msgs::FollowPathActionResultConstPtr&) {
   if (current_state_ == TRACKING) {
     finishTimedRecording();
-//    current_waypoint_id_ = path_.poses.size()-1; // set to last waypoint
-//    recordStability(true);
-
-//    // Path execution finished, save to disk
-//    std::string time_stamp = whole_body_posture_optimization::getTimestamp();
-//    std::string save_path = save_folder_ + "/stability_benchmark_" + time_stamp + ".dat";
-//    ROS_INFO_STREAM("Saving results to '" << save_path << "'.");
-//    saveToDisk(save_path);
-//    current_state_ = IDLE;
   }
 }
 
@@ -318,7 +294,6 @@ int main(int argc, char** argv) {
   com_pub_ = pnh.advertise<geometry_msgs::PoseStamped>("com", 10, true);
   ros::Subscriber joint_states_sub = nh.subscribe("/joint_states", 10, &jointStateCb);
   ros::Subscriber goal_sub = nh.subscribe("goal", 10, &goalCb);
-//  ros::Subscriber feedback_sub = nh.subscribe("feedback", 10, &feedbackCb);
   ros::Subscriber result_sub = nh.subscribe("result", 10, &resultCb);
   ros::Subscriber sdf_sub = nh.subscribe("sdf", 10, &sdfCb);
 
