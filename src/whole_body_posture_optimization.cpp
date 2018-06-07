@@ -425,7 +425,11 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
 
   pluginlib::ClassLoader<planning_interface::PlannerManager> planner_plugin_loader("moveit_core", "planning_interface::PlannerManager");
   std::vector<std::string> planner_names = planner_plugin_loader.getDeclaredClasses();
-  std::string default_planner_name = planner_names[0];
+  ROS_INFO_STREAM("Available planners:");
+  for (const std::string& planner: planner_names) {
+    ROS_INFO_STREAM("-- " << planner);
+  }
+  std::string default_planner_name = planner_names[1];
   planning_interface::PlannerManagerPtr planner_instance(planner_plugin_loader.createUnmanagedInstance(default_planner_name));
   if (!planner_instance->initialize(robot_model_->getMoveitRobotModel(), nh_.getNamespace())) {
     ROS_FATAL_STREAM("Could not initialize planner instance");

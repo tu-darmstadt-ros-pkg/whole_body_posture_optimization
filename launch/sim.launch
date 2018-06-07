@@ -24,7 +24,7 @@
   </include>
   
   <!-- depth cam self filter -->
-  <include file="$(find hector_argo_tracker_onboard_launch)/launch/depth_proc/realsense_box_filter.launch"/>
+<!--   <include file="$(find hector_argo_tracker_onboard_launch)/launch/depth_proc/realsense_box_filter.launch"/> -->
   
   <!-- vehicle controller -->
   <include file="$(find argo_nav_launch)/launch/navigation.launch"/>
