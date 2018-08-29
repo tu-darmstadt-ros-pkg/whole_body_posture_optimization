@@ -20,7 +20,7 @@ INIT_TIMING
 namespace whole_body_posture_optimization {
 
 WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle& nh, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen)
-  : nh_(nh), stability_limit_(0.0), optimization_type_(SPLIT)
+  : nh_(nh), optimization_type_(SPLIT), stability_limit_(0.0)
 {
   loadParameters(nh);
   robot_model_ = std::make_shared<RobotModel>(nh_);
@@ -74,7 +74,7 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 
 void WholeBodyPostureOptimization::updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf)
 {
-  contact_estimation_->loadTsdf(tsdf, 0.4, true);
+  contact_estimation_->loadTsdf(tsdf, 0.4f, true);
 
   // Publish esdf layer
   const bool only_updated = false;
@@ -238,7 +238,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
     if (updated_init_contact.support_area < front_tip_support_area_limit_) {
       // Find axis we want to tip over
       double min_stability = std::numeric_limits<double>::max();
-      unsigned int front_idx = -1;
+      unsigned int front_idx = 0;
       for (unsigned int i = 0; i < updated_init_contact.convex_hull_points.size(); i++) {
         const Eigen::Vector3d& p0 = updated_init_contact.convex_hull_points[i];
         const Eigen::Vector3d& p1 = updated_init_contact.convex_hull_points[(i+1) % updated_init_contact.convex_hull_points.size()];
