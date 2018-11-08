@@ -234,7 +234,7 @@ bool DrivingController::updateTsdf(std::shared_ptr<voxblox::TsdfMap> &tsdf)
   }
 
   voxblox_msgs::GetLayer get_layer;
-  get_layer.request.action = voxblox_msgs::Layer::ACTION_FULL_MAP;
+//  get_layer.request.action = voxblox_msgs::Layer::ACTION_FULL_MAP;
   if (!get_tsdf_client_.call(get_layer)) {
     ROS_ERROR_STREAM("Failed to retrieve the latest tsdf map.");
     return false;
