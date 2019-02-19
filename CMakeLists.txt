@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_experimental
   ad_kinematics
   actionlib
+  move_base_lite_msgs
 )
 
 
@@ -26,7 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning moveit_experimental ad_kinematics actionlib
+  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning moveit_experimental ad_kinematics actionlib move_base_lite_msgs
 #  DEPENDS system_lib
 )
 

@@ -22,5 +22,6 @@
   <depend>moveit_experimental</depend>
   <depend>ad_kinematics</depend>
   <depend>actionlib</depend>
+  <depend>move_base_lite_msgs</depend>
 
 </package>
