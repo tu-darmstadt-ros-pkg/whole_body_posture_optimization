@@ -1,7 +1,11 @@
 # default
 #default_joint_state: [0, 1, 4.5, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 #default_joint_state: [0, 2, 4.71612, 0.75, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
-default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0] # (12) default for all joints
+#default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0] # (7) Argos setup, no gripper
+#default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0, 0, 0] # (9) WRS setup with gripper, collides with new autonomy box
+#default_joint_state: [0, 2.05, 4.64, 2.6, 0, 0, 0, 0, 0] # (9) WRS setup with gripper, drive panning pose, does not work well
+#default_joint_state: [0, 1.57, 3.14, 1.57, 0, 0, 0, 0, 0] # (9) WRS setup with gripper, erect arm
+default_joint_state: [0, 1.25, 1.55, 0.75, 0, 0, 0, 0, 0] # (9) WRS setup with gripper, arm to back
 
 
 #default_joint_state: [0, 0.6, 5.2, 0.5, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
@@ -11,7 +15,7 @@ default_joint_state: [0, 1, 1.55, 0.75, 0, 0, 0] # (12) default for all joints
 #default_joint_state: [0.0838013, 3.072, 4.68403, 0.86, 0, 0, 0, 0, 0, 0, 0, 0] # (12) default for all joints
 
 optimization_type: split
-collision_group: arm_with_head_group
+collision_group: arm_with_gripper_group
 
 stability_limit: 0.3
 front_tip_support_area_limit: 0.25
@@ -32,7 +36,8 @@ arm_optimization:
     - sensor_head_pitch_joint
   environment_collision_default_padding: 0.15
   environment_collision_padding: {
-      gripper_palm_link: 0.2
+      gripper_palm_link: 0.2,
+      gripper_base: 0.3,
   }
   self_collision_padding: 0.05
   self_collision_tsdf_padding: 0.05
@@ -58,6 +63,7 @@ arm_optimization:
     - structure_addons_link
     - left_track_link
     - right_track_link
+    - autonomy_box_link
   
 flipper_optimization:
   enabled: true
@@ -107,6 +113,7 @@ combined_optimization:
     - spin_lidar_lidar_mount_link
     - spin_lidar_pitch_hokuyo_laser_frame
     - structure_addons_link
+    - autonomy_box_link
   
 contact_estimation:
   debug: false    
