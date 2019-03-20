@@ -6,7 +6,7 @@
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/kinematic_constraints/utils.h>
-#include <moveit/trajectory_processing/iterative_time_parameterization.h>
+#include <moveit/trajectory_processing/iterative_spline_parameterization.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 
 #include <voxblox/io/layer_io.h>
@@ -442,7 +442,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
   req.group_name = group;
   req.allowed_planning_time = 2.0;
 
-  trajectory_processing::IterativeParabolicTimeParameterization time_parameterization;
+  trajectory_processing::IterativeSplineParameterization time_parameterization;
   robot_trajectory::RobotTrajectory trajectory_tmp(robot_model_->getMoveitRobotModel(), group_with_world);
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     // set start state
