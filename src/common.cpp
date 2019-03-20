@@ -55,7 +55,7 @@ void updateMoveitRobotState(moveit::core::RobotState &state, const Eigen::Affine
   virtual_link_joint_states.position[0] = pose.translation().x();
   virtual_link_joint_states.position[1] = pose.translation().y();
   virtual_link_joint_states.position[2] = pose.translation().z();
-  Eigen::Quaterniond quat(pose.rotation());
+  Eigen::Quaterniond quat(pose.linear());
   virtual_link_joint_states.position[3] = quat.x();
   virtual_link_joint_states.position[4] = quat.y();
   virtual_link_joint_states.position[5] = quat.z();
