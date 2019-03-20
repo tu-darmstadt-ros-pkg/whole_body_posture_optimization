@@ -244,8 +244,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
         const Eigen::Vector3d& p1 = updated_init_contact.convex_hull_points[(i+1) % updated_init_contact.convex_hull_points.size()];
 
         // Transform points to base link
-        Eigen::Vector3d p0_base = updated_init_contact.estimated_pose.inverse() * p0;
-        Eigen::Vector3d p1_base = updated_init_contact.estimated_pose.inverse() * p1;
+        Eigen::Vector3d p0_base = updated_init_contact.estimated_pose.inverse(Eigen::Isometry) * p0;
+        Eigen::Vector3d p1_base = updated_init_contact.estimated_pose.inverse(Eigen::Isometry) * p1;
 
         // Check if forward edge
         Eigen::Vector3d a = p1_base - p0_base;
@@ -282,7 +282,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       // Move com across axis
       Eigen::Vector3d com_world_new = com_xy + axis_normal + 0.05 * axis_normal_norm;
       com_world_new.z() = com_world.z();
-      Eigen::Affine3d new_world_to_com(Eigen::Translation3d(updated_init_contact.estimated_pose.inverse() * com_world_new));
+      Eigen::Affine3d new_world_to_com(Eigen::Translation3d(updated_init_contact.estimated_pose.inverse(Eigen::Isometry) * com_world_new));
 
 //      ROS_INFO_STREAM("old com: " << result.init_com);
 //      ROS_INFO_STREAM("new com: " << front_tip_base_to_com.translation());
