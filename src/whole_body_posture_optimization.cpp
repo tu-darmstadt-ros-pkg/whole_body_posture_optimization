@@ -484,8 +484,8 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     end_position.z() = opt_result[i+1].result_contact.estimated_pose.translation().z();
 
     Eigen::Vector3d position_diff = end_position - start_position;
-    Eigen::Quaterniond start_orientation(opt_result[i].result_contact.estimated_pose.rotation());
-    Eigen::Quaterniond end_orientation(opt_result[i+1].result_contact.estimated_pose.rotation());
+    Eigen::Quaterniond start_orientation(opt_result[i].result_contact.estimated_pose.affine());
+    Eigen::Quaterniond end_orientation(opt_result[i+1].result_contact.estimated_pose.affine());
     for (unsigned int j = 0; j < res.trajectory_->getWayPointCount(); j++) {
       double t = static_cast<double>(j) / res.trajectory_->getWayPointCount();
       robot_state::RobotStatePtr state = res.trajectory_->getWayPointPtr(j);
