@@ -23,14 +23,14 @@ int main(int argc, char** argv) {
   whole_body_posture_optimization::WholeBodyPostureOptimization po(pnh, tracker_shape);
   // create environment
   std::string scenario = pnh.param("scenario", std::string("flat"));
-  if (scenario == "tsdf") {
-    std::string tsdf_file_path;
-    if (!pnh.getParam("tsdf_file_path", tsdf_file_path)) {
-      ROS_ERROR_STREAM("No tsdf file path found in namespace '" + pnh.getNamespace() + "/tsdf_file_path.");
+  if (scenario == "sdf") {
+    std::string sdf_file_path;
+    if (!pnh.getParam("sdf_file_path", sdf_file_path)) {
+      ROS_ERROR_STREAM("No sdf file path found in namespace '" + pnh.getNamespace() + "/sdf_file_path.");
       return 0;
     }
 
-    if (!po.loadTsdfFromFile(tsdf_file_path, 0.4)) {
+    if (!po.loadSdfFromFile(sdf_file_path, 0.4f)) {
       return 0;
     }
   } else {
@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
 
         path.poses.push_back(pose_msg);
       }
-    } else if (scenario == "tsdf") {
+    } else if (scenario == "sdf") {
       double path_start, path_stop, path_step;
       pnh.param("path_start", path_start, 0.0);
       pnh.param("path_stop", path_stop, 1.5);

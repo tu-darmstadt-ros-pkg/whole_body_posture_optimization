@@ -333,7 +333,7 @@ std::vector<unsigned int> RobotModel::getActuatedJointIndices(const std::vector<
 
 std::string RobotModel::getParentJointName(const std::string &link_name)
 {
-  boost::shared_ptr<const urdf::Link> link = urdf_model_.getLink(link_name);
+  urdf::LinkConstSharedPtr link = urdf_model_.getLink(link_name);
   if (!link) {
     ROS_ERROR_STREAM("Couldn't find link '" << link_name << "'.");
     return "NOT FOUND";

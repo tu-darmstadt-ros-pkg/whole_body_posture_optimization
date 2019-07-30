@@ -3,7 +3,7 @@
   <param name="robot_description" command="$(find xacro)/xacro --inorder $(find argo_tracker_description)/urdf/argo_tracker_default.urdf.xacro" />
   <param name="robot_description_semantic" textfile="$(find argo_tracker_robot_moveit_config)/config/taurob_tracker.srdf" />
   
-    <node pkg="vigir_interactive_marker_pose_server" type="interactive_marker_pose_server" name="robot_pose_interactive_marker" output="screen" 
+  <node pkg="vigir_interactive_marker_pose_server" type="interactive_marker_pose_server" name="robot_pose_interactive_marker" output="screen" 
       ns="whole_body_posture_optimization_node/interactive_marker">
     <remap from="pose" to="set_robot_pose"/>
     <param name="marker_name" value="robot_pose" />
@@ -20,8 +20,8 @@
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen">
     <!-- node parameters -->
     <param name="interactive" value="false"/>
-    <param name="scenario" value="tsdf"/>
-    <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/real_robot1.tsdf"/>
+    <param name="scenario" value="sdf"/>
+    <param name="sdf_file_path" value="$(find whole_body_posture_optimization)/sdf/real_robot1.esdf"/>
 <!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_step.tsdf"/> -->
 <!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_ramp3.tsdf"/> -->
 <!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_stairs2.tsdf"/> -->
@@ -38,8 +38,8 @@
     <param name="stepping_start" value="16"/>
     <param name="posture_optimization_debug" value="false"/>
 <!--     <param name="debug_computation_rate" value="0"/> -->
-<!--     <param name="tsdf_save_folder" value="$(find whole_body_posture_optimization)/tsdf"/> -->
-    <param name="tsdf_save_folder" value=""/>
+<!--     <param name="sdf_save_folder" value="$(find whole_body_posture_optimization)/sdf"/> -->
+    <param name="sdf_save_folder" value=""/>
     <rosparam file="$(find whole_body_posture_optimization)/config/opt.yaml" command="load" />  
     
     <!-- contact estimation lib parameters -->

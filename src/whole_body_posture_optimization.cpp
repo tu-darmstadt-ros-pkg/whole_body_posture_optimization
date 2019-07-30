@@ -57,7 +57,7 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param("front_tip_support_area_limit", front_tip_support_area_limit_, 0.5);
   nh.param<bool>("stepping", stepping_, false);
   nh.param<int>("stepping_start", stepping_start_, 0);
-  nh.param<std::string>("tsdf_save_folder", tsdf_save_folder_, "");
+  nh.param<std::string>("sdf_save_folder", sdf_save_folder_, "");
 
   std::string optimization_type_str;
   nh.param<std::string>("optimization_type", optimization_type_str, "split");
@@ -89,9 +89,9 @@ void WholeBodyPostureOptimization::updateWorldModel(const pcl::PointCloud<pcl::P
   contact_estimation_->loadCloud(cloud, true);
 }
 
-bool WholeBodyPostureOptimization::loadTsdfFromFile(std::string tsdf_file_path, float truncation_distance)
+bool WholeBodyPostureOptimization::loadSdfFromFile(std::string tsdf_file_path, float truncation_distance)
 {
-  return contact_estimation_->loadTsdfFromFile(tsdf_file_path, truncation_distance, true, true);
+  return contact_estimation_->loadSdfFromFile(tsdf_file_path, truncation_distance, true);
 }
 
 void WholeBodyPostureOptimization::setDefaultJointPositions(const std::vector<double>& default_joint_positions)
@@ -107,15 +107,23 @@ const std::vector<double> &WholeBodyPostureOptimization::getDefaultJointPosition
 std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimalPostures(const nav_msgs::Path& path)
 {
   // Save the current tsdf for later debugging
-  if (tsdf_save_folder_ != "") {
+  if (sdf_save_folder_ != "") {
     std::string time_stamp = getTimestamp();
-    std::string save_path =  tsdf_save_folder_ + "/tsdf_map_" + time_stamp + ".tsdf";
+    std::string save_path =  sdf_save_folder_ + "/tsdf_map_" + time_stamp + ".tsdf";
     ROS_INFO_STREAM("Saving tsdf to " << save_path);
     contact_estimation_->saveTsdfToFile(save_path);
+    save_path =  sdf_save_folder_ + "/esdf_map_" + time_stamp + ".esdf";
+    contact_estimation_->saveEsdfToFile(save_path);
   }
+
+
 
   // Iterate over path poses and run optimization
   std::vector<PostureOptimizationResult> results;
+  if (path.poses.empty()) {
+    ROS_WARN_STREAM("Can't find optimal postures, path is empty.");
+    return results;
+  }
   PostureOptimizationResult last_result;
   bool first = true;
   int counter = 0;
@@ -173,7 +181,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
 PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d &pose, const std::vector<double> &init_joint_state,
                                                                            const std::vector<double> &previous_joint_angles)
 {
-  return findOptimalPosture(pose, init_joint_state, previous_joint_angles, NULL);
+  return findOptimalPosture(pose, init_joint_state, previous_joint_angles, nullptr);
 }
 
 PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
@@ -203,7 +211,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 
   // Estimate our new position
   sdf_contact_estimation::ContactEstimationResult updated_init_contact;
-  if (init_contact_result != NULL) {
+  if (init_contact_result != nullptr) {
     result.init_contact = *init_contact_result;
     updated_init_contact = flipper_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com, result.init_contact);
 //    updated_init_contact = *init_contact_result;
@@ -379,7 +387,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombin
   Eigen::Affine3d base_to_com(Eigen::Translation3d(result.init_com));
 
   sdf_contact_estimation::ContactEstimationResult updated_init_contact;
-  if (init_contact_result != NULL) {
+  if (init_contact_result != nullptr) {
     result.init_contact = *init_contact_result;
     updated_init_contact = *init_contact_result;
   } else {
@@ -414,11 +422,14 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombin
 
 std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
 {
+  std::vector<robot_trajectory::RobotTrajectory> trajectories;
+  if (opt_result.size() < 2) {
+    ROS_WARN_STREAM("Can't compute timed trajectory, path is empty.");
+    return trajectories;
+  }
   START_TIMING("Trajectory planning");
-
   std::string group = "complete_robot_group"; //TODO parameter
   std::string group_with_world = "complete_robot_group_with_world";
-  std::vector<robot_trajectory::RobotTrajectory> trajectories;
   const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(group);
 
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());

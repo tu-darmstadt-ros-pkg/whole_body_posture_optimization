@@ -41,7 +41,7 @@ public:
   bool loadParameters(const ros::NodeHandle &nh); // set free parameters, etc
   void updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf);
   void updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud);
-  bool loadTsdfFromFile(std::string tsdf_file_path, float truncation_distance);
+  bool loadSdfFromFile(std::string tsdf_file_path, float truncation_distance);
 
 
   void setDefaultJointPositions(const std::vector<double>& default_joint_positions);
@@ -86,7 +86,7 @@ private:
   ros::Publisher trajectory_pub_;
   ros::Publisher sdf_pub_;
 
-  std::string tsdf_save_folder_;
+  std::string sdf_save_folder_;
 };
 }
 
