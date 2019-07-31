@@ -47,7 +47,8 @@
     <param name="truncation_distance" value="0.4"/>
     <param name="iteration_max_contact_distance" value="0.01"/>
     <param name="final_max_contact_distance" value="0.05"/>  -->
-    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" />  
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" />
+    <rosparam file="$(find sdf_contact_estimation)/config/tracker_shape_config.yaml" command="load" />  
     
     <remap from="~set_robot_pose" to="/whole_body_posture_optimization_node/interactive_marker/set_robot_pose"/>
   </node>

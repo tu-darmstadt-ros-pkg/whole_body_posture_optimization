@@ -48,7 +48,7 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   }
 
   // Loading moveit model
-  robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
+  robot_model_loader::RobotModelLoader robot_model_loader("robot_description", false);
   moveit_robot_model_ = robot_model_loader.getModel();
   if (!moveit_robot_model_.get()){
     ROS_ERROR("Couldn't load robot model!");
@@ -97,7 +97,7 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   double mass;
   rbdl::Math::Vector3d com2;
   jacobian = rbdl::Math::MatrixNd(3, ndirs);
-  rbdl::AD::CalcCenterOfMass(*model_ptr_, *ad_model_ptr_, q, q_dirs, qdot, qdot_dirs, mass, com2, jacobian, 0, 0, 0, 0, true);
+  rbdl::AD::CalcCenterOfMass(*model_ptr_, *ad_model_ptr_, q, q_dirs, qdot, qdot_dirs, mass, com2, jacobian, nullptr, nullptr, nullptr, nullptr, true);
   com = com2;
 
   // Work-around because rbdl_reader assigns chassis mass to world frame

@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 #include <sdf_contact_estimation/test_scenarios.h>
-#include <sdf_contact_estimation/body_shapes/argo_tracker_robot_shape.h>
+#include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
 #include <whole_body_posture_optimization/timing.h>
 
 bool pose_updated_;
@@ -19,8 +19,8 @@ int main(int argc, char** argv) {
   ros::Subscriber robot_pose_sub = pnh.subscribe("set_robot_pose", 10, &poseCB);
 
   // Create robot shape
-  sdf_contact_estimation::RobotShapeGeneratorBasePtr tracker_shape = std::make_shared<argo_tracker::ArgoTrackerShape>();
-  whole_body_posture_optimization::WholeBodyPostureOptimization po(pnh, tracker_shape);
+  sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape = std::make_shared<sdf_contact_estimation::RobotShapeFromUrdf>(pnh);
+  whole_body_posture_optimization::WholeBodyPostureOptimization po(pnh, robot_shape);
   // create environment
   std::string scenario = pnh.param("scenario", std::string("flat"));
   if (scenario == "sdf") {
