@@ -5,8 +5,8 @@ namespace whole_body_posture_optimization {
 ConvexHullAreaError::ConvexHullAreaError(unsigned int parameter_size, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                                          const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com, const std::vector<double> &prev_flipper_angles,
                                          const sdf_contact_estimation::ContactEstimationResult &init_contact, const ConvexHullAreaErrorParameters &parameters)
-  : parameter_size_(parameter_size), contact_estimation_(contact_estimation), pose_(pose), base_to_com_(base_to_com), init_contact_(init_contact),
-    prev_flipper_angles_(prev_flipper_angles), parameters_(parameters)
+  : parameter_size_(parameter_size), contact_estimation_(contact_estimation), prev_flipper_angles_(prev_flipper_angles), pose_(pose), base_to_com_(base_to_com),
+    init_contact_(init_contact), parameters_(parameters)
 {}
 
 bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double* cost) const
@@ -17,7 +17,6 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   if (result.convex_hull_points.empty()) {
     return false;
   }
-
   // Robust regularization
   double regularization_cost = 0.0;
   if (!prev_flipper_angles_.empty()) {
@@ -25,6 +24,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
       double diff = prev_flipper_angles_[idx] - flipper_angles[0][idx];
       regularization_cost += lorentzian<double>(diff, parameters_.lorentzian_sigma);
     }
+    regularization_cost /= prev_flipper_angles_.size(); // Normalize by number of joints
   }
 
   double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
@@ -56,7 +56,7 @@ ceres::CostFunction* ConvexHullAreaError::Create(unsigned int parameter_size, co
   ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>* cost_function = new ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>(
         new ConvexHullAreaError(parameter_size, contact_estimation, pose, base_to_com, prev_flipper_angles, init_contact, parameters));
 
-  cost_function->AddParameterBlock(parameter_size);
+  cost_function->AddParameterBlock(static_cast<int>(parameter_size));
   cost_function->SetNumResiduals(1);
 
   return static_cast<ceres::CostFunction*>(cost_function);

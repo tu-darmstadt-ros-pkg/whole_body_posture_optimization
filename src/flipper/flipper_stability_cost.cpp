@@ -5,8 +5,8 @@ namespace whole_body_posture_optimization {
 FlipperStabilityCost::FlipperStabilityCost(unsigned int parameter_size, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                                          const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com, const std::vector<double> &prev_flipper_angles,
                                          const sdf_contact_estimation::ContactEstimationResult &init_contact, const FlipperStabilityCostParameters &parameters)
-  : parameter_size_(parameter_size), contact_estimation_(contact_estimation), pose_(pose), base_to_com_(base_to_com), init_contact_(init_contact),
-    prev_flipper_angles_(prev_flipper_angles), parameters_(parameters)
+  : parameter_size_(parameter_size), contact_estimation_(contact_estimation), prev_flipper_angles_(prev_flipper_angles), pose_(pose), base_to_com_(base_to_com),
+    init_contact_(init_contact), parameters_(parameters)
 {}
 
 bool FlipperStabilityCost::operator()(double const* const* flipper_angles, double* cost) const
@@ -25,6 +25,7 @@ bool FlipperStabilityCost::operator()(double const* const* flipper_angles, doubl
       double diff = prev_flipper_angles_[idx] - flipper_angles[0][idx];
       regularization_cost += lorentzian<double>(diff, parameters_.lorentzian_sigma);
     }
+    regularization_cost /= prev_flipper_angles_.size(); // Normalize by number of joints
   }
 
   Eigen::Affine3d com_pose = result.estimated_pose * base_to_com_;
@@ -55,7 +56,7 @@ ceres::CostFunction* FlipperStabilityCost::Create(unsigned int parameter_size, c
   ceres::DynamicNumericDiffCostFunction<FlipperStabilityCost>* cost_function = new ceres::DynamicNumericDiffCostFunction<FlipperStabilityCost>(
         new FlipperStabilityCost(parameter_size, contact_estimation, pose, base_to_com, prev_flipper_angles, init_contact, parameters));
 
-  cost_function->AddParameterBlock(parameter_size);
+  cost_function->AddParameterBlock(static_cast<int>(parameter_size));
   cost_function->SetNumResiduals(1);
 
   return static_cast<ceres::CostFunction*>(cost_function);
