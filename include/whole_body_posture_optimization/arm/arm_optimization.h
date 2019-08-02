@@ -52,8 +52,6 @@ private:
   std::vector<std::string> free_joints_;
   std::vector<double> lower_bounds_;
   std::vector<double> upper_bounds_;
-  double environment_collision_default_padding_;
-  std::map<std::string, double> environment_collision_padding_map_;
 
   // Optimization parameters
   bool enabled_;
@@ -63,8 +61,14 @@ private:
   std::shared_ptr<voxblox::TsdfMap> partial_robot_tsdf_;
   std::vector<std::string> semi_static_link_names_;
   std::vector<std::string> static_link_names_;
-  double self_collision_padding_;
+
+  // Collision parameters
+  double environment_collision_default_padding_;
+  std::map<std::string, double> environment_collision_padding_map_;
+  double self_collision_default_padding_;
+  std::map<std::string, double> self_collision_padding_map_;
   double self_collision_tsdf_padding_;
+
   double self_collision_tsdf_truncation_distance_;
   double self_collision_tsdf_voxel_size_;
   collision_detection::AllowedCollisionMatrix acm_;

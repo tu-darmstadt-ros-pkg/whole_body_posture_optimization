@@ -53,7 +53,8 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
 
   nh.param<std::vector<std::string>>("static_link_names", static_link_names_, static_link_names_);
   nh.param<std::vector<std::string>>("semi_static_link_names", semi_static_link_names_, semi_static_link_names_);
-  nh.param("self_collision_padding", self_collision_padding_, 0.0);
+  nh.param("self_collision_default_padding", self_collision_default_padding_, 0.0);
+  nh.param<std::map<std::string, double>>("self_collision_padding", self_collision_padding_map_, self_collision_padding_map_);
   nh.param("self_collision_tsdf_padding", self_collision_tsdf_padding_, 0.0);
   nh.param("self_collision_tsdf_truncation_distance", self_collision_tsdf_truncation_distance_, 0.4);
   nh.param("self_collision_tsdf_voxel_size", self_collision_tsdf_voxel_size_, 0.05);
@@ -73,11 +74,14 @@ double ArmOptimization::getJointPadding(std::string joint_name, CollisionType co
     case CollisionType::ENVIRONMENT:
       padding_map = &environment_collision_padding_map_;
       break;
+    case CollisionType::SELF_COLLISION:
+      padding_map = &self_collision_padding_map_;
+      break;
     default:
       padding_map = nullptr;
   }
   bool found;
-  double padding;
+  double padding = 0.0;
   if (padding_map) {
     try {
       padding = padding_map->at(joint_name);
@@ -100,7 +104,7 @@ double ArmOptimization::getDefaultJointPadding(CollisionType collision_type)
 {
   switch (collision_type) {
     case ENVIRONMENT: return environment_collision_default_padding_;
-    case SELF_COLLISION: return self_collision_padding_;
+    case SELF_COLLISION: return self_collision_default_padding_;
     case SELF_COLLISION_TSDF: return self_collision_tsdf_padding_;
     default: ROS_WARN_STREAM("Unknown collision type. Defaulting to zero padding.");
   }
@@ -197,7 +201,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   // self-collision tsdf constraints
   START_TIMING("Self-collision tsdf const. creation");
   std::shared_ptr<voxblox::TsdfMap> tsdf = robot_model_->computeTsdfFromRobotModel(semi_static_link_names_, self_collision_tsdf_truncation_distance_, partial_robot_tsdf_);
-  sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose);
+  sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose, 0.4);
   sdf_contact_estimation::SdfWrapper robot_base_tsdf;
   robot_base_tsdf.setTsdfMap(tsdf, self_collision_tsdf_truncation_distance_);
 
@@ -267,6 +271,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   try {
     if (enabled_) {
       nlopt_result = opt_.optimize(parameters, minf);
+      ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
     }
   }
   catch (std::invalid_argument e) {
@@ -284,7 +289,6 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                   << ceres_nlopt_wrapper::vecToString(parameters));
 
-  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
 //  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
 
   // Check for collisions in solution  
