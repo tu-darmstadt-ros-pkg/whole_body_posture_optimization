@@ -69,6 +69,9 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
     ROS_ERROR_STREAM("Unknown optimization type '" << optimization_type_str << "'.");
   }
 
+  nh.param<std::string>("complete_robot_group", complete_robot_group_, "complete_robot_group");
+  nh.param<std::string>("complete_robot_with_world_group", complete_robot_with_world_group_, "complete_robot_group_with_world");
+
   return true;
 }
 
@@ -428,8 +431,8 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     return trajectories;
   }
   START_TIMING("Trajectory planning");
-  std::string group = "complete_robot_group"; //TODO parameter
-  std::string group_with_world = "complete_robot_group_with_world";
+  std::string group = complete_robot_group_;
+  std::string group_with_world = complete_robot_with_world_group_;
   const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(group);
 
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());

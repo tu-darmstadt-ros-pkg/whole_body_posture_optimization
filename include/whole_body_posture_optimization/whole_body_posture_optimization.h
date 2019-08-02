@@ -79,6 +79,8 @@ private:
   std::vector<double> default_joint_state_;
   double stability_limit_;
   double front_tip_support_area_limit_;
+  std::string complete_robot_group_;
+  std::string complete_robot_with_world_group_;
 
   bool stepping_;
   int stepping_start_;
