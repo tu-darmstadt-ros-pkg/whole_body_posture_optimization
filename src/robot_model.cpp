@@ -3,7 +3,7 @@
 namespace whole_body_posture_optimization {
 
 RobotModel::RobotModel(ros::NodeHandle &nh)
-  : num_joints_(0), num_actuated_joints_(0), total_mass_(0), collision_group_("")
+  : num_joints_(0), num_actuated_joints_(0), collision_group_(""), total_mass_(0)
 {
   // Parameter loading
   if(!nh.getParam("/robot_description", robot_description_)) {
@@ -37,7 +37,7 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
       ROS_INFO_STREAM("-- Parent joint: " << joint_name);
       ROS_INFO_STREAM("-- Joint type: " << model_ptr_->mJoints[body_id].mJointType);
       joint_names_.push_back(joint_name);
-      updateActuatedJointMapping(joint_name, joint_names_.size()-1);
+      updateActuatedJointMapping(joint_name, static_cast<unsigned int>(joint_names_.size())-1);
     }
   }
   ROS_INFO_STREAM("Total mass: " << getTotalMass());
@@ -86,7 +86,7 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
     q(i) = full_joint_state[i];
     qdot(i) = 0;
   }
-  int ndirs = num_joints_;
+  int ndirs = static_cast<int>(num_joints_);
   rbdl::Math::MatrixNd q_dirs = rbdl::Math::MatrixNd::Zero(num_joints_, ndirs);
   rbdl::Math::MatrixNd qdot_dirs = rbdl::Math::MatrixNd::Zero(num_joints_, ndirs);
   q_dirs.block(0, 0, num_joints_, num_joints_) = rbdl::Math::MatrixNd::Identity(num_joints_, num_joints_);
@@ -160,7 +160,7 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
     // Iterate over spheres and compute sdf
     for (unsigned int j = 0; j < sphere_representation->getCollisionSpheres().size(); j++) {
       Eigen::Vector3f center = sphere_representation->getSphereCenters()[j].cast<float>();
-      double radius = sphere_representation->getCollisionSpheres()[j].radius_;
+      float radius = static_cast<float>(sphere_representation->getCollisionSpheres()[j].radius_);
 
       // Cube around center with size radius + truncation_distance
       float voxel_size = tsdf->getTsdfLayerPtr()->voxel_size();
@@ -270,7 +270,7 @@ void RobotModel::publishCollisionSpheres()
   sphere_marker.pose.orientation.w = 1;
 //  sphere_marker.lifetime = ros::Duration(0);
 
-  unsigned int id = 0;
+  int id = 0;
 
   const moveit::core::JointModelGroup* joint_group = moveit_robot_state_->getJointModelGroup(collision_group_);
   const std::vector<std::string>& group_link_names = joint_group->getLinkModelNames();
@@ -318,11 +318,11 @@ std::vector<unsigned int> RobotModel::getBodyIndices(const std::vector<std::stri
   return indices;
 }
 
-std::vector<unsigned int> RobotModel::getActuatedJointIndices(const std::vector<std::string> &joints)
+std::vector<std::size_t> RobotModel::getActuatedJointIndices(const std::vector<std::string> &joints)
 {
-  std::vector<unsigned int> indices;
+  std::vector<std::size_t> indices;
   for (const std::string& joint: joints) {
-    ptrdiff_t idx = std::find(actuated_joint_names_.begin(), actuated_joint_names_.end(), joint) - actuated_joint_names_.begin();
+    std::size_t idx = static_cast<std::size_t>(std::find(actuated_joint_names_.begin(), actuated_joint_names_.end(), joint) - actuated_joint_names_.begin());
     if (idx >= actuated_joint_names_.size()) {
       ROS_ERROR_STREAM("Joint '" << joint << "' wasn't found in model.");
     }
@@ -388,7 +388,7 @@ const std::vector<collision_detection::CollisionSphere>& RobotModel::getCollisio
   return body_decompositions_[idx]->getCollisionSpheres();
 }
 
-std::vector<unsigned int> RobotModel::getChainToJointIndexMapping()
+std::vector<std::size_t> RobotModel::getChainToJointIndexMapping()
 {
   return getActuatedJointIndices(ad_chain_->getActuatedJointNames());
 }

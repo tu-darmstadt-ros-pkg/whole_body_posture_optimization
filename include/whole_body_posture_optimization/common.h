@@ -1,5 +1,5 @@
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__COMMON_H
-#define WHOLE_BODY_POSTURE_OPTIMIZATION__COMMON_H
+#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_COMMON_H
+#define WHOLE_BODY_POSTURE_OPTIMIZATION_COMMON_H
 
 #include <eigen_conversions/eigen_msg.h>
 #include <visualization_msgs/MarkerArray.h>

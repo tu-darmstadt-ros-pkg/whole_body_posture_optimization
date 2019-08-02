@@ -1,5 +1,5 @@
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__COMBINED_STABILITY_COST_H
-#define WHOLE_BODY_POSTURE_OPTIMIZATION__COMBINED_STABILITY_COST_H
+#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_COMBINED_STABILITY_COST_H
+#define WHOLE_BODY_POSTURE_OPTIMIZATION_COMBINED_STABILITY_COST_H
 
 #include <whole_body_posture_optimization/robot_model.h>
 #include <whole_body_posture_optimization/common.h>
@@ -42,8 +42,7 @@ private:
 
   Eigen::Affine3d robot_pose_;
   Eigen::Affine3d* result_robot_pose_;
-  std::vector<unsigned int> param_idx_to_joint_idx_;
-  std::vector<unsigned int> flipper_idx_to_joint_idx_;
+  std::vector<std::size_t> param_idx_to_joint_idx_;
 
   CombinedStabilityCostParameters parameters_;
 };

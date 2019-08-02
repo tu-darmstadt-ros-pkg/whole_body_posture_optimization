@@ -1,5 +1,5 @@
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__COMBINED_OPTIMIZATION_H
-#define WHOLE_BODY_POSTURE_OPTIMIZATION__COMBINED_OPTIMIZATION_H
+#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_COMBINED_OPTIMIZATION_H
+#define WHOLE_BODY_POSTURE_OPTIMIZATION_COMBINED_OPTIMIZATION_H
 
 #include <ros/ros.h>
 #include <geometry_msgs/PointStamped.h>
@@ -42,7 +42,7 @@ private:
   std::shared_ptr<RobotModel> robot_model_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
 
-  std::vector<unsigned int> param_idx_to_jnt_idx_;
+  std::vector<std::size_t> param_idx_to_jnt_idx_;
 
   // Parameters
   std::vector<std::string> free_joints_;

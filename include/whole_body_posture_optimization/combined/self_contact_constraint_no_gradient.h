@@ -1,5 +1,5 @@
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__SELF_CONTACT_CONSTRAINT_NO_GRADIENT
-#define WHOLE_BODY_POSTURE_OPTIMIZATION__SELF_CONTACT_CONSTRAINT_NO_GRADIENT
+#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_SELF_CONTACT_CONSTRAINT_NO_GRADIENT
+#define WHOLE_BODY_POSTURE_OPTIMIZATION_SELF_CONTACT_CONSTRAINT_NO_GRADIENT
 
 #include <whole_body_posture_optimization/common.h>
 
@@ -14,7 +14,7 @@ namespace  whole_body_posture_optimization {
 
 class SelfContactConstraintNoGradient {
 public:
-  SelfContactConstraintNoGradient(const std::shared_ptr<RobotModel> &robot_model, const std::vector<unsigned int>& param_idx_to_joint_idx,
+  SelfContactConstraintNoGradient(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::size_t>& param_idx_to_joint_idx,
                                   const std::vector<double>& initial_full_state, const CollisionObject& obj1, const CollisionObject& obj2)
     : robot_model_(robot_model), param_idx_to_joint_idx_(param_idx_to_joint_idx), initial_full_state_(initial_full_state), obj1_(obj1), obj2_(obj2)
   {
@@ -51,7 +51,7 @@ public:
     return true;
   }
 
-  static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<unsigned int>& param_idx_to_joint_idx,
+  static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::size_t>& param_idx_to_joint_idx,
                                      const std::vector<double>& initial_full_state, const CollisionObject& obj1, const CollisionObject& obj2) {
     ceres::DynamicNumericDiffCostFunction<SelfContactConstraintNoGradient>* cost_function = new ceres::DynamicNumericDiffCostFunction<SelfContactConstraintNoGradient>(
           new SelfContactConstraintNoGradient(robot_model, param_idx_to_joint_idx, initial_full_state, obj1, obj2));
@@ -64,7 +64,7 @@ public:
 
 private:
   std::shared_ptr<RobotModel> robot_model_;
-  std::vector<unsigned int> param_idx_to_joint_idx_; // Transforms parameter index to chain index
+  std::vector<std::size_t> param_idx_to_joint_idx_; // Transforms parameter index to chain index
   std::vector<double> initial_full_state_; // default values for all chain joints
 
   CollisionObject obj1_;

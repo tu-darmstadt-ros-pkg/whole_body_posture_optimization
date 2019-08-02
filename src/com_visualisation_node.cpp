@@ -9,7 +9,7 @@
 
 sensor_msgs::JointState last_joint_state_;
 bool joint_state_received_;
-std::vector<unsigned int> state_idx_to_rbdl_index;
+std::vector<std::size_t> state_idx_to_rbdl_index;
 
 void jointStateCB(const sensor_msgs::JointStateConstPtr& joint_state_msg) {
   if (!joint_state_received_) {

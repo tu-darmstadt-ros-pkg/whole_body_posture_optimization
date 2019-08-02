@@ -1,5 +1,5 @@
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__FLIPPER_OPTIMIZATION_H
-#define WHOLE_BODY_POSTURE_OPTIMIZATION__FLIPPER_OPTIMIZATION_H
+#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_FLIPPER_OPTIMIZATION_H
+#define WHOLE_BODY_POSTURE_OPTIMIZATION_FLIPPER_OPTIMIZATION_H
 
 #include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
 
@@ -38,7 +38,7 @@ private:
   ros::NodeHandle nh_;
 
   std::shared_ptr<RobotModel> robot_model_;
-  std::vector<unsigned int> param_idx_to_jnt_idx_;
+  std::vector<std::size_t> param_idx_to_jnt_idx_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
   sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape_gen_;
 

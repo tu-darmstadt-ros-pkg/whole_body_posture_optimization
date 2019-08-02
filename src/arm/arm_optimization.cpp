@@ -174,7 +174,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   // Add constraints
   opt_.remove_inequality_constraints();
   std::vector<int> param_idx_to_chain_idx = robot_model_->getParamToChainIndexMapping(free_joints_);
-  std::vector<unsigned int> chain_idx_to_jnt_idx = robot_model_->getChainToJointIndexMapping();
+  std::vector<std::size_t> chain_idx_to_jnt_idx = robot_model_->getChainToJointIndexMapping();
   std::vector<double> default_chain_angles(chain_idx_to_jnt_idx.size());
   for (unsigned int chain_idx = 0; chain_idx < default_chain_angles.size(); chain_idx++) {
     default_chain_angles[chain_idx] = initial_angles[chain_idx_to_jnt_idx[chain_idx]];

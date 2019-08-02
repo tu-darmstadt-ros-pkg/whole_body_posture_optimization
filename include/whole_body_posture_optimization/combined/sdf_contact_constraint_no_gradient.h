@@ -1,5 +1,5 @@
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__SDF_CONTACT_CONSTRAINT_NO_GRADIENT_H
-#define WHOLE_BODY_POSTURE_OPTIMIZATION__SDF_CONTACT_CONSTRAINT_NO_GRADIENT_H
+#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_SDF_CONTACT_CONSTRAINT_NO_GRADIENT_H
+#define WHOLE_BODY_POSTURE_OPTIMIZATION_SDF_CONTACT_CONSTRAINT_NO_GRADIENT_H
 
 #include <whole_body_posture_optimization/common.h>
 
@@ -15,7 +15,7 @@ namespace  whole_body_posture_optimization {
 
 class SdfContactConstraintNoGradient {
 public:
-  SdfContactConstraintNoGradient(const std::shared_ptr<RobotModel> &robot_model, const std::vector<unsigned int>& param_idx_to_joint_idx, const std::vector<double>& initial_full_state,
+  SdfContactConstraintNoGradient(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::size_t>& param_idx_to_joint_idx, const std::vector<double>& initial_full_state,
                                  const Eigen::Affine3d* robot_pose, const sdf_contact_estimation::SdfWrapper& sdf, const CollisionObject& obj)
     : robot_model_(robot_model), param_idx_to_joint_idx_(param_idx_to_joint_idx), initial_full_state_(initial_full_state), robot_pose_(robot_pose), sdf_(&sdf), obj_(obj) {
     if (!robot_model_) {
@@ -46,7 +46,7 @@ public:
     return true;
   }
 
-  static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<unsigned int>& param_idx_to_joint_idx,
+  static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::size_t>& param_idx_to_joint_idx,
                                      const std::vector<double>& initial_full_state, const Eigen::Affine3d* robot_pose, const sdf_contact_estimation::SdfWrapper& sdf,
                                      const CollisionObject& obj) {
     ceres::DynamicNumericDiffCostFunction<SdfContactConstraintNoGradient>* cost_function = new ceres::DynamicNumericDiffCostFunction<SdfContactConstraintNoGradient>(
@@ -60,7 +60,7 @@ public:
 
 private:
   std::shared_ptr<RobotModel> robot_model_;
-  std::vector<unsigned int> param_idx_to_joint_idx_; // Map parameter index to joint index
+  std::vector<std::size_t> param_idx_to_joint_idx_; // Map parameter index to joint index
   std::vector<double> initial_full_state_; // default values for all joints
   const Eigen::Affine3d* robot_pose_; // current robot pose in world
   const sdf_contact_estimation::SdfWrapper* sdf_;

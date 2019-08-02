@@ -1,5 +1,5 @@
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__ROBOT_MODEL_H
-#define WHOLE_BODY_POSTURE_OPTIMIZATION__ROBOT_MODEL_H
+#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_ROBOT_MODEL_H
+#define WHOLE_BODY_POSTURE_OPTIMIZATION_ROBOT_MODEL_H
 
 #include <ros/ros.h>
 #include <urdf/model.h>
@@ -53,7 +53,7 @@ public:
   void publishCollisionSpheres();
 
   std::vector<unsigned int> getBodyIndices(const std::vector<std::string>& bodies);
-  std::vector<unsigned int> getActuatedJointIndices(const std::vector<std::string>& joints);
+  std::vector<std::size_t> getActuatedJointIndices(const std::vector<std::string>& joints);
   std::string getParentJointName(const std::string& link_name);
   bool getJointLimits(const std::string& joint_name, double& lower_limit, double& upper_limit);
   unsigned int getNumJoints() const;
@@ -66,7 +66,7 @@ public:
     return ad_chain_->computeTransform<T>(link_name, chain_angles).toAffine();
   }
 
-  std::vector<unsigned int> getChainToJointIndexMapping();
+  std::vector<std::size_t> getChainToJointIndexMapping();
   std::vector<int> getParamToChainIndexMapping(const std::vector<std::string>& free_joints);
 
   robot_state::RobotState getMoveitRobotState() const;
