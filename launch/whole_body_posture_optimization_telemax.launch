@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<launch>  
+  <!-- Load robot description -->
+  <param name="robot_description" command="$(find xacro)/xacro --inorder $(find drz_telemax_description)/urdf/drz_telemax_complete.urdf.xacro" />
+  <param name="robot_description_semantic" textfile="$(find drz_telemax_moveit_config)/config/drz_telemax.srdf" />
+  
+  <node pkg="vigir_interactive_marker_pose_server" type="interactive_marker_pose_server" name="robot_pose_interactive_marker" output="screen" 
+      ns="whole_body_posture_optimization_node/interactive_marker">
+    <remap from="pose" to="set_robot_pose"/>
+    <param name="marker_name" value="robot_pose" />
+    <param name="frame_id" value="world" /> 
+    <rosparam subst_value="true">
+      # step
+      #init_pose: [0.946, 0, -1.5, 0, 0, 0]
+      #init_pose: [0.430347, 0.000000, -1.5, 0, 0, 0]
+      # tsdf
+      init_pose: [0, 0, 0.5, 0.000000, 0.000000, 0]
+    </rosparam>
+  </node> 
+  
+  <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen" clear_params="true">
+    <!-- node parameters -->
+    <param name="interactive" value="false"/>
+    <param name="scenario" value="sdf"/>
+    <param name="sdf_file_path" value="$(find whole_body_posture_optimization)/sdf/real_robot1.esdf"/>
+<!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_step.tsdf"/> -->
+<!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_ramp3.tsdf"/> -->
+<!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_stairs2.tsdf"/> -->
+<!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_cinder_block2.tsdf"/> -->
+<!--     <param name="tsdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_asym2.tsdf"/> -->
+    <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/test"/>
+    
+    <param name="path_start" value="0.0"/>    
+    <param name="path_stop" value="2"/>
+    <param name="path_step" value="0.02"/>
+    
+    <!-- posture optimization lib parameters -->
+    <param name="stepping" value="false"/>
+    <param name="stepping_start" value="16"/>
+    <param name="posture_optimization_debug" value="false"/>
+<!--     <param name="debug_computation_rate" value="0"/> -->
+<!--     <param name="sdf_save_folder" value="$(find whole_body_posture_optimization)/sdf"/> -->
+    <param name="sdf_save_folder" value=""/>
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt_telemax.yaml" command="load" />  
+    
+    <!-- contact estimation lib parameters -->
+<!--    <param name="contact_estimation_debug" value="false"/>
+    <param name="truncation_distance" value="0.4"/>
+    <param name="iteration_max_contact_distance" value="0.01"/>
+    <param name="final_max_contact_distance" value="0.05"/>  -->
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" />
+    <rosparam file="$(find sdf_contact_estimation)/config/telemax_shape_config.yaml" command="load" />  
+    
+    <remap from="~set_robot_pose" to="/whole_body_posture_optimization_node/interactive_marker/set_robot_pose"/>
+  </node>
+</launch>

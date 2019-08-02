@@ -1,0 +1,127 @@
+# default
+default_joint_state: [0, 0, 0, 0, 0, 0, -2, 1.2, 0, 1, 0, 0] # (12) default for all joints
+
+optimization_type: split
+collision_group: arm_group
+
+stability_limit: 0.3
+front_tip_support_area_limit: 0.25
+
+complete_robot_group: complete_robot_group
+complete_robot_with_world_group: complete_robot_with_world
+  
+arm_optimization:
+  enabled: true
+  #algorithm: LD_SLSQP
+  algorithm: LD_MMA
+  #algorithm: LN_COBYLA
+  stopping_criteria:
+    #maxtime: 0.200
+    maxeval: 300
+    ftol_abs: 0.00001
+  joints:
+    #- arm_joint_0
+    - arm_joint_1 # first pitch
+    - arm_joint_2 # second pitch
+    #- arm_joint_3 # middle roll joint
+    - arm_joint_4 # third pitch
+    #- arm_joint_5 # last roll joint
+  environment_collision_default_padding: 0.15
+  environment_collision_padding: {
+    arm_link_5: 0.3, # additional padding to cover fingers
+  }
+  self_collision_default_padding: 0.05
+  self_collision_padding: {
+    arm_link_5: 0.3
+  }
+  self_collision_tsdf_padding: 0.05
+  self_collision_tsdf_truncation_distance: 0.4
+  
+  objective_parameters:
+    function_scale: 1
+    exp_parameters: [14.0, -2.6, 0.3]
+    lorentzian_sigma: 0.2
+    regularization_weight: 0.0025
+
+  
+  # moveable, but static regarding arm optimization
+  semi_static_link_names:
+    - flipper_front_left_link
+    - flipper_front_right_link
+    - flipper_back_left_link
+    - flipper_back_right_link
+    
+  static_link_names:
+    - spin_lidar_pitch_hokuyo_laser_frame
+    - realsense_d435_back_link
+    - navigation_module_link
+    #- manipulator_base_link
+    - chassis_link
+    - autonomy_box_link
+
+  
+flipper_optimization:
+  enabled: false
+  #algorithm: GN_DIRECT_L
+  algorithm: LN_NELDERMEAD
+  stopping_criteria:
+    maxeval: 50
+  joints:
+    - flipper_front_left_joint
+    - flipper_front_right_joint
+    - flipper_back_left_joint
+    - flipper_back_right_joint
+    
+  objective: heuristic
+    
+  heuristic:
+    lorentzian_sigma: 0.2
+    regularization_weight: 0  #0.2
+    track_contact_weight: 4
+    body_contact_weight: 3.0
+    
+  stability:
+    exp_parameters: [14.0, -2.6, 0.3] 
+    lorentzian_sigma: 0.2
+    regularization_weight: 0.02
+  
+combined_optimization:
+  enabled: true
+  algorithm: LN_COBYLA
+  flipper_joints:
+    - flipper_front_left_joint
+    - flipper_front_right_joint
+    - flipper_back_left_joint
+    - flipper_back_right_joint
+  arm_joints:
+    #- arm_joint_0
+    - arm_joint_1 # first pitch
+    - arm_joint_2 # second pitch
+    #- arm_joint_3 # middle roll joint
+    - arm_joint_4 # third pitch
+    #- arm_joint_5 # last roll joint
+    
+  environment_collision_default_padding: 0.1
+  environment_collision_padding: {
+    arm_link_5: 0.3, # additional padding to cover fingers
+  }
+  self_collision_padding: 0.05
+  self_collision_tsdf_padding: 0.05
+  self_collision_tsdf_truncation_distance: 0.4
+  
+  exp_parameters: [4.0, -3, 0.3]
+
+  lorentzian_sigma: 0.2
+  regularization_weight: 0.02
+  
+  static_link_names:
+    - spin_lidar_pitch_hokuyo_laser_frame
+    - realsense_d435_back_link
+    - navigation_module_link
+    #- manipulator_base_link
+    - chassis_link
+    - autonomy_box_link
+  
+contact_estimation:
+  debug: false    
+
