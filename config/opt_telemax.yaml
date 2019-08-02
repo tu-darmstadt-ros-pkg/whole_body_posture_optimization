@@ -40,8 +40,8 @@ arm_optimization:
   objective_parameters:
     function_scale: 1
     exp_parameters: [14.0, -2.6, 0.3]
-    lorentzian_sigma: 0.2
-    regularization_weight: 0.0025
+    lorentzian_sigma: 0.15
+    regularization_weight: 0.05
 
   
   # moveable, but static regarding arm optimization
@@ -56,7 +56,7 @@ arm_optimization:
     - realsense_d435_back_link
     - navigation_module_link
     #- manipulator_base_link
-    - chassis_link
+    #- chassis_link
     - autonomy_box_link
 
   

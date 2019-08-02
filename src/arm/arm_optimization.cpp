@@ -207,7 +207,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_tsdf_constraints;
   for (const std::string& collision_link: collision_group_names) {
-    if (collision_link == "arm_link_0" || collision_link == "arm_link_1") { // arm_link_0 is always in collision, TODO remove hardcoded links
+    if (collision_link == "arm_link_0") { // arm_link_0 is always in collision, TODO remove hardcoded links
       continue;
     }
     for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
