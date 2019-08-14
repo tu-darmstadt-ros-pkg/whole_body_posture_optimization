@@ -29,7 +29,7 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   robot_tsdf_pub_ = nh.advertise<pcl::PointCloud<pcl::PointXYZI>>("robot_tsdf", 10, true);
 
   // Create nlopt optimizer
-  opt_ = nlopt::opt(ceres_nlopt_wrapper::stringToAlgorithm(algorithm_), free_joints_.size());
+  opt_ = nlopt::opt(algorithm_.c_str(), free_joints_.size());
   // Define parameter bounds
   opt_.set_lower_bounds(lower_bounds_);
   opt_.set_upper_bounds(upper_bounds_);

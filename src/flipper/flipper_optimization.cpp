@@ -26,7 +26,7 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   // Create nlopt optimizer
   std::string algorithm;
   nh.param<std::string>("algorithm", algorithm, "GN_DIRECT_L");
-  opt_ = nlopt::opt(ceres_nlopt_wrapper::stringToAlgorithm(algorithm), free_joints_.size());
+  opt_ = nlopt::opt(algorithm.c_str(), free_joints_.size());
   // Define parameter bounds
   opt_.set_lower_bounds(lower_bounds_);
   opt_.set_upper_bounds(upper_bounds_);
@@ -88,7 +88,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
 
   START_TIMING("Flipper optimization");
-  double minf;
+  double minf = std::nan("");
   auto start = std::chrono::high_resolution_clock::now();
   nlopt::result nlopt_result;
   try {
@@ -110,7 +110,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Flipper optimization took " << objective->getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
-                  << ceres_nlopt_wrapper::vecToString(parameters));
+                  << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
 
   FlipperOptimizationResult result;
   result.flipper_angles = parameters;
@@ -134,6 +134,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   createConvexHullMarkerArray(result.contact_result.convex_hull_points, stabilities, contact_points_array_msg);
   sdf_contact_estimation::deleteAllMarkers(contact_points_pub_);
   contact_points_pub_.publish(contact_points_array_msg);
+
 
   return result;
 }
