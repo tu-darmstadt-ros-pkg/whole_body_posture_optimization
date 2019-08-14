@@ -18,14 +18,14 @@ bool FlipperStabilityCost::operator()(double const* const* flipper_angles, doubl
     return false;
   }
 
-  // Robust regularization
-  double regularization_cost = 0.0;
+  // Penalize joint movement
+  double movement_cost = 0.0;
   if (!prev_flipper_angles_.empty()) {
     for (unsigned int idx = 0; idx < prev_flipper_angles_.size(); idx++) {
       double diff = prev_flipper_angles_[idx] - flipper_angles[0][idx];
-      regularization_cost += lorentzian<double>(diff, parameters_.lorentzian_sigma);
+      movement_cost += lorentzian<double>(diff, parameters_.lorentzian_sigma);
     }
-    regularization_cost /= prev_flipper_angles_.size(); // Normalize by number of joints
+    movement_cost /= prev_flipper_angles_.size(); // Normalize by number of joints
   }
 
   Eigen::Affine3d com_pose = result.estimated_pose * base_to_com_;
@@ -45,7 +45,7 @@ bool FlipperStabilityCost::operator()(double const* const* flipper_angles, doubl
   double stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), 0.0);
   stability_sum /= result.convex_hull_points.size(); // average cost per axis
 
-  cost[0] = stability_sum + parameters_.regularization_weight * regularization_cost;
+  cost[0] = stability_sum + parameters_.movement_cost_weight * movement_cost;
   return true;
 }
 

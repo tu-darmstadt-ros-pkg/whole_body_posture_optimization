@@ -17,20 +17,30 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   if (result.convex_hull_points.empty()) {
     return false;
   }
-  // Robust regularization
-  double regularization_cost = 0.0;
+
+  // Penalize joint movement
+  double movement_cost = 0.0;
   if (!prev_flipper_angles_.empty()) {
     for (unsigned int idx = 0; idx < prev_flipper_angles_.size(); idx++) {
       double diff = prev_flipper_angles_[idx] - flipper_angles[0][idx];
-      regularization_cost += lorentzian<double>(diff, parameters_.lorentzian_sigma);
+      movement_cost += lorentzian<double>(diff, parameters_.lorentzian_sigma);
     }
-    regularization_cost /= prev_flipper_angles_.size(); // Normalize by number of joints
+    movement_cost /= prev_flipper_angles_.size(); // Normalize by number of joints
   }
 
+  // Penalize base orientation
+  // We want the chassis to be upright
+  Eigen::Vector3d up = Eigen::Vector3d::UnitZ();
+  Eigen::Vector3d up_world = result.estimated_pose.linear() * up;
+  double inclination_weight = 1.0;
+  double inclination_angle = std::acos(up.dot(up_world));
+
+  // Reward track contact and penalize body contact
   double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
   double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
+
   cost[0] = -result.support_area - parameters_.track_contact_weight * track_contact_pct + parameters_.body_contact_weight * body_contact_pct
-      + parameters_.regularization_weight * regularization_cost;
+      + parameters_.movement_cost_weight * movement_cost + inclination_weight * (inclination_angle * inclination_angle);
 
 //  ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
 //                  << "track contact: " << track_contact_pct << "(" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl

@@ -66,7 +66,7 @@ struct StabilityErrorParameters {
       std::copy(begin(exp_parameters), end(exp_parameters), parameters.exp_parameters);
     }
     nh.param("lorentzian_sigma", parameters.lorentzian_sigma, 0.1);
-    nh.param("regularization_weight", parameters.regularization_weight, 0.0);
+    nh.param("movement_cost_weight", parameters.movement_cost_weight, 0.0);
     nh.param("function_scale", parameters.function_scale, 1.0);
     return parameters;
   }
@@ -75,14 +75,14 @@ struct StabilityErrorParameters {
     std::stringstream ss;
     ss << "Stability cost parameters:" << std::endl;
     ss << "lorentzian_sigma = " << lorentzian_sigma << std::endl;
-    ss << "regularization_weight = " << regularization_weight << std::endl;
+    ss << "movement_cost_weight = " << movement_cost_weight << std::endl;
     ss << "function_scale = " << function_scale << std::endl;
     ss << "exp_parameters = [" << exp_parameters[0] << ", " << exp_parameters[1] << ", " << exp_parameters[2] << "]" << std::endl;
     return ss.str();
   }
 
   double exp_parameters[3];
-  double regularization_weight;
+  double movement_cost_weight;
   double lorentzian_sigma;
   double function_scale;
 };
@@ -98,9 +98,7 @@ public:
     T com[3];
     (*compute_com_)(parameters, &com[0]);
     Vector3<T> com_base(com[0], com[1], com[2]); // TODO use eigen map to eliminate copy
-//    ROS_INFO_STREAM("com_base: " << com_base.x() << std::endl << com_base.y() << std::endl << com_base.z());
     Vector3<T> com_world = robot_pose_.cast<T>() * com_base;
-//    ROS_INFO_STREAM("com_world: " << com_base.x() << std::endl << com_base.y() << std::endl << com_base.z());
     // Cast contact points
     std::vector<Vector3<T>> contact_points_t;
     for (const Eigen::Vector3d& contact_point: contact_points_) {
@@ -129,17 +127,16 @@ public:
 //    ROS_INFO_STREAM("Stability sum: " << stability_sum);
     stability_sum = stability_sum / T(contact_points_.size()); // average cost per axis
 
-    // Compute regularization
-    T regularization_cost = T(0.0);
+    // Compute movement cost
+    T movement_cost = T(0.0);
     if (!previous_param_angles_.empty()) {
       for (unsigned int idx = 0; idx < previous_param_angles_.size(); idx++) {
         T angle_diff = T(previous_param_angles_[idx]) - parameters[0][idx];
-        regularization_cost += lorentzian<T>(angle_diff, T(parameters_.lorentzian_sigma));
+        movement_cost += lorentzian<T>(angle_diff, T(parameters_.lorentzian_sigma));
       }
     }
-//    ROS_INFO_STREAM("regularization_cost: " << regularization_cost);
 
-    cost[0] = parameters_.function_scale * (stability_sum + T(parameters_.regularization_weight) * regularization_cost);
+    cost[0] = parameters_.function_scale * (stability_sum + T(parameters_.movement_cost_weight) * movement_cost);
     return true;
   }
 

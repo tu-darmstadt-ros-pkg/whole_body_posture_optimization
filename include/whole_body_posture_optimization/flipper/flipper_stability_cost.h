@@ -22,7 +22,7 @@ struct FlipperStabilityCostParameters {
       std::copy(begin(exp_parameters), end(exp_parameters), parameters.exp_parameters);
     }
     nh.param("lorentzian_sigma", parameters.lorentzian_sigma, 0.1);
-    nh.param("regularization_weight", parameters.regularization_weight, 0.0);
+    nh.param("movement_cost_weight", parameters.movement_cost_weight, 0.0);
     return parameters;
   }
 
@@ -30,13 +30,13 @@ struct FlipperStabilityCostParameters {
     std::stringstream ss;
     ss << "FlipperStabilityCostParameters:" << std::endl;
     ss << "lorentzian_sigma = " << lorentzian_sigma << std::endl;
-    ss << "regularization_weight = " << regularization_weight << std::endl;
+    ss << "movement_cost_weight = " << movement_cost_weight << std::endl;
     ss << "exp_parameters = [" << exp_parameters[0] << ", " << exp_parameters[1] << ", " << exp_parameters[2] << "]" << std::endl;
     return ss.str();
   }
 
   double exp_parameters[3];
-  double regularization_weight;
+  double movement_cost_weight;
   double lorentzian_sigma;
 };
 

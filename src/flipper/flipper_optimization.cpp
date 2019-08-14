@@ -46,8 +46,13 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param<std::string>("objective", objective_, "heuristic");
   nh.param("enabled", enabled_, enabled_);
 
-  convex_hull_error_parameters_ = ConvexHullAreaErrorParameters::createFromServer(ros::NodeHandle(nh, "heuristic"));
-  stability_cost_parameters_ = FlipperStabilityCostParameters::createFromServer(ros::NodeHandle(nh, "stability"));
+  if (objective_ == "heuristic") {
+    convex_hull_error_parameters_ = ConvexHullAreaErrorParameters::createFromServer(ros::NodeHandle(nh, "heuristic"));
+    ROS_INFO_STREAM(convex_hull_error_parameters_.toString());
+  } else if (objective_ == "stability") {
+    stability_cost_parameters_ = FlipperStabilityCostParameters::createFromServer(ros::NodeHandle(nh, "stability"));
+    ROS_INFO_STREAM(stability_cost_parameters_.toString());
+  }
 
   return true;
 }
