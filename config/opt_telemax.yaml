@@ -61,11 +61,26 @@ arm_optimization:
 
   
 flipper_optimization:
-  enabled: false
-  #algorithm: GN_DIRECT_L
-  algorithm: LN_NELDERMEAD
+  enabled: true
+  #algorithm: GN_DIRECT
+  algorithm: GN_DIRECT_L
+  #algorithm: LN_NELDERMEAD
+  #algorithm: LN_PRAXIS
+  #algorithm: GN_CRS2_LM
+  #algorithm: GN_MLSL
+  #algorithm: GN_MLSL_LDS
+  #algorithm: LN_COBYLA
+  #algorithm: LN_NEWUOA_BOUND
+  #algorithm: LN_SBPLX
+  #algorithm: LN_AUGLAG
+  #algorithm: LN_BOBYQA
+  #algorithm: GN_ISRES
+  #algorithm: GN_ESCH
+  #algorithm: GN_AGS
   stopping_criteria:
-    maxeval: 50
+    maxeval: 400
+    #ftol_abs: 1e-3 
+    
   joints:
     - flipper_front_left_joint
     - flipper_front_right_joint
@@ -75,8 +90,8 @@ flipper_optimization:
   objective: heuristic
     
   heuristic:
-    lorentzian_sigma: 0.2
-    regularization_weight: 0  #0.2
+    lorentzian_sigma: 0.15
+    regularization_weight: 0.5
     track_contact_weight: 4
     body_contact_weight: 3.0
     
@@ -121,7 +136,7 @@ combined_optimization:
     #- manipulator_base_link
     - chassis_link
     - autonomy_box_link
-  
-contact_estimation:
-  debug: false    
+## Debug
+posture_optimization_debug: false
+contact_estimation/debug: false    
 
