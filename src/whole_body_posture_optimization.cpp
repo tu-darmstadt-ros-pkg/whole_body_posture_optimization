@@ -600,7 +600,7 @@ void WholeBodyPostureOptimization::saveResultInfo(const std::vector<PostureOptim
     file << result.requested_pose.translation().y() << " ";
     file << result.stability_arm_opt << std::endl;
     if (i < trajectories.size()) {
-      time_from_start += trajectories[i].getWaypointDurationFromStart(trajectories[i].getWayPointCount()-1);
+      time_from_start += trajectories[i].getWayPointDurationFromStart(trajectories[i].getWayPointCount()-1);
     }
   }
 
