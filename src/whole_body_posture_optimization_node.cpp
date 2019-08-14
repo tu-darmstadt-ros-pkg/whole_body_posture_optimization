@@ -4,8 +4,8 @@
 #include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
 #include <whole_body_posture_optimization/timing.h>
 
-bool pose_updated_;
-Eigen::Affine3d robot_pose_;
+static bool pose_updated_;
+static Eigen::Affine3d robot_pose_;
 
 void poseCB(const geometry_msgs::PoseStamped& pose_msg) {
   tf::poseMsgToEigen(pose_msg.pose, robot_pose_);
@@ -40,13 +40,17 @@ int main(int argc, char** argv) {
 
 
   if (pnh.param("interactive", false)) {
-    // Try with one pose first
-    robot_pose_ = Eigen::Affine3d::Identity();
-    // tsdf
-    robot_pose_.translation() = Eigen::Vector3d(0.0, 0, 0.0);
-    // step
-//    robot_pose_.translation() = Eigen::Vector3d(0.946, 0, -1.96);
-//    robot_pose_.translation() = Eigen::Vector3d(0.5, 0, -1.96);
+    // Robot pose
+    std::vector<double> requested_pose_vec = pnh.param<std::vector<double>>("robot_pose", std::vector<double>(6, 0));
+    if (requested_pose_vec.size() != 6) {
+      ROS_WARN_STREAM("Requested pose vector has wrong size (" << requested_pose_vec.size() << ") instead of 6. Using identity.");
+      requested_pose_vec.resize(6, 0);
+    }
+
+    robot_pose_ = Eigen::AngleAxisd(requested_pose_vec[5], Eigen::Vector3d::UnitZ()) * Eigen::AngleAxisd(requested_pose_vec[4], Eigen::Vector3d::UnitY())
+        * Eigen::AngleAxisd(requested_pose_vec[3], Eigen::Vector3d::UnitX());
+    robot_pose_.translation() = Eigen::Vector3d(requested_pose_vec[0], requested_pose_vec[1], requested_pose_vec[2]);
+
     pose_updated_ = true;
     bool reset = true;
 
@@ -72,12 +76,12 @@ int main(int argc, char** argv) {
   } else {
     // create path
     nav_msgs::Path path;
-    if (scenario == "step") {
+    if (scenario == "step" || scenario == "highstep") {
       // step
       double direction = 1.0;
       double step = direction * 0.02;
       double x_offset = 1;
-      for (double x = (direction * -0.5) + x_offset; x < (direction * 0.75) + x_offset; x+=step) {
+      for (double x = (direction * -1) + x_offset; x < (direction * 0.75) + x_offset; x+=step) {
         geometry_msgs::PoseStamped pose_msg;
         pose_msg.header.frame_id = "world";
 
