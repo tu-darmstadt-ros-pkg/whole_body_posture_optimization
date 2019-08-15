@@ -46,7 +46,7 @@ private:
 
   std::shared_ptr<voxblox::TsdfMap> tsdf_;
   std::vector<robot_trajectory::RobotTrajectory> trajectory_;
-  sdf_contact_estimation::RobotShapeGeneratorBasePtr tracker_shape_;
+  sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
 
   std::shared_ptr<voxblox::TsdfMap> loaded_tsdf_;

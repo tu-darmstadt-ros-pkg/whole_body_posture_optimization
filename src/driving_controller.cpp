@@ -1,5 +1,7 @@
 #include <whole_body_posture_optimization/driving_controller.h>
 
+#include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
+
 namespace whole_body_posture_optimization {
 
 DrivingController::DrivingController(const ros::NodeHandle &nh)
@@ -9,8 +11,8 @@ DrivingController::DrivingController(const ros::NodeHandle &nh)
   nh_.param("auto_start", auto_start_, false);
   nh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
   // Create robot shape
-  tracker_shape_ = std::make_shared<argo_tracker::ArgoTrackerShape>();
-  optimizer_= std::make_shared<WholeBodyPostureOptimization>(nh_, tracker_shape_);
+  robot_shape_ = std::make_shared<sdf_contact_estimation::RobotShapeFromUrdf>(nh_);
+  optimizer_= std::make_shared<WholeBodyPostureOptimization>(nh_, robot_shape_);
 
   // Connect get tsdf layer service client
   ROS_INFO_STREAM("Waiting for get tsdf client..");
