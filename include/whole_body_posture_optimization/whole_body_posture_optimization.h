@@ -42,6 +42,7 @@ public:
   void updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf);
   void updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud);
   bool loadSdfFromFile(std::string tsdf_file_path, float truncation_distance);
+  bool saveSdfToFile(std::string save_folder);
 
 
   void setDefaultJointPositions(const std::vector<double>& default_joint_positions);

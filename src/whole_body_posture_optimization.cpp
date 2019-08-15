@@ -78,6 +78,7 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 void WholeBodyPostureOptimization::updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf)
 {
   contact_estimation_->loadTsdf(tsdf, 0.4f, true);
+  saveSdfToFile(sdf_save_folder_);
 
   // Publish esdf layer
   const bool only_updated = false;
@@ -90,11 +91,29 @@ void WholeBodyPostureOptimization::updateWorldModel(const std::shared_ptr<voxblo
 void WholeBodyPostureOptimization::updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud)
 {
   contact_estimation_->loadCloud(cloud, true);
+  saveSdfToFile(sdf_save_folder_);
 }
 
 bool WholeBodyPostureOptimization::loadSdfFromFile(std::string tsdf_file_path, float truncation_distance)
 {
-  return contact_estimation_->loadSdfFromFile(tsdf_file_path, truncation_distance, true);
+  if (contact_estimation_->loadSdfFromFile(tsdf_file_path, truncation_distance, true)) {
+    saveSdfToFile(sdf_save_folder_);
+    return true;
+  }
+  return false;
+}
+
+bool WholeBodyPostureOptimization::saveSdfToFile(std::string save_folder)
+{
+  // Save the current tsdf for later debugging
+  if (save_folder != "") {
+    std::string time_stamp = getTimestamp();
+    std::string save_path =  save_folder + "/tsdf_map_" + time_stamp + ".tsdf";
+    ROS_INFO_STREAM("Saving tsdf to " << save_path);
+    contact_estimation_->saveTsdfToFile(save_path);
+    save_path =  save_folder + "/esdf_map_" + time_stamp + ".esdf";
+    contact_estimation_->saveEsdfToFile(save_path);
+  }
 }
 
 void WholeBodyPostureOptimization::setDefaultJointPositions(const std::vector<double>& default_joint_positions)
@@ -109,18 +128,6 @@ const std::vector<double> &WholeBodyPostureOptimization::getDefaultJointPosition
 
 std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimalPostures(const nav_msgs::Path& path)
 {
-  // Save the current tsdf for later debugging
-  if (sdf_save_folder_ != "") {
-    std::string time_stamp = getTimestamp();
-    std::string save_path =  sdf_save_folder_ + "/tsdf_map_" + time_stamp + ".tsdf";
-    ROS_INFO_STREAM("Saving tsdf to " << save_path);
-    contact_estimation_->saveTsdfToFile(save_path);
-    save_path =  sdf_save_folder_ + "/esdf_map_" + time_stamp + ".esdf";
-    contact_estimation_->saveEsdfToFile(save_path);
-  }
-
-
-
   // Iterate over path poses and run optimization
   std::vector<PostureOptimizationResult> results;
   if (path.poses.empty()) {
