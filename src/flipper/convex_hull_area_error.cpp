@@ -32,7 +32,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   // We want the chassis to be upright
   Eigen::Vector3d up = Eigen::Vector3d::UnitZ();
   Eigen::Vector3d up_world = result.estimated_pose.linear() * up;
-  double inclination_weight = 1.0;
+  double inclination_weight = 0.0;
   double inclination_angle = std::acos(up.dot(up_world));
 
   // Reward track contact and penalize body contact
@@ -45,17 +45,9 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 //  ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
 //                  << "track contact: " << track_contact_pct << "(" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl
 //                  << "body contact: " << body_contact_pct << "(" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
-//                  << "regularization cost: " << regularization_cost << "(" << parameters_.regularization_weight * regularization_cost << ")");
+//                  << "movement penalty: " << movement_cost << "(" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
+//                  << "inclination angle: " << inclination_angle << "(" << (inclination_angle * inclination_angle) << ")");
 
-//  Eigen::Affine3d com_pose = result.estimated_pose * base_to_com_;
-//  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.convex_hull_points, com_pose.translation());
-//  std::transform(stabilities.begin(), stabilities.end(), stabilities.begin(), [](double stability) -> double { return 1.0/(pow(std::max(stability, 0.01), 2)); });
-//  double stability_sum = std::accumulate(stabilities.begin(), stabilities.end(), 0.0);
-//  stability_sum /= stabilities.size(); // normalize by number of axes
-//  cost[0] = stability_sum + parameters_.regularization_weight * regularization_cost;
-
-//  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-//  cost[0] = -stability_min + parameters_.regularization_weight * regularization_cost;
   return true;
 }
 
