@@ -307,8 +307,9 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 //      ROS_INFO_STREAM("new com: " << front_tip_base_to_com.translation());
 
       // rerun contact estimation
+
       sdf_contact_estimation::ContactEstimationResult front_tip_contact = flipper_optimization_->computeContactEstimation(
-            previous_joint_angles, pose, new_world_to_com, updated_init_contact);
+            *contact_joint_angles, pose, new_world_to_com, updated_init_contact);
 
       // Push new com and contact to request list
       request_com.push_back(new_world_to_com);
