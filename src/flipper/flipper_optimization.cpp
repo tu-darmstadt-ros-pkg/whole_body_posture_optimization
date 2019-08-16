@@ -27,6 +27,8 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   std::string algorithm;
   nh.param<std::string>("algorithm", algorithm, "GN_DIRECT_L");
   opt_ = nlopt::opt(algorithm.c_str(), free_joints_.size());
+  std::string local_algorithm;
+
   // Define parameter bounds
   opt_.set_lower_bounds(lower_bounds_);
   opt_.set_upper_bounds(upper_bounds_);
@@ -34,6 +36,19 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   // Set convergence criterion
   ros::NodeHandle stopping_criteria_nh(nh_, "stopping_criteria");
   ceres_nlopt_wrapper::setParametersFromServer(stopping_criteria_nh, opt_);
+
+  // Set local optimizer
+  if (nh.getParam("local_algorithm", local_algorithm)) {
+    nlopt::opt local_opt(local_algorithm.c_str(), free_joints_.size());
+    ros::NodeHandle local_stopping_criteria_nh(nh_, "local_stopping_criteria");
+    ceres_nlopt_wrapper::setParametersFromServer(local_stopping_criteria_nh, local_opt);
+
+    local_opt.set_lower_bounds(lower_bounds_);
+    local_opt.set_upper_bounds(upper_bounds_);
+    opt_.set_local_optimizer(local_opt); // makes a copy
+  }
+
+
 }
 
 bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -62,6 +77,9 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 {
   Eigen::Vector3d com_pos = base_to_com.translation();
   ROS_DEBUG_STREAM("COM position: [" << com_pos[0] << ", " << com_pos[1] << ", " << com_pos[2] << "]");
+
+  // Reset seed (for stochastic algorithms)
+  nlopt_srand(0);
 
   // Add objective function
   std::vector<double> previous_flipper_angles;
@@ -125,9 +143,14 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   }
 
   // Estimating again for debug output and result
+//  std::vector<double> gradient;
+//  ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
+
   contact_estimation_->updateJointStates(parameters);
   result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
+  // Final robot shape
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), result_state_pub_, result.contact_result.estimated_pose, "world", Eigen::Vector3d(1, 1, 0));
+  // Contact points
   visualization_msgs::MarkerArray contact_points_array_msg;
   sdf_contact_estimation::createPointMarkerArray(result.contact_result.contact_points, contact_points_array_msg, "world", "contact_points", Eigen::Vector3d(1, 0.5, 0), 0.03);
   sdf_contact_estimation::createPointMarkerArray(result.contact_result.convex_hull_points, contact_points_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
