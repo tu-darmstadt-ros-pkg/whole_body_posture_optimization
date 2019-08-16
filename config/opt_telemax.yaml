@@ -63,7 +63,8 @@ arm_optimization:
 flipper_optimization:
   enabled: true
   #algorithm: GN_DIRECT
-  algorithm: GN_DIRECT_L
+  #algorithm: GN_DIRECT_L
+  algorithm: GN_ORIG_DIRECT_L
   #algorithm: LN_NELDERMEAD
   #algorithm: LN_PRAXIS
   #algorithm: GN_CRS2_LM
@@ -77,9 +78,20 @@ flipper_optimization:
   #algorithm: GN_ISRES
   #algorithm: GN_ESCH
   #algorithm: GN_AGS
+  #algorithm: G_MLSL
+  #algorithm: G_MLSL_LDS
   stopping_criteria:
-    maxeval: 400
-    #ftol_abs: 1e-3 
+    maxeval: 100
+    #ftol_abs: 1e-3
+    #ftol_rel: 9e-1
+    #xtol_rel: 1e-1
+    #ftol_abs: 1-e2
+    
+  local_algorithm: LN_NELDERMEAD
+  local_stopping_criteria:
+    maxeval: 10
+    #ftol_rel: 1e-3
+    #xtol_rel: 1e-3
     
   joints:
     - flipper_front_left_joint
