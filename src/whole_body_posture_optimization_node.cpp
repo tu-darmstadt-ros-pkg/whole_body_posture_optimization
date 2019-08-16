@@ -65,7 +65,9 @@ int main(int argc, char** argv) {
           reset = false;
         } else {
 //          last_result = po.findOptimalPosture(robot_pose_, last_result.result_joint_angles, last_result.result_joint_angles, &last_result.result_contact);
-          last_result = po.findOptimalPosture(robot_pose_, po.getDefaultJointPositions(), last_result.result_joint_angles, &last_result.result_contact);
+          // Always initialize optimization from default joint position
+          // No movement penalty (do not use previous solution)
+          last_result = po.findOptimalPosture(robot_pose_, po.getDefaultJointPositions(), std::vector<double>(), &last_result.result_contact);
         }
         std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
         ROS_INFO_STREAM("Complete optimization took " << elapsed.count()*1000.0 << " ms.");

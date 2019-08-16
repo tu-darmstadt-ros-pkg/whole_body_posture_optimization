@@ -221,16 +221,17 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 
   // Estimate our new position
   sdf_contact_estimation::ContactEstimationResult updated_init_contact;
+  const std::vector<double>* contact_joint_angles;
+  if (!previous_joint_angles.empty()) {
+    contact_joint_angles = &previous_joint_angles;
+  } else {
+    contact_joint_angles = &init_joint_angles;
+  }
   if (init_contact_result != nullptr) {
     result.init_contact = *init_contact_result;
-    updated_init_contact = flipper_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com, result.init_contact);
-//    updated_init_contact = *init_contact_result;
+    updated_init_contact = flipper_optimization_->computeContactEstimation(*contact_joint_angles, pose, base_to_com, result.init_contact);
   } else {
-    if (!previous_joint_angles.empty()) {
-      updated_init_contact = flipper_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com);
-    } else {
-      updated_init_contact = flipper_optimization_->computeContactEstimation(init_joint_angles, pose, base_to_com);
-    }
+    updated_init_contact = flipper_optimization_->computeContactEstimation(*contact_joint_angles, pose, base_to_com);
   }
 
   // Collect requests to optimization
