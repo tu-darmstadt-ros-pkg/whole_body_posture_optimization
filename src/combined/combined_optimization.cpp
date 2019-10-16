@@ -84,7 +84,7 @@ double CombinedOptimization::getJointPadding(std::string joint_name, CollisionTy
       padding_map = nullptr;
   }
   bool found;
-  double padding;
+  double padding = 0.0;
   if (padding_map) {
     try {
       padding = padding_map->at(joint_name);
@@ -176,7 +176,7 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
   // Add constraints
   std::vector<std::string> collision_group_names = robot_model_->getCollisionGroupNames();
   std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> environment_constraints;
-  START_TIMING("Env. collision const. creation");
+  START_TIMING("Env. collision const. creation")
   // Environment collision constraints
   for (const std::string& collision_link: collision_group_names) {
     ROS_DEBUG_STREAM("Creating environment collision constraints for link: " << collision_link);
@@ -191,10 +191,10 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
     }
   }
 //  ROS_INFO_STREAM("Created " << environment_constraints.size() << " environment collision constraints.");
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
 //  // self-collision tsdf constraints
-  START_TIMING("Self-collision tsdf const. creation");
+  START_TIMING("Self-collision tsdf const. creation")
   sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, robot_tsdf_, robot_pose);
   sdf_contact_estimation::SdfWrapper robot_base_tsdf;
   robot_base_tsdf.setTsdfMap(robot_tsdf_, self_collision_tsdf_truncation_distance_);
@@ -216,10 +216,10 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
     }
   }
 //  ROS_INFO_STREAM("Created " << self_collision_tsdf_constraints.size() << " self-collision tsdf constraints.");
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   // self-collision distance constraints
-  START_TIMING("Self-collision const. creation");
+  START_TIMING("Self-collision const. creation")
   std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_constraints;
   // Create constraint for each unique link-pair
   for (unsigned int i = 0; i < collision_group_names.size()-1; i++) {
@@ -252,12 +252,12 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
     }
   }
 //  ROS_INFO_STREAM("Created " << self_collision_constraints.size() << " self-collision constraints.");
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   // Fill in initial joint state (from previous time step)
   std::vector<double> parameters = jointVectorToParamVector(initial_state);
 
-  START_TIMING("Combined optimization");
+  START_TIMING("Combined optimization")
   double minf;
   auto start = std::chrono::high_resolution_clock::now();
   nlopt::result nlopt_result;
@@ -275,7 +275,7 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
   catch (std::runtime_error e) {
     ROS_ERROR_STREAM("Optimization failed: " << e.what());
   }
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Combined optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
@@ -298,7 +298,7 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
   result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
   visualization_msgs::MarkerArray convex_hull_array_msg;
   sdf_contact_estimation::createPointMarkerArray(result.contact_result.convex_hull_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
-  createConvexHullMarkerArray(result.contact_result.convex_hull_points, result.contact_result.stabilities, convex_hull_array_msg);
+  sdf_contact_estimation::createConvexHullMarkerArrayWithStabilities(result.contact_result.convex_hull_points, result.contact_result.stabilities, convex_hull_array_msg);
   sdf_contact_estimation::deleteAllMarkers(convex_hull_pub_);
   convex_hull_pub_.publish(convex_hull_array_msg);
 

@@ -11,7 +11,7 @@ complete_robot_group: complete_robot_group
 complete_robot_with_world_group: complete_robot_with_world
   
 arm_optimization:
-  enabled: true
+  enabled: false
   #algorithm: LD_SLSQP
   algorithm: LD_MMA
   #algorithm: LN_COBYLA
@@ -61,7 +61,7 @@ arm_optimization:
 
   
 flipper_optimization:
-  enabled: true
+  enabled: false
   #algorithm: GN_DIRECT
   #algorithm: GN_DIRECT_L
   algorithm: GN_ORIG_DIRECT_L
@@ -103,7 +103,7 @@ flipper_optimization:
     
   heuristic:
     lorentzian_sigma: 0.15
-    movement_cost_weight: 0.5
+    movement_cost_weight: 0 #0.5
     track_contact_weight: 4
     body_contact_weight: 3.0
     

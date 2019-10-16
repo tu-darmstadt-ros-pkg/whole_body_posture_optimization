@@ -25,6 +25,7 @@ struct ArmOptimizationResult {
   std::vector<double> joint_angles; // optimal joint angles
   Eigen::Vector3d center_of_mass; // optimal center of mass relative to base frame
   double stability;
+  double final_cost;
 };
 
 class ArmOptimization {

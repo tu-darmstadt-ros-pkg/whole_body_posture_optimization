@@ -114,6 +114,7 @@ bool WholeBodyPostureOptimization::saveSdfToFile(std::string save_folder)
     save_path =  save_folder + "/esdf_map_" + time_stamp + ".esdf";
     contact_estimation_->saveEsdfToFile(save_path);
   }
+  return true;
 }
 
 void WholeBodyPostureOptimization::setDefaultJointPositions(const std::vector<double>& default_joint_positions)
@@ -198,7 +199,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
                                                                                 const std::vector<double>& previous_joint_angles,
                                                                                 const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
 {
-  START_TIMING("findOptimalPostureSplit");
+  START_TIMING("findOptimalPostureSplit")
   Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
   Eigen::Vector3d xyz = pose.translation();
   ROS_INFO_STREAM("**********************************************");
@@ -276,10 +277,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
             min_stability = stability;
             front_idx = i;
           }
-  //        ROS_INFO_STREAM(i << " is a forward edge. Stability: " << stability);
         }
       }
-//    ROS_INFO_STREAM("Stability of front edge [idx: " << front_idx << "]: " << min_stability);
       ROS_INFO_STREAM("Trying to tip over front axis " << front_idx);
 
       // Move COM to front
@@ -303,11 +302,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       com_world_new.z() = com_world.z();
       Eigen::Affine3d new_world_to_com(Eigen::Translation3d(updated_init_contact.estimated_pose.inverse(Eigen::Isometry) * com_world_new));
 
-//      ROS_INFO_STREAM("old com: " << result.init_com);
-//      ROS_INFO_STREAM("new com: " << front_tip_base_to_com.translation());
-
       // rerun contact estimation
-
       sdf_contact_estimation::ContactEstimationResult front_tip_contact = flipper_optimization_->computeContactEstimation(
             *contact_joint_angles, pose, new_world_to_com, updated_init_contact);
 
@@ -321,7 +316,6 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   request_com.push_back(base_to_com);
   request_contact.push_back(updated_init_contact);
 
-
   // Collect results
   std::vector<PostureOptimizationResult> results;
   for(unsigned int i = 0; i < request_com.size(); i++) {
@@ -331,6 +325,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
     prelim_result.result_contact = flipper_result.contact_result;
     prelim_result.result_joint_angles = flipper_result.joint_state;
     prelim_result.stability_flipper_opt = flipper_result.contact_result.min_stability;
+    prelim_result.flipper_cost = flipper_result.final_cost;
+
 
 
     // Optimize the arm
@@ -339,6 +335,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
     prelim_result.result_joint_angles = arm_result.joint_angles;
     prelim_result.result_com = arm_result.center_of_mass;
     prelim_result.stability_arm_opt = arm_result.stability;
+    prelim_result.arm_cost = arm_result.final_cost;
 
     results.push_back(prelim_result);
   }
@@ -371,7 +368,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 
   ROS_INFO_STREAM("Stability: " << result.stability_arm_opt);
 
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   return result;
 }
@@ -380,7 +377,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombin
                                                                                    const std::vector<double>& previous_joint_angles,
                                                                                    const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
 {
-  START_TIMING("findOptimalPostureCombined");
+  START_TIMING("findOptimalPostureCombined")
   Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
   Eigen::Vector3d xyz = pose.translation();
   ROS_INFO_STREAM("**********************************************");
@@ -427,7 +424,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombin
   robot_model_->publishRobotState();
   robot_model_->publishCollisionSpheres();
 
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   return result;
 }
@@ -439,7 +436,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     ROS_WARN_STREAM("Can't compute timed trajectory, path is empty.");
     return trajectories;
   }
-  START_TIMING("Trajectory planning");
+  START_TIMING("Trajectory planning")
   std::string group = complete_robot_group_;
   std::string group_with_world = complete_robot_with_world_group_;
   const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(group);
@@ -492,15 +489,11 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     if (res.error_code_.val != res.error_code_.SUCCESS)
     {
       ROS_ERROR("Could not compute plan successfully");
-//      return trajectories;
       break;
     }
 
     // The moveit trajectory planner can't handle/interpolate the virtual world joint
     // So we do it ourselves and override the respective states
-//    Eigen::Vector3d start_position = opt_result[i].result_contact.estimated_pose.translation();
-//    Eigen::Vector3d end_position = opt_result[i+1].result_contact.estimated_pose.translation();
-
     Eigen::Vector3d start_position = opt_result[i].requested_pose.translation();
     start_position.z() = opt_result[i].result_contact.estimated_pose.translation().z();
     Eigen::Vector3d end_position = opt_result[i+1].requested_pose.translation();
@@ -517,7 +510,6 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
       Eigen::Affine3d interpolated_pose(interpolated_orientation);
       interpolated_pose.translation() = interpolated_position;
       updateMoveitRobotState(*state, interpolated_pose);
-//      ROS_INFO_STREAM("Updated state " << j << ": " << interpolated_position);
     }
 
     // Compute time parameterization and push to vector
@@ -529,7 +521,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
 
   publishTrajectory(trajectories);
 
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   double duration = 0.0;
   for (const robot_trajectory::RobotTrajectory& trajectory: trajectories) {
@@ -600,13 +592,16 @@ void WholeBodyPostureOptimization::saveResultInfo(const std::vector<PostureOptim
   std::ofstream file;
   file.open(save_path);
 
-  file << "time pos_x pos_y stability" << std::endl;
+  file << "time pos_x pos_y flipper_cost arm_cost flipper_stability stability" << std::endl;
   double time_from_start = 0.0;
   for (unsigned int i = 0; i < results.size(); i++) {
     const PostureOptimizationResult& result = results[i];
     file << time_from_start << " ";
     file << result.requested_pose.translation().x() << " ";
     file << result.requested_pose.translation().y() << " ";
+    file << result.flipper_cost << " ";
+    file << result.arm_cost << " ";
+    file << result.stability_flipper_opt << " ";
     file << result.stability_arm_opt << std::endl;
     if (i < trajectories.size()) {
       time_from_start += trajectories[i].getWayPointDurationFromStart(trajectories[i].getWayPointCount()-1);

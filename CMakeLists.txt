@@ -39,6 +39,7 @@ set(HEADERS
   include/${PROJECT_NAME}/whole_body_posture_optimization.h
   include/${PROJECT_NAME}/robot_model.h
   include/${PROJECT_NAME}/common.h
+  include/${PROJECT_NAME}/timing.h
   include/${PROJECT_NAME}/driving_controller.h
   include/${PROJECT_NAME}/arm/stability_error.h
   include/${PROJECT_NAME}/arm/arm_optimization.h

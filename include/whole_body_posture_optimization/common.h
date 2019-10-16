@@ -84,8 +84,6 @@ template <typename T> std::vector<T> computeForceAngleStabilitiesWithGravity(con
   return computeForceAngleStabilities(contact_points, Vector3<T>(T(0), T(0), T(-9.81)), com);
 }
 
-void createConvexHullMarkerArray(const std::vector<Eigen::Vector3d>& points, const std::vector<double>& stabilities, visualization_msgs::MarkerArray &marker_array);
-
 void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Affine3d& pose);
 //void updateState(robot_state::RobotState &state, const std::vector<double>& angles);
 

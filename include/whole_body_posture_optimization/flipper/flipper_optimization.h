@@ -16,6 +16,7 @@ struct FlipperOptimizationResult {
   std::vector<double> flipper_angles;
   std::vector<double> joint_state;
   sdf_contact_estimation::ContactEstimationResult contact_result;
+  double final_cost;
 };
 
 class FlipperOptimization {

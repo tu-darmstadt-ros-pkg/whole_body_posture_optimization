@@ -32,6 +32,9 @@ struct PostureOptimizationResult {
   double stability_flipper_opt;
   double stability_arm_opt;
 
+  double flipper_cost;
+  double arm_cost;
+
   bool success;
 };
 

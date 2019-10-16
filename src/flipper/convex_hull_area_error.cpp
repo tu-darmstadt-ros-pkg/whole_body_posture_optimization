@@ -40,13 +40,13 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
 
   cost[0] = -result.support_area - parameters_.track_contact_weight * track_contact_pct + parameters_.body_contact_weight * body_contact_pct
-      + parameters_.movement_cost_weight * movement_cost + inclination_weight * (inclination_angle * inclination_angle);
+      + parameters_.movement_cost_weight * movement_cost + inclination_weight * inclination_angle * inclination_angle;
 
-//  ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
-//                  << "track contact: " << track_contact_pct << "(" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl
-//                  << "body contact: " << body_contact_pct << "(" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
-//                  << "movement penalty: " << movement_cost << "(" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
-//                  << "inclination angle: " << inclination_angle << "(" << (inclination_angle * inclination_angle) << ")");
+  ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
+                  << "track contact: " << track_contact_pct << " (" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl
+                  << "body contact: " << body_contact_pct << " (" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
+                  << "movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
+                  << "inclination angle: " << inclination_angle << " (" << inclination_weight * inclination_angle * inclination_angle << ")");
 
   return true;
 }

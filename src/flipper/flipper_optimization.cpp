@@ -110,7 +110,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   robot_shape_gen_->updateShape(parameters);
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
 
-  START_TIMING("Flipper optimization");
+  START_TIMING("Flipper optimization")
   double minf = std::nan("");
   auto start = std::chrono::high_resolution_clock::now();
   nlopt::result nlopt_result;
@@ -129,37 +129,40 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   catch (std::runtime_error e) {
     ROS_ERROR_STREAM("Optimization failed: " << e.what());
   }
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Flipper optimization took " << objective->getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                   << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
 
+  // Estimating again for debug output
+  std::vector<double> gradient;
+  ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
+
+  // Compose result
   FlipperOptimizationResult result;
   result.flipper_angles = parameters;
   result.joint_state = init_joint_angles;
   for (unsigned int i = 0; i < parameters.size(); i++) {
     result.joint_state[param_idx_to_jnt_idx_[i]] = parameters[i];
   }
-
-  // Estimating again for debug output and result
-//  std::vector<double> gradient;
-//  ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
-
+  result.final_cost = minf;
   contact_estimation_->updateJointStates(parameters);
   result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
+
+  // Publish result
   // Final robot shape
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), result_state_pub_, result.contact_result.estimated_pose, "world", Eigen::Vector3d(1, 1, 0));
-  // Contact points
+  // COM pose
+  Eigen::Affine3d result_com_pose = result.contact_result.estimated_pose * base_to_com;
+  sdf_contact_estimation::publishPose(result_com_pub_, result_com_pose, "world");
+  // Contact points and support polygon
   visualization_msgs::MarkerArray contact_points_array_msg;
   sdf_contact_estimation::createPointMarkerArray(result.contact_result.contact_points, contact_points_array_msg, "world", "contact_points", Eigen::Vector3d(1, 0.5, 0), 0.03);
   sdf_contact_estimation::createPointMarkerArray(result.contact_result.convex_hull_points, contact_points_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
-  Eigen::Affine3d result_com_pose = result.contact_result.estimated_pose * base_to_com;
-  sdf_contact_estimation::publishPose(result_com_pub_, result_com_pose, "world");
-  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.contact_result.convex_hull_points, result_com_pose.translation());
-//  double stability_min = *std::min_element(stabilities.begin(), stabilities.end());
-//  ROS_INFO_STREAM("Stability after flipper optimization: " << stability_min);
-  createConvexHullMarkerArray(result.contact_result.convex_hull_points, stabilities, contact_points_array_msg);
+  sdf_contact_estimation::createNormalsMarkers(result.contact_result.contact_points, contact_estimation_->getSdf(), contact_points_array_msg, "contact_normals");
+//  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.contact_result.convex_hull_points, result_com_pose.translation());
+//  createConvexHullMarkerArray(result.contact_result.convex_hull_points, stabilities, contact_points_array_msg);
   sdf_contact_estimation::deleteAllMarkers(contact_points_pub_);
   contact_points_pub_.publish(contact_points_array_msg);
 

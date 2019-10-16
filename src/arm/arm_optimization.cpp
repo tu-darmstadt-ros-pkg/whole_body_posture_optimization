@@ -180,7 +180,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     default_chain_angles[chain_idx] = initial_angles[chain_idx_to_jnt_idx[chain_idx]];
   }
   std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> environment_constraints;
-  START_TIMING("Env. collision const. creation");
+  START_TIMING("Env. collision const. creation")
   // Environment collision constraints
   std::vector<std::string> collision_group_names = robot_model_->getCollisionGroupNames();
   for (const std::string& collision_link: collision_group_names) {
@@ -196,10 +196,10 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     }
   }
 //  ROS_INFO_STREAM("Created " << environment_constraints.size() << " environment collision constraints.");
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   // self-collision tsdf constraints
-  START_TIMING("Self-collision tsdf const. creation");
+  START_TIMING("Self-collision tsdf const. creation")
   std::shared_ptr<voxblox::TsdfMap> tsdf = robot_model_->computeTsdfFromRobotModel(semi_static_link_names_, self_collision_tsdf_truncation_distance_, partial_robot_tsdf_);
   sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose, 0.4);
   sdf_contact_estimation::SdfWrapper robot_base_tsdf;
@@ -221,10 +221,10 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     }
   }
 //  ROS_INFO_STREAM("Created " << self_collision_tsdf_constraints.size() << " self-collision tsdf constraints.");
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   // self-collision distance constraints
-  START_TIMING("Self-collision const. creation");
+  START_TIMING("Self-collision const. creation")
   std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_constraints;
   // Create constraint for each unique link-pair
   for (unsigned int i = 0; i < collision_group_names.size()-1; i++) {
@@ -257,15 +257,15 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     }
   }
 //  ROS_INFO_STREAM("Created " << self_collision_constraints.size() << " self-collision constraints.");
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   // Fill in initial joint state (from previous time step)
   std::vector<double> parameters = jointVectorToParamVector(initial_angles);
 
 //  stability_cost.checkGradient(parameters);
 
-  START_TIMING("Arm optimization");
-  double minf;
+  START_TIMING("Arm optimization")
+  double minf = std::nan("");
   auto start = std::chrono::high_resolution_clock::now();
   nlopt::result nlopt_result;
   try {
@@ -283,11 +283,11 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   catch (std::runtime_error e) {
     ROS_ERROR_STREAM("Optimization failed: " << e.what());
   }
-  STOP_TIMING_AVG;
+  STOP_TIMING_AVG
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
-                  << ceres_nlopt_wrapper::vecToString(parameters));
+                  << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
 
 //  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
 
@@ -323,24 +323,27 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 //    ROS_INFO_STREAM(c->getName() << ":" << cost);
 //  }
 
+  // Compose result
   ArmOptimizationResult result;
   result.joint_angles = initial_angles;
   for (unsigned int i = 0; i < parameters.size(); i++) {
     result.joint_angles[param_idx_to_jnt_idx_[i]] = parameters[i];
   }
-  // Compute and publish result com
+  result.final_cost = minf;
+  // Compute COM
   robot_model_->computeCenterOfMass(result.joint_angles, result.center_of_mass);
   Eigen::Affine3d com_pose = Eigen::Affine3d::Identity();
   com_pose.translation() = robot_pose * result.center_of_mass;
-  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
-
-  // Compute and publish result stabilities
-  visualization_msgs::MarkerArray convex_hull_array_msg;
-  sdf_contact_estimation::createPointMarkerArray(contact_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
+  // Compute stability
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_points, com_pose.translation());
   result.stability = *std::min_element(stabilities.begin(), stabilities.end());
-//  ROS_INFO_STREAM("Stability after arm optimization: " << stability_min);
-  createConvexHullMarkerArray(contact_points, stabilities, convex_hull_array_msg);
+
+  // Publish result com
+  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
+  // Publish result stabilities
+  visualization_msgs::MarkerArray convex_hull_array_msg;
+  sdf_contact_estimation::createPointMarkerArray(contact_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
+  sdf_contact_estimation::createConvexHullMarkerArrayWithStabilities(contact_points, stabilities, convex_hull_array_msg);
   sdf_contact_estimation::deleteAllMarkers(convex_hull_pub_);
   convex_hull_pub_.publish(convex_hull_array_msg);
 
