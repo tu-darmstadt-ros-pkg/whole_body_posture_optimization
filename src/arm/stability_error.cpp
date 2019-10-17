@@ -29,4 +29,35 @@ ceres::CostFunction* StabilityError::Create(const std::shared_ptr<RobotModel>& r
   return static_cast<ceres::CostFunction*>(cost_function);
 }
 
+ComputeCenterOfMass::ComputeCenterOfMass(const std::shared_ptr<RobotModel>& robot_model, const std::vector<double>& init_angles, const std::vector<std::size_t>& param_idx_to_joint_idx)
+  : robot_model_(robot_model), init_angles_(init_angles), param_idx_to_joint_idx_(param_idx_to_joint_idx) {
+  this->mutable_parameter_block_sizes()->push_back(static_cast<int>(param_idx_to_joint_idx.size()));
+  this->set_num_residuals(3);
+}
+
+bool ComputeCenterOfMass::Evaluate(const double* const * parameters, double* residuals, double** jacobians) const {
+  std::vector<double> joint_angles = init_angles_;
+  for (unsigned int i = 0; i < this->parameter_block_sizes()[0]; i++) {
+    joint_angles[param_idx_to_joint_idx_[i]] = parameters[0][i];
+  }
+
+  Eigen::Vector3d com;
+  Eigen::MatrixXd ad_com;
+  robot_model_->computeCenterOfMass(joint_angles, com, ad_com);
+
+  for (unsigned int i = 0; i < 3; i++) {
+    residuals[i] = com(i);
+  }
+
+  // Compute the Jacobian if asked for.
+  if (jacobians != nullptr && jacobians[0] != nullptr) {
+    for (unsigned int r = 0; r < 3; r++) {
+      for (unsigned int p = 0; p < this->parameter_block_sizes()[0]; p++) {
+        jacobians[0][r * this->parameter_block_sizes()[0] + p] = ad_com(r, param_idx_to_joint_idx_[p]);
+      }
+    }
+  }
+  return true;
+}
+
 }
