@@ -136,8 +136,8 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
                   << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
 
   // Estimating again for debug output
-  std::vector<double> gradient;
-  ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
+//  std::vector<double> gradient;
+//  ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
 
   // Compose result
   FlipperOptimizationResult result;

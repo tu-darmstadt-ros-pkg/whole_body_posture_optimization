@@ -40,9 +40,10 @@ public:
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com, Eigen::MatrixXd &jacobian);
   void computeCenterOfMass(const std::vector<double>& joint_angles, Eigen::Vector3d& com);
 
-  std::shared_ptr<voxblox::TsdfMap> computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance, float voxel_size);
+  std::shared_ptr<voxblox::TsdfMap> computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance, float voxel_size,
+                                                              const std::vector<double>& joint_state=std::vector<double>());
   std::shared_ptr<voxblox::TsdfMap> computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance,
-                                                              const std::shared_ptr<voxblox::TsdfMap>& init_tsdf);
+                                                              const std::shared_ptr<voxblox::TsdfMap>& init_tsdf, const std::vector<double>& joint_state=std::vector<double>());
 
   void updateJointAngles(const std::vector<double> joint_angles);
   void updatePose(const Eigen::Affine3d& robot_pose);

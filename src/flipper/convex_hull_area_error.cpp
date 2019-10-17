@@ -63,12 +63,12 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
       + inclination_weight * inclination_angle * inclination_angle
       + contact_against_moving_penalty_weight * contact_against_moving_penalty_sum;
 
-  ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
-                  << "track contact: " << track_contact_pct << " (" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl
-                  << "body contact: " << body_contact_pct << " (" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
-                  << "movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
-                  << "inclination angle: " << inclination_angle << " (" << inclination_weight * inclination_angle * inclination_angle << ")" << std::endl
-                  << "contact against moving: " << contact_against_moving_penalty_sum << "(" << contact_against_moving_penalty_weight * contact_against_moving_penalty_sum << ")");
+//  ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
+//                  << "track contact: " << track_contact_pct << " (" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl
+//                  << "body contact: " << body_contact_pct << " (" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
+//                  << "movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
+//                  << "inclination angle: " << inclination_angle << " (" << inclination_weight * inclination_angle * inclination_angle << ")" << std::endl
+//                  << "contact against moving: " << contact_against_moving_penalty_sum << "(" << contact_against_moving_penalty_weight * contact_against_moving_penalty_sum << ")");
 
   return true;
 }

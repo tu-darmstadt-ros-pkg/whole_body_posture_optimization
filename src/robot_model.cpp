@@ -117,18 +117,18 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   computeCenterOfMass(joint_angles, com, jacobian);
 }
 
-std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance, float voxel_size)
+std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance, float voxel_size, const std::vector<double>& joint_state)
 {
   // Create empty SDF
   voxblox::TsdfMap::Config tsdf_config;
-  tsdf_config.tsdf_voxel_size = voxel_size; // TODO parameter
+  tsdf_config.tsdf_voxel_size = voxel_size;
   std::shared_ptr<voxblox::TsdfMap> tsdf = std::make_shared<voxblox::TsdfMap>(tsdf_config);
 
-  return computeTsdfFromRobotModel(link_names, truncation_distance, tsdf);
+  return computeTsdfFromRobotModel(link_names, truncation_distance, tsdf, joint_state);
 }
 
 std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance,
-                                                                  const std::shared_ptr<voxblox::TsdfMap> &init_tsdf)
+                                                                  const std::shared_ptr<voxblox::TsdfMap> &init_tsdf, const std::vector<double>& joint_state)
 {
   if (!init_tsdf) {
     ROS_ERROR_STREAM("TSDF is null");
@@ -138,8 +138,8 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
   // Create copy
   std::shared_ptr<voxblox::TsdfMap> tsdf = std::make_shared<voxblox::TsdfMap>(init_tsdf->getTsdfLayer());
 
-//  updateMoveitRobotState(*moveit_robot_state_, Eigen::Affine3d::Identity());
   moveit_robot_state_->setToDefaultValues();
+  updateJointAngles(joint_state);
 
   // Iterate over requested links
   for (const std::string& link_name: link_names) {
@@ -153,7 +153,6 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
       continue;
     }
 
-//    ROS_INFO_STREAM("-- Computing tsdf for '" << link_name << "'.");
     // Transform the link model according to current robot state
     collision_detection::PosedBodySphereDecompositionPtr sphere_representation = std::make_shared<collision_detection::PosedBodySphereDecomposition>(body_decompositions_[index]);
     sphere_representation->updatePose(moveit_robot_state_->getGlobalLinkTransform(link_name));
