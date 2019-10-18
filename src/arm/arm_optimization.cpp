@@ -200,8 +200,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // self-collision tsdf constraints
   START_TIMING("Self-collision tsdf const. creation")
-  std::shared_ptr<voxblox::TsdfMap> tsdf = robot_model_->computeTsdfFromRobotModel(semi_static_link_names_, self_collision_tsdf_truncation_distance_, partial_robot_tsdf_, initial_angles);
-  sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose, 0.4);
+  std::shared_ptr<voxblox::TsdfMap> tsdf = robot_model_->computeTsdfFromRobotModel(semi_static_link_names_, static_cast<float>(self_collision_tsdf_truncation_distance_), partial_robot_tsdf_, initial_angles);
+  sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose, 0.4f);
   sdf_contact_estimation::SdfWrapper robot_base_tsdf;
   robot_base_tsdf.setTsdfMap(tsdf, self_collision_tsdf_truncation_distance_);
 

@@ -139,7 +139,9 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
   std::shared_ptr<voxblox::TsdfMap> tsdf = std::make_shared<voxblox::TsdfMap>(init_tsdf->getTsdfLayer());
 
   moveit_robot_state_->setToDefaultValues();
-  updateJointAngles(joint_state);
+  if (!joint_state.empty()) {
+    updateJointAngles(joint_state);
+  }
 
   // Iterate over requested links
   for (const std::string& link_name: link_names) {
