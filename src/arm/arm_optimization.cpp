@@ -86,7 +86,7 @@ double ArmOptimization::getJointPadding(std::string joint_name, CollisionType co
     try {
       padding = padding_map->at(joint_name);
       found = true;
-      ROS_DEBUG_STREAM("Using padding " << padding << " for link '" << joint_name << "'.");
+//      ROS_DEBUG_STREAM("Using padding " << padding << " for link '" << joint_name << "'.");
     }  catch (const std::out_of_range&) {
       found = false;
     }
@@ -165,7 +165,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     previous_parameters = jointVectorToParamVector(previous_joint_angles);
   }
   ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost(
-        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 1);
+        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0);
   stability_cost.setName("stability_cost");
   stability_cost.enableInfCheck(true);
   stability_cost.enableNanCheck(true);
