@@ -161,7 +161,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
       break;
     }
 
-    if (stepping_ && stepping_start_ < counter) {
+    if (stepping_ && stepping_start_ < (counter+2)) {
       std::cout << '\n' << "Press ENTER to continue...";
       do {
       } while (ros::ok() && std::cin.get() != '\n');
