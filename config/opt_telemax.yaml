@@ -1,5 +1,5 @@
 # default
-default_joint_state: [0, 0, 0, 0, 0, 0, -2, 1.2, 0, 1, 0, 0] # (12) default for all joints
+default_joint_state: [0.0, 0.0, 0.0, 0.0, 0.0, 0, -2, 1.2, 0, 1, 0, 0] # (12) default for all joints
 
 optimization_type: split
 collision_group: arm_group
@@ -34,7 +34,7 @@ arm_optimization:
   self_collision_padding: {
     arm_link_5: 0.3
   }
-  self_collision_tsdf_padding: 0.05
+  self_collision_tsdf_padding: 0.02
   self_collision_tsdf_truncation_distance: 0.4
   
   objective_parameters:
@@ -43,8 +43,8 @@ arm_optimization:
     lorentzian_sigma: 0.15
     movement_cost_weight: 0.05
 
-  
   # moveable, but static regarding arm optimization
+  # i.e. flipper links
   semi_static_link_names:
     - flipper_front_left_link
     - flipper_front_right_link
@@ -60,7 +60,6 @@ arm_optimization:
     - autonomy_box_link
     - camera360_center_link
 
-  
 flipper_optimization:
   enabled: true
   #algorithm: GN_DIRECT
@@ -82,7 +81,7 @@ flipper_optimization:
   #algorithm: G_MLSL
   #algorithm: G_MLSL_LDS
   stopping_criteria:
-    maxeval: 100
+    maxeval: 3000
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1
@@ -104,7 +103,7 @@ flipper_optimization:
     
   heuristic:
     lorentzian_sigma: 0.15
-    movement_cost_weight: 0.5
+    movement_cost_weight: 0 #0.5
     track_contact_weight: 4
     body_contact_weight: 3.0
     
