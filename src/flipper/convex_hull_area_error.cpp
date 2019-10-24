@@ -16,7 +16,16 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   contact_estimation_->updateJointStates(flipper_angles_vec);
   sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(pose_, base_to_com_, init_contact_);
   if (result.convex_hull_points.empty()) {
-    return false;
+    cost[0] = std::numeric_limits<double>::max();
+    return true;
+  }
+
+  // Do not allow for poses, that move us backwards
+  // TODO: Moving direction is hardcoded as +X for now
+  if (pose_.translation().x() - 0.02 > result.estimated_pose.translation().x()) {
+    ROS_WARN_STREAM("Moved backwards!");
+    cost[0] = std::numeric_limits<double>::max();
+    return true;
   }
 
   // Penalize joint movement
@@ -37,7 +46,21 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   double inclination_angle = std::acos(up.dot(up_world));
 
   // Reward track contact and penalize body contact
-  double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
+  double track_contact_sum = 0;
+
+  // Weight track contact by angle between contact normal and inverse gravity vector
+  Eigen::Vector3d gravity_vector = Eigen::Vector3d::UnitZ();
+  for (Eigen::Vector3d& contact_point: result.contact_points) {
+    Eigen::Vector3d normal;
+    contact_estimation_->getSdf().getDistanceAndGradient(contact_point, normal);
+    double angle = std::acos(gravity_vector.dot(normal)/(normal.norm()));
+    double a = -2/M_PI;
+    double b = 1;
+    double v = std::max(a * angle + b, 0.0);
+    track_contact_sum += v;
+  }
+
+  double track_contact_pct = static_cast<double>(track_contact_sum)/result.total_track_count;
   double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
 
   // Penalyze contact normals that point against the moving direction
