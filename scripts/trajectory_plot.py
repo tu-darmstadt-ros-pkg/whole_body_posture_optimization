@@ -16,47 +16,47 @@ def parse_arguments():
 def load_data(data_files):
     data = []
     for data_path in data_files:
-        d = np.loadtxt(data_path, skiprows=1)
-        label = os.path.splitext(os.path.basename(data_path))[0]
-        data.append([label, d])
+        if os.path.isfile(data_path):
+            d = np.loadtxt(data_path, skiprows=1)
+            label = os.path.splitext(os.path.basename(data_path))[0]
+            data.append([label, d])
     return data
 
 
-def plot_arm_cost(data):
-    plt.figure()
-    plt.title("Reward functions")
-    plt.xlabel('x position (m)')
-    plt.ylabel('function value')
+def plot_arm_cost(data, ax):
+    ax.set_title("Reward functions")
+    ax.set_xlabel('x position (m)')
+    ax.set_ylabel('function value')
     for label, d in data:
         x = d[:, 1]
         y = -d[:, 4]
 
-        plt.plot(x, y, label=label)
+        ax.plot(x, y, label=label + "_fvalue")
 
-    plt.legend()
-    plt.grid(True)
+    ax.legend()
+    ax.grid(True)
 
 
-def plot_stability(data):
-    plt.figure()
-    plt.title("Stability margin")
-    plt.xlabel('x position (m)')
-    plt.ylabel('FASM')
+def plot_stability(data, ax):
+    ax.set_title("Stability margin")
+    ax.set_xlabel('x position (m)')
+    ax.set_ylabel('FASM')
     for label, d in data:
         x = d[:, 1]
         y = d[:, 6]
 
-        plt.plot(x, y, label=label)
+        ax.plot(x, y, label=label + "_stability")
 
-    plt.legend()
-    plt.grid(True)
+    ax.legend()
+    ax.grid(True)
 
 
 def main():
     args = parse_arguments()
     data = load_data(args.data_files)
-    plot_arm_cost(data)
-    plot_stability(data)
+    fig, axs = plt.subplots(2)
+    plot_arm_cost(data, axs[0])
+    plot_stability(data, axs[1])
     plt.show()
 
 
