@@ -149,6 +149,9 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   result.final_cost = minf;
   contact_estimation_->updateJointStates(parameters);
   result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
+  const Eigen::Vector3d& xyz = result.contact_result.estimated_pose.translation();
+  ROS_INFO("New robot position: [%f, %f, %f]", xyz(0), xyz(1), xyz(2));
+
 
   // Publish result
   // Final robot shape

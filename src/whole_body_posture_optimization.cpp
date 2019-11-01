@@ -117,6 +117,11 @@ bool WholeBodyPostureOptimization::saveSdfToFile(std::string save_folder)
   return true;
 }
 
+const std::shared_ptr<RobotModel> WholeBodyPostureOptimization::getRobotModel() const
+{
+  return robot_model_;
+}
+
 void WholeBodyPostureOptimization::setDefaultJointPositions(const std::vector<double>& default_joint_positions)
 {
   default_joint_state_ = default_joint_positions;
@@ -494,21 +499,23 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
 
     // The moveit trajectory planner can't handle/interpolate the virtual world joint
     // So we do it ourselves and override the respective states
-    Eigen::Vector3d start_position = opt_result[i].requested_pose.translation();
-    start_position.z() = opt_result[i].result_contact.estimated_pose.translation().z();
-    Eigen::Vector3d end_position = opt_result[i+1].requested_pose.translation();
-    end_position.z() = opt_result[i+1].result_contact.estimated_pose.translation().z();
+    Eigen::Vector3d start_position = opt_result[i].result_contact.estimated_pose.translation();
+    Eigen::Vector3d end_position = opt_result[i+1].result_contact.estimated_pose.translation();
+//    Eigen::Vector3d start_position = opt_result[i].requested_pose.translation();
+//    start_position.z() = opt_result[i].result_contact.estimated_pose.translation().z();
+//    Eigen::Vector3d end_position = opt_result[i+1].requested_pose.translation();
+//    end_position.z() = opt_result[i+1].result_contact.estimated_pose.translation().z();
 
     Eigen::Vector3d position_diff = end_position - start_position;
     Eigen::Quaterniond start_orientation(opt_result[i].result_contact.estimated_pose.linear());
     Eigen::Quaterniond end_orientation(opt_result[i+1].result_contact.estimated_pose.linear());
     for (unsigned int j = 0; j < res.trajectory_->getWayPointCount(); j++) {
       double t = static_cast<double>(j) / res.trajectory_->getWayPointCount();
-      robot_state::RobotStatePtr state = res.trajectory_->getWayPointPtr(j);
-      Eigen::Vector3d interpolated_position = start_position + t * position_diff;
       Eigen::Quaterniond interpolated_orientation = start_orientation.slerp(t, end_orientation);
       Eigen::Affine3d interpolated_pose(interpolated_orientation);
+      Eigen::Vector3d interpolated_position = start_position + t * position_diff;
       interpolated_pose.translation() = interpolated_position;
+      robot_state::RobotStatePtr state = res.trajectory_->getWayPointPtr(j);
       updateMoveitRobotState(*state, interpolated_pose);
     }
 

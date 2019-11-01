@@ -22,11 +22,12 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 
   // Do not allow for poses, that move us backwards
   // TODO: Moving direction is hardcoded as +X for now
-  if (pose_.translation().x() - 0.02 > result.estimated_pose.translation().x()) {
-    ROS_WARN_STREAM("Moved backwards!");
-    cost[0] = std::numeric_limits<double>::max();
-    return true;
-  }
+//  double diff = result.estimated_pose.translation().x() - (pose_.translation().x() - 0.02);
+//  if (!prev_flipper_angles_.empty() && diff < 0) {
+//    ROS_WARN_STREAM("Moved backwards by " << diff << "!");
+//    cost[0] = std::numeric_limits<double>::max();
+//    return true;
+//  }
 
   // Penalize joint movement
   double movement_cost = 0.0;
@@ -45,10 +46,9 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   double inclination_weight = 0.0;
   double inclination_angle = std::acos(up.dot(up_world));
 
-  // Reward track contact and penalize body contact
-  double track_contact_sum = 0;
 
-  // Weight track contact by angle between contact normal and inverse gravity vector
+  // Weight track contact by angle between contact normal and (inverse) gravity vector
+  double track_contact_sum = 0;
   Eigen::Vector3d gravity_vector = Eigen::Vector3d::UnitZ();
   for (Eigen::Vector3d& contact_point: result.contact_points) {
     Eigen::Vector3d normal;
@@ -56,17 +56,19 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
     double angle = std::acos(gravity_vector.dot(normal)/(normal.norm()));
     double a = -2/M_PI;
     double b = 1;
-    double v = std::max(a * angle + b, 0.0);
+    double v = std::max(a * angle + b, 0.0); // Value between 0 (low traction) and 1 (high traction)
     track_contact_sum += v;
   }
 
+  // Reward track contact and penalize body contact
   double track_contact_pct = static_cast<double>(track_contact_sum)/result.total_track_count;
+//  double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
   double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
 
   // Penalyze contact normals that point against the moving direction
   // For now, the moving direction is hard-coded to x+
-//  Eigen::Vector3d moving_direction = Eigen::Vector3d::UnitX();
-//  Eigen::Vector3d neg_moving_direction = -moving_direction;
+  Eigen::Vector3d moving_direction = Eigen::Vector3d::UnitX();
+  Eigen::Vector3d neg_moving_direction = -moving_direction;
   double contact_against_moving_penalty_weight = 0.0;
   double contact_against_moving_penalty_sum = 0;
 //  for (Eigen::Vector3d& contact_point: result.contact_points) {
@@ -74,9 +76,13 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 //    contact_estimation_->getSdf().getDistanceAndGradient(contact_point, normal);
 //    double angle = std::acos(neg_moving_direction.dot(normal)/(neg_moving_direction.norm() * normal.norm()));
 //    double a = 1.85;
-//    double c = -0.85;
-//    double penalty = std::max(a * std::exp(-angle) + c, 0.0);
-//    contact_against_moving_penalty_sum += penalty;
+////    double c = -0.85;
+////    double penalty = std::max(a * std::exp(-angle) + c, 0.0);
+////    contact_against_moving_penalty_sum += penalty;
+
+//    if (angle < 0.1) {
+//      contact_against_moving_penalty_sum += 0.5;
+//    }
 //  }
 
   // Sum up cost terms

@@ -41,7 +41,7 @@ std::string vecToString(const std::vector<T>& vec) {
 }
 
 template <typename T> T lorentzian(const T& x, const T& sigma) {
-  return log(T(1) + pow(x, T(2))/(T(2) * pow(sigma, T(2))));
+  return log(T(1) + (x*x)/(T(2) * sigma * sigma));
 }
 
 struct CollisionObject {

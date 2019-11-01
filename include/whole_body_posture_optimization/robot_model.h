@@ -54,7 +54,7 @@ public:
   void publishCollisionSpheres();
 
   std::vector<unsigned int> getBodyIndices(const std::vector<std::string>& bodies);
-  std::vector<std::size_t> getActuatedJointIndices(const std::vector<std::string>& joints);
+  std::vector<std::size_t> getActuatedJointIndices(const std::vector<std::string>& joints) const;
   std::string getParentJointName(const std::string& link_name);
   bool getJointLimits(const std::string& joint_name, double& lower_limit, double& upper_limit);
   unsigned int getNumJoints() const;

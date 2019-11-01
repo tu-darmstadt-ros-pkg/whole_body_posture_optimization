@@ -96,7 +96,8 @@ int main(int argc, char** argv) {
     nav_msgs::Path path;
     if (scenario == "step" || scenario == "highstep") {
       // step
-      path = createPath(0.0, 1.7, 0.02, Eigen::Vector3d(0, 0, -1.9));
+      path = createPath(0.14, 1.7, 0.02, Eigen::Vector3d(0, 0, -1.9));
+//      path = createPath(1.7, 0.14, -0.02, Eigen::Vector3d(0, 0, -1.9));
     } else if (scenario == "ramp") {
       // ramp
       path = createPath(-1, 1, 0.02, Eigen::Vector3d(0, 0, -1));

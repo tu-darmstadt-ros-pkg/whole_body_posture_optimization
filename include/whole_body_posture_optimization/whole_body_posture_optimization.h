@@ -47,6 +47,8 @@ public:
   bool loadSdfFromFile(std::string tsdf_file_path, float truncation_distance);
   bool saveSdfToFile(std::string save_folder);
 
+  const std::shared_ptr<RobotModel> getRobotModel() const;
+
 
   void setDefaultJointPositions(const std::vector<double>& default_joint_positions);
   const std::vector<double>& getDefaultJointPositions();

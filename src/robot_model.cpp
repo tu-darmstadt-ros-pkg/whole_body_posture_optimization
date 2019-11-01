@@ -80,6 +80,7 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
     setJointValuesFromActuated(i, joint_angles[i], full_joint_state);
   }
 
+  // TODO replace with map
   rbdl::Math::VectorNd q(full_joint_state.size());
   rbdl::Math::VectorNd qdot(full_joint_state.size());
   for (unsigned int i = 0; i < full_joint_state.size(); i++) {
@@ -319,7 +320,7 @@ std::vector<unsigned int> RobotModel::getBodyIndices(const std::vector<std::stri
   return indices;
 }
 
-std::vector<std::size_t> RobotModel::getActuatedJointIndices(const std::vector<std::string> &joints)
+std::vector<std::size_t> RobotModel::getActuatedJointIndices(const std::vector<std::string> &joints) const
 {
   std::vector<std::size_t> indices;
   for (const std::string& joint: joints) {
@@ -473,10 +474,10 @@ robot_model::RobotModelPtr RobotModel::getMoveitRobotModel() const
 
 void RobotModel::setJointValuesFromActuated(double actuated_idx, double value, std::vector<double>& joint_state)
 {
-    joint_state[actuated_idx_to_joint_idx_[actuated_idx]] = value;
-    for (const JointMimic& mimic: actuated_joint_mimics_[actuated_idx]) {
-      joint_state[mimic.joint_index] = value * mimic.multiplier + mimic.offset;
-    }
+  joint_state[actuated_idx_to_joint_idx_[actuated_idx]] = value;
+  for (const JointMimic& mimic: actuated_joint_mimics_[actuated_idx]) {
+    joint_state[mimic.joint_index] = value * mimic.multiplier + mimic.offset;
+  }
 }
 
 robot_state::RobotState RobotModel::getMoveitRobotState() const
