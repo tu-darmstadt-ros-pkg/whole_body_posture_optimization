@@ -23,15 +23,29 @@ def load_data(data_files):
     return data
 
 
+def plot_flipper_cost(data, ax):
+    ax.set_title("Flipper reward functions")
+    # ax.set_xlabel('x position (m)')
+    ax.set_ylabel('function value')
+    for label, d in data:
+        x = d[:, 1]
+        y = -d[:, 3]
+
+        ax.plot(x, y, label=label)
+
+    ax.legend()
+    ax.grid(True)
+
+
 def plot_arm_cost(data, ax):
-    ax.set_title("Reward functions")
-    ax.set_xlabel('x position (m)')
+    ax.set_title("Arm reward functions")
+    # ax.set_xlabel('x position (m)')
     ax.set_ylabel('function value')
     for label, d in data:
         x = d[:, 1]
         y = -d[:, 4]
 
-        ax.plot(x, y, label=label + "_fvalue")
+        ax.plot(x, y, label=label)
 
     ax.legend()
     ax.grid(True)
@@ -45,7 +59,7 @@ def plot_stability(data, ax):
         x = d[:, 1]
         y = d[:, 6]
 
-        ax.plot(x, y, label=label + "_stability")
+        ax.plot(x, y, label=label)
 
     ax.legend()
     ax.grid(True)
@@ -54,9 +68,10 @@ def plot_stability(data, ax):
 def main():
     args = parse_arguments()
     data = load_data(args.data_files)
-    fig, axs = plt.subplots(2)
-    plot_arm_cost(data, axs[0])
-    plot_stability(data, axs[1])
+    fig, axs = plt.subplots(3, sharex=True)
+    plot_flipper_cost(data, axs[0])
+    plot_arm_cost(data, axs[1])
+    plot_stability(data, axs[2])
     plt.show()
 
 
