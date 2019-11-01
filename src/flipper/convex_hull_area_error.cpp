@@ -46,7 +46,6 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   double inclination_weight = 0.0;
   double inclination_angle = std::acos(up.dot(up_world));
 
-
   // Weight track contact by angle between contact normal and (inverse) gravity vector
   double track_contact_sum = 0;
   Eigen::Vector3d gravity_vector = Eigen::Vector3d::UnitZ();
@@ -67,37 +66,33 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 
   // Penalyze contact normals that point against the moving direction
   // For now, the moving direction is hard-coded to x+
-  Eigen::Vector3d moving_direction = Eigen::Vector3d::UnitX();
-  Eigen::Vector3d neg_moving_direction = -moving_direction;
-  double contact_against_moving_penalty_weight = 0.0;
-  double contact_against_moving_penalty_sum = 0;
+//  Eigen::Vector3d moving_direction = Eigen::Vector3d::UnitX();
+//  Eigen::Vector3d neg_moving_direction = -moving_direction;
+//  double contact_against_moving_penalty_weight = 0.0;
+//  double contact_against_moving_penalty_sum = 0;
 //  for (Eigen::Vector3d& contact_point: result.contact_points) {
 //    Eigen::Vector3d normal;
 //    contact_estimation_->getSdf().getDistanceAndGradient(contact_point, normal);
 //    double angle = std::acos(neg_moving_direction.dot(normal)/(neg_moving_direction.norm() * normal.norm()));
 //    double a = 1.85;
-////    double c = -0.85;
-////    double penalty = std::max(a * std::exp(-angle) + c, 0.0);
-////    contact_against_moving_penalty_sum += penalty;
-
-//    if (angle < 0.1) {
-//      contact_against_moving_penalty_sum += 0.5;
-//    }
+//    double c = -0.85;
+//    double penalty = std::max(a * std::exp(-angle) + c, 0.0);
+//    contact_against_moving_penalty_sum += penalty;
 //  }
 
   // Sum up cost terms
   cost[0] = -result.support_area - parameters_.track_contact_weight * track_contact_pct
       + parameters_.body_contact_weight * body_contact_pct
       + parameters_.movement_cost_weight * movement_cost
-      + inclination_weight * inclination_angle * inclination_angle
-      + contact_against_moving_penalty_weight * contact_against_moving_penalty_sum;
+      + inclination_weight * inclination_angle * inclination_angle;
 
-//  ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
-//                  << "track contact: " << track_contact_pct << " (" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl
-//                  << "body contact: " << body_contact_pct << " (" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
-//                  << "movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
-//                  << "inclination angle: " << inclination_angle << " (" << inclination_weight * inclination_angle * inclination_angle << ")" << std::endl
-//                  << "contact against moving: " << contact_against_moving_penalty_sum << "(" << contact_against_moving_penalty_weight * contact_against_moving_penalty_sum << ")");
+  if (parameters_.verbose) {
+    ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
+                    << "track contact: " << track_contact_pct << " (" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl
+                    << "body contact: " << body_contact_pct << " (" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
+                    << "movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
+                    << "inclination angle: " << inclination_angle << " (" << inclination_weight * inclination_angle * inclination_angle << ")");
+  }
 
   return true;
 }

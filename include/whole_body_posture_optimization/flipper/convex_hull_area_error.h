@@ -16,6 +16,7 @@ struct ConvexHullAreaErrorParameters {
     nh.param("lorentzian_sigma", parameters_.lorentzian_sigma, 0.2);
     nh.param("track_contact_weight", parameters_.track_contact_weight, 2.0);
     nh.param("body_contact_weight", parameters_.body_contact_weight, 4.0);
+    nh.param("verbose", parameters_.verbose, false);
     return parameters_;
   }
 
@@ -32,6 +33,7 @@ struct ConvexHullAreaErrorParameters {
   double lorentzian_sigma;
   double track_contact_weight;
   double body_contact_weight;
+  bool verbose;
 };
 
 class ConvexHullAreaError {
