@@ -84,6 +84,11 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
 
 ## Declare an executable
+add_executable(manual_control_node src/manual_control_node.cpp)
+add_dependencies(manual_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(manual_control_node ${PROJECT_NAME})
+
+## Declare an executable
 add_executable(com_visualisation_node src/com_visualisation_node.cpp)
 add_dependencies(com_visualisation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(com_visualisation_node ${PROJECT_NAME})
