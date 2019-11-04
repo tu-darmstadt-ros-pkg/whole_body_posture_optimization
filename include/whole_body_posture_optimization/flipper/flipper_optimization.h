@@ -33,6 +33,7 @@ public:
 
 private:
   std::vector<double> jointVectorToParamVector(const std::vector<double>& joint_vec);
+  std::vector<double> jointVectorToFlipperVector(const std::vector<double>& joint_vec);
   bool loadParameters(const ros::NodeHandle &nh);
   bool loadLimits();
 
@@ -40,6 +41,8 @@ private:
 
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<std::size_t> param_idx_to_jnt_idx_;
+  std::vector<std::size_t> flippers_idx_to_jnt_idx_;
+  std::vector<std::size_t> param_idx_to_flippers_idx_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
   sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape_gen_;
 

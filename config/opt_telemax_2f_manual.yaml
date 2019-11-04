@@ -61,7 +61,7 @@ arm_optimization:
     - camera360_center_link
 
 flipper_optimization:
-  enabled: false
+  enabled: true
   #algorithm: GN_DIRECT
   #algorithm: GN_DIRECT_L
   algorithm: GN_ORIG_DIRECT_L
@@ -81,7 +81,7 @@ flipper_optimization:
   #algorithm: G_MLSL
   #algorithm: G_MLSL_LDS
   stopping_criteria:
-    maxeval: 500
+    maxeval: 20
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1
@@ -94,7 +94,7 @@ flipper_optimization:
     #xtol_rel: 1e-3
     
   joints:
-    - flipper_front_joint
+    #- flipper_front_joint
     - flipper_back_joint
     
   objective: heuristic

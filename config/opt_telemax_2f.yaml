@@ -94,8 +94,8 @@ flipper_optimization:
     #xtol_rel: 1e-3
     
   joints:
+    #- flipper_back_joint
     - flipper_front_joint
-    - flipper_back_joint
     
   objective: heuristic
     

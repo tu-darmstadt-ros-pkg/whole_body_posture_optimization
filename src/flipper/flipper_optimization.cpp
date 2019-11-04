@@ -16,6 +16,8 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
     ROS_ERROR_STREAM("Loading flipper limits failed");
   }
   param_idx_to_jnt_idx_ = robot_model_->getActuatedJointIndices(free_joints_);
+  param_idx_to_flippers_idx_ = contact_estimation_->getJointIndices(free_joints_);
+  flippers_idx_to_jnt_idx_ = robot_model->getActuatedJointIndices(contact_estimation_->getJointNames());
 
   // Publisher
   start_state_pub_ = nh.advertise<visualization_msgs::MarkerArray>("start_state", 10, true);
@@ -82,20 +84,22 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   nlopt_srand(0);
 
   // Add objective function
-  std::vector<double> previous_flipper_angles;
+  std::vector<double> previous_parameters;
   if (!previous_joint_angles.empty()) {
-    previous_flipper_angles = jointVectorToParamVector(previous_joint_angles);
+    previous_parameters = jointVectorToParamVector(previous_joint_angles);
   }
+  std::vector<double> init_flipper_angles = jointVectorToFlipperVector(init_joint_angles);
+
   int verbosity_level = 0;
 
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
   if (objective_ == "heuristic") {
     objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
-          ConvexHullAreaError::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact, convex_hull_error_parameters_),
+          ConvexHullAreaError::Create(free_joints_, contact_estimation_, robot_pose, base_to_com, init_flipper_angles, previous_parameters, init_contact, convex_hull_error_parameters_),
           verbosity_level);
   } else if (objective_ == "stability") {
     objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
-          FlipperStabilityCost::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_flipper_angles, init_contact, stability_cost_parameters_),
+          FlipperStabilityCost::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_parameters, init_contact, stability_cost_parameters_),
           verbosity_level);
   } else {
     ROS_ERROR_STREAM("Unknown objective '" << objective_ << "'!");
@@ -149,7 +153,11 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
     result.joint_state[param_idx_to_jnt_idx_[i]] = parameters[i];
   }
   result.final_cost = minf;
-  contact_estimation_->updateJointStates(parameters);
+  std::vector<double> flipper_state = init_flipper_angles;
+  for (unsigned int i = 0; i < free_joints_.size(); ++i) {
+    flipper_state[param_idx_to_flippers_idx_[i]] = parameters[i];
+  }
+  contact_estimation_->updateJointStates(flipper_state);
   result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
   const Eigen::Vector3d& xyz = result.contact_result.estimated_pose.translation();
   ROS_INFO("New robot position: [%f, %f, %f]", xyz(0), xyz(1), xyz(2));
@@ -178,7 +186,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 sdf_contact_estimation::ContactEstimationResult FlipperOptimization::computeContactEstimation(const std::vector<double> &joint_angles, const Eigen::Affine3d &pose,
                                                                                               const Eigen::Affine3d &base_to_com, const sdf_contact_estimation::ContactEstimationResult &last_result)
 {
-  std::vector<double> flipper_angles = jointVectorToParamVector(joint_angles);
+  std::vector<double> flipper_angles = jointVectorToFlipperVector(joint_angles);
   contact_estimation_->updateJointStates(flipper_angles);
   return contact_estimation_->estimateSupportPolygon(pose, base_to_com, last_result);
 }
@@ -186,7 +194,7 @@ sdf_contact_estimation::ContactEstimationResult FlipperOptimization::computeCont
 sdf_contact_estimation::ContactEstimationResult FlipperOptimization::computeContactEstimation(const std::vector<double> &joint_angles, const Eigen::Affine3d &pose,
                                                                                               const Eigen::Affine3d &base_to_com)
 {
-  std::vector<double> flipper_angles = jointVectorToParamVector(joint_angles);
+  std::vector<double> flipper_angles = jointVectorToFlipperVector(joint_angles);
   contact_estimation_->updateJointStates(flipper_angles);
   return contact_estimation_->estimateSupportPolygon(pose, base_to_com);
 }
@@ -194,8 +202,17 @@ sdf_contact_estimation::ContactEstimationResult FlipperOptimization::computeCont
 std::vector<double> FlipperOptimization::jointVectorToParamVector(const std::vector<double> &joint_vec)
 {
   std::vector<double> parameters(free_joints_.size());
-  for (unsigned int i = 0; i < parameters.size(); i++) {
+  for (unsigned int i = 0; i < parameters.size(); ++i) {
     parameters[i] = joint_vec[param_idx_to_jnt_idx_[i]];
+  }
+  return parameters;
+}
+
+std::vector<double> FlipperOptimization::jointVectorToFlipperVector(const std::vector<double>& joint_vec)
+{
+  std::vector<double> parameters(contact_estimation_->getJointNames().size());
+  for (unsigned int i = 0; i < parameters.size(); ++i) {
+    parameters[i] = joint_vec[flippers_idx_to_jnt_idx_[i]];
   }
   return parameters;
 }
