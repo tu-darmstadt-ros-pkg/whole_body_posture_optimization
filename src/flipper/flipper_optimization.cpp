@@ -109,11 +109,12 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   objective->enableNanCheck(true);
   opt_.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, objective.get());
 
-  std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
   // Publish start state
-  robot_shape_gen_->updateShape(parameters);
+  robot_shape_gen_->updateShape(init_flipper_angles);
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
 
+
+  std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
   START_TIMING("Flipper optimization")
   double minf = std::nan("");
   auto start = std::chrono::high_resolution_clock::now();
