@@ -113,7 +113,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   robot_shape_gen_->updateShape(init_flipper_angles);
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
 
-
   std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
   START_TIMING("Flipper optimization")
   double minf = std::nan("");
@@ -148,12 +147,14 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 
   // Compose result
   FlipperOptimizationResult result;
+  result.final_cost = minf;
   result.flipper_angles = parameters;
+  // Fill in complete robot state with solution
   result.joint_state = init_joint_angles;
   for (unsigned int i = 0; i < parameters.size(); i++) {
     result.joint_state[param_idx_to_jnt_idx_[i]] = parameters[i];
   }
-  result.final_cost = minf;
+  // Fill in complete flipper state with solution
   std::vector<double> flipper_state = init_flipper_angles;
   for (unsigned int i = 0; i < free_joints_.size(); ++i) {
     flipper_state[param_idx_to_flippers_idx_[i]] = parameters[i];
@@ -162,7 +163,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
   const Eigen::Vector3d& xyz = result.contact_result.estimated_pose.translation();
   ROS_INFO("New robot position: [%f, %f, %f]", xyz(0), xyz(1), xyz(2));
-
 
   // Publish result
   // Final robot shape
@@ -179,7 +179,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 //  createConvexHullMarkerArray(result.contact_result.convex_hull_points, stabilities, contact_points_array_msg);
   sdf_contact_estimation::deleteAllMarkers(contact_points_pub_);
   contact_points_pub_.publish(contact_points_array_msg);
-
 
   return result;
 }
