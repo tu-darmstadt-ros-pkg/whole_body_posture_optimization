@@ -29,8 +29,10 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 
   // Do not allow for poses, that move us backwards
   // TODO: Moving direction is hardcoded as +X for now
-//  double diff = result.estimated_pose.translation().x() - (pose_.translation().x() - 0.02);
-//  if (!prev_flipper_angles_.empty() && diff < 0) {
+  double diff = result.estimated_pose.translation().x() - pose_.translation().x();
+  double move_backward_weight = 10.0;
+  double move_backward_cost = std::max(0.0, -(diff + 0.02));
+//  if (diff < 0) {
 //    ROS_WARN_STREAM("Moved backwards by " << diff << "!");
 //    cost[0] = std::numeric_limits<double>::max();
 //    return true;
@@ -91,13 +93,15 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   cost[0] = -result.support_area - parameters_.track_contact_weight * track_contact_pct
       + parameters_.body_contact_weight * body_contact_pct
       + parameters_.movement_cost_weight * movement_cost
-      + inclination_weight * inclination_angle * inclination_angle;
+      + inclination_weight * inclination_angle * inclination_angle
+      + move_backward_weight * move_backward_cost;
 
   if (parameters_.verbose) {
     ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
                     << "track contact: " << track_contact_pct << " (" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl
                     << "body contact: " << body_contact_pct << " (" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
                     << "movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
+                    << "moving backward cost: " << move_backward_cost << " (" << move_backward_weight * move_backward_cost << ")" << std::endl
                     << "inclination angle: " << inclination_angle << " (" << inclination_weight * inclination_angle * inclination_angle << ")");
   }
 
