@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
     po_->updateWorldModel(cloud);
   }
 
-  // Robot pose
+  // Load robot pose
   std::vector<double> requested_pose_vec = pnh.param<std::vector<double>>("robot_pose", std::vector<double>(6, 0));
   if (requested_pose_vec.size() != 6) {
     ROS_WARN_STREAM("Requested pose vector has wrong size (" << requested_pose_vec.size() << ") instead of 6. Using identity.");
@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
   pose_updated_ = true;
   bool reset = true;
 
-  // Joint state
+  // Set default joint state
   actuated_joint_names_ = po_->getRobotModel()->getActuatedJointNames();
   state_ = po_->getDefaultJointPositions();
   previous_state_ = state_;

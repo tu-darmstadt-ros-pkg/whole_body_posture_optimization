@@ -6,45 +6,11 @@
   <param name="robot_description" command="$(find xacro)/xacro --inorder $(find drz_telemax_description)/urdf/drz_telemax_complete.urdf.xacro" />
   <param name="robot_description_semantic" textfile="$(find drz_telemax_moveit_config)/config/drz_telemax.srdf" />
   
-  <node pkg="vigir_interactive_marker_pose_server" type="interactive_marker_pose_server" name="robot_pose_interactive_marker" output="screen" 
-      ns="whole_body_posture_optimization_node/interactive_marker">
-    <remap from="pose" to="set_robot_pose"/>
-    <param name="marker_name" value="robot_pose" />
-    <param name="frame_id" value="world" /> 
-    <rosparam subst_value="true">
-      # step
-      #init_pose: [0.946, 0, -1.5, 0, 0, 0]
-      #init_pose: [0.430347, 0.000000, -1.5, 0, 0, 0]
-      # tsdf
-      #init_pose: [0, 0, 0.5, 0.000000, 0.000000, 0]
-      # highstep
-<!--       init_pose: [0.287019, 0.000000, -1.323822, 0.000000, -0.000000, 0.000000] -->
-<!--       init_pose: [0.574219, 0.000000, -1.249656, 0.000000, -0.000000, 0.000000] -->
-<!--       init_pose: [1.129280, 0.000000, -1.078778, 0.000000, -0.000000, 0.000000] -->
-<!--       init_pose: [0.350860, 0.000000, -1.323822, 0.000000, -0.000000, 0.000000] -->
-      init_pose: [0.204386, 0.000000, -1.323822, 0.000000, -0.000000, 0.000000]
-    </rosparam>
-  </node> 
-  
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen" clear_params="true">
-    <!-- node parameters -->
-    <param name="interactive" value="false"/>
-    <rosparam subst_value="true">
-<!--      robot_pose: [0.763857, 0.000000, 0.210394, -0.006555, -0.005378, 0.000000]-->
-<!--       robot_pose: [0.287019, 0.000000, -1.323822, 0.000000, -0.000000, 0.000000]  -->
-<!--       robot_pose: [0.574219, 0.000000, -1.249656, 0.000000, -0.000000, 0.000000] -->
-<!--       robot_pose: [1.129280, 0.000000, -1.078778, 0.000000, -0.000000, 0.000000] -->
-<!--       robot_pose: [0.350860, 0.000000, -1.323822, 0.000000, -0.000000, 0.000000] # step: shortly after first contact with step -->
-<!--       robot_pose: [0.265203, 0.000000, -1.323822, 0.000000, -0.000000, 0.000000] # step: slightly on step -->
-      robot_pose: [0.480000, 0.000000, -1.928082, -0.000000, 0.007765, 0.000000] # step: a lot of qhull errors
-
-<!--       robot_pose: [0.814453, 0.022880, -1.321568, 0.000000, -0.000000, 1.557972] # step: sideways on step -->
-<!--       robot_pose: [0.204386, 0.000000, -1.323822, 0.000000, -0.000000, 0.000000] # first contact with step -->
-    </rosparam>
-    
-    <param name="scenario" value="step"/>
-    <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/real_robot1.esdf"/>
-<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_step.esdf"/> -->
+    <!-- node parameters -->    
+    <param name="scenario" value="sdf"/>
+<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/real_robot1.esdf"/> -->
+    <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_step.esdf"/>
 <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_highstep.esdf"/> -->
     <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_ramp3.tsdf"/> -->
     <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_stairs2.tsdf"/> -->
@@ -52,8 +18,8 @@
     <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_asym2.tsdf"/> -->
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
     
-    <param name="path_start" value="0.2"/>    
-    <param name="path_stop" value="0.4"/>
+    <param name="path_start" value="-0.3"/>    
+    <param name="path_stop" value="2.5"/>
     <param name="path_step" value="0.02"/>
     
     <!-- posture optimization lib parameters -->
@@ -66,8 +32,6 @@
     
     <!-- contact estimation lib parameters -->
     <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="contact_estimation"/>
-    <rosparam file="$(find sdf_contact_estimation)/config/$(arg telemax_config)_shape_config.yaml" command="load" />  
-    
-    <remap from="~set_robot_pose" to="/whole_body_posture_optimization_node/interactive_marker/set_robot_pose"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/$(arg telemax_config)_shape_config.yaml" command="load" />      
   </node>
 </launch>
