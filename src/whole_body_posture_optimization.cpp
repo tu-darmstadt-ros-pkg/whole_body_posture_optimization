@@ -145,6 +145,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
   int counter = 0;
   for (const geometry_msgs::PoseStamped& pose_msg: path.poses) {
     ROS_INFO_STREAM("Pose: " << counter);
+    counter++;
     Eigen::Affine3d pose;
     tf::poseMsgToEigen(pose_msg.pose, pose);
 
@@ -152,6 +153,13 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
       last_result = findOptimalPosture(pose, getDefaultJointPositions(), std::vector<double>());
       first = false;
     } else {
+      if (last_result.result_contact.estimated_pose.translation().x() > pose.translation().x()) {
+        // Next pose on path is behind last estimated pose
+        // Skip this pose
+        // TODO: Movement direction is hardcoded as X axis
+        ROS_WARN_STREAM("Skipping this pose because " << pose.translation().x() << " < " << last_result.result_contact.estimated_pose.translation().x() << "!");
+        continue;
+      }
 //      last_result = findOptimalPosture(pose, last_result.result_joint_angles, last_result.result_joint_angles, &last_result.result_contact);
       last_result = findOptimalPosture(pose, getDefaultJointPositions(), last_result.result_joint_angles, &last_result.result_contact);
     }
@@ -166,7 +174,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
       break;
     }
 
-    if (stepping_ && stepping_start_ < (counter+2)) {
+    if (stepping_ && stepping_start_ < (counter+1)) {
       std::cout << '\n' << "Press ENTER to continue...";
       do {
       } while (ros::ok() && std::cin.get() != '\n');
@@ -174,7 +182,6 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     if (!ros::ok()) {
       break;
     }
-    counter++;
   }
 
   return results;
