@@ -115,7 +115,7 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
   follow_path_goal.target_path = path;
   follow_path_goal.follow_path_options.desired_speed = 0.0;
   follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
-  follow_path_goal.follow_path_options.reverse_allowed = false;
+  follow_path_goal.follow_path_options.reverse_allowed = true;
   follow_path_goal.follow_path_options.is_fixed = true;
   follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.01;
   follow_path_goal.follow_path_options.goal_pose_angle_tolerance = 0.01;
