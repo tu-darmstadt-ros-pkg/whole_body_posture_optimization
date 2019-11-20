@@ -18,14 +18,13 @@
     <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_asym2.tsdf"/> -->
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
     
-    <param name="path_start" value="-0.3"/>    
+    <param name="path_start" value="-0.2"/>
     <param name="path_stop" value="2.5"/>
     <param name="path_step" value="0.02"/>
     
     <!-- posture optimization lib parameters -->
     <param name="stepping" value="false"/>
     <param name="stepping_start" value="43"/>
-<!--     <param name="debug_computation_rate" value="0"/> -->
 <!--     <param name="sdf_save_folder" value="$(find sdf_contact_estimation)/sdf"/> -->
     <param name="sdf_save_folder" value=""/>
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_$(arg telemax_config).yaml" command="load" />  

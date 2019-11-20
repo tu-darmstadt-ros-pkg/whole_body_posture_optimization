@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 
 <launch>
-  <arg name="lidar_filter_target_frame" default="odom"/>
-
+  <arg name="world" default="step.world"/>
+  
   <arg name="spawn_x_pos" default="0" />
   <arg name="spawn_y_pos" default="0" />
   <arg name="spawn_z_pos" default="0.1" />
@@ -10,7 +10,6 @@
   <arg name="spawn_pitch" default="0.0" />    
   <arg name="spawn_yaw"   default="0" />
   
-  <arg name="world" default="step.world"/>
     
   <include file="$(find drz_telemax_gazebo_launch)/launch/publish_ground_truth_state.launch"/>
   
