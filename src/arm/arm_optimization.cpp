@@ -259,7 +259,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 //  ROS_INFO_STREAM("Created " << self_collision_constraints.size() << " self-collision constraints.");
   STOP_TIMING_AVG
 
-  // Fill in initial joint state (from previous time step)
+  // Fill in initial joint state
   std::vector<double> parameters = jointVectorToParamVector(initial_angles);
 
 //  stability_cost.checkGradient(parameters);

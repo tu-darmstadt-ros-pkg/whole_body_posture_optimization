@@ -201,12 +201,6 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   }
 }
 
-PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d &pose, const std::vector<double> &init_joint_state,
-                                                                           const std::vector<double> &previous_joint_angles)
-{
-  return findOptimalPosture(pose, init_joint_state, previous_joint_angles, nullptr);
-}
-
 PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
                                                                                 const std::vector<double>& previous_joint_angles,
                                                                                 const sdf_contact_estimation::ContactEstimationResult* init_contact_result)

@@ -71,6 +71,7 @@ public:
     // Compute COM
     T com[3];
     (*compute_com_)(parameters, &com[0]);
+
     Vector3<T> com_base(com[0], com[1], com[2]); // TODO use eigen map to eliminate copy
     Vector3<T> com_world = robot_pose_.cast<T>() * com_base;
     // Cast contact points
@@ -125,7 +126,7 @@ private:
   std::vector<std::size_t> param_idx_to_joint_idx_;
   std::vector<Eigen::Vector3d> contact_points_;
   Eigen::Affine3d robot_pose_;
-  std::vector<double> initial_joint_angles;
+  std::vector<double> initial_joint_angles_;
   std::vector<double> previous_param_angles_;
 
   StabilityErrorParameters parameters_;

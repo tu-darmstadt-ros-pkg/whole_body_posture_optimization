@@ -5,7 +5,7 @@ namespace whole_body_posture_optimization {
 StabilityError::StabilityError(const std::shared_ptr<RobotModel>& robot_model, const std::vector<std::string> &free_joints, const std::vector<Eigen::Vector3d> &contact_points,
                                const std::vector<double>& initial_joint_angles, const std::vector<double> &previous_param_angles, const Eigen::Affine3d &robot_pose,
                                const StabilityErrorParameters &parameters)
-  : robot_model_(robot_model), contact_points_(contact_points), initial_joint_angles(initial_joint_angles), robot_pose_(robot_pose), previous_param_angles_(previous_param_angles),
+  : robot_model_(robot_model), contact_points_(contact_points), initial_joint_angles_(initial_joint_angles), robot_pose_(robot_pose), previous_param_angles_(previous_param_angles),
     parameters_(parameters)
 {
   param_idx_to_joint_idx_ = robot_model_->getActuatedJointIndices(free_joints); // TODO remove duplicate mapping calculation
@@ -37,7 +37,7 @@ ComputeCenterOfMass::ComputeCenterOfMass(const std::shared_ptr<RobotModel>& robo
 
 bool ComputeCenterOfMass::Evaluate(const double* const * parameters, double* residuals, double** jacobians) const {
   std::vector<double> joint_angles = init_angles_;
-  for (unsigned int i = 0; i < this->parameter_block_sizes()[0]; i++) {
+  for (unsigned int i = 0; i < this->parameter_block_sizes()[0]; ++i) {
     joint_angles[param_idx_to_joint_idx_[i]] = parameters[0][i];
   }
 
@@ -57,6 +57,7 @@ bool ComputeCenterOfMass::Evaluate(const double* const * parameters, double* res
       }
     }
   }
+
   return true;
 }
 

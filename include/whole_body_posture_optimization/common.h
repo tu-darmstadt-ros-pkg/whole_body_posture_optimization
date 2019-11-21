@@ -9,6 +9,8 @@
 
 #include <ceres_nlopt_wrapper/utils.h>
 
+#include <ceres/cost_function.h>
+
 namespace whole_body_posture_optimization {
 
 enum CollisionType {
@@ -90,6 +92,8 @@ void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Affine3
 std::string line(int length);
 
 std::string getTimestamp();
+
+bool checkGradient(const ceres::CostFunction* cost_function);
 
 }
 

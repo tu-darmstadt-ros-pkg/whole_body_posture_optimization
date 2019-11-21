@@ -97,8 +97,8 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
 
   double mass;
   rbdl::Math::Vector3d com2;
-  jacobian = rbdl::Math::MatrixNd(3, ndirs);
-  rbdl::AD::CalcCenterOfMass(*model_ptr_, *ad_model_ptr_, q, q_dirs, qdot, qdot_dirs, mass, com2, jacobian, nullptr, nullptr, nullptr, nullptr, true);
+  rbdl::Math::MatrixNd full_jacobian = rbdl::Math::MatrixNd(3, ndirs);
+  rbdl::AD::CalcCenterOfMass(*model_ptr_, *ad_model_ptr_, q, q_dirs, qdot, qdot_dirs, mass, com2, full_jacobian, nullptr, nullptr, nullptr, nullptr, true);
   com = com2;
 
   // Work-around because rbdl_reader assigns chassis mass to world frame
@@ -108,7 +108,15 @@ void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Ei
   double mass_with_root = mass + root.mMass;
   double gradient_scaling = mass / mass_with_root;
   mass  = mass_with_root;
-  jacobian *= gradient_scaling;
+  full_jacobian *= gradient_scaling;
+  // Only copy jacobian entries of actuated joints
+  jacobian = rbdl::Math::MatrixNd(3, num_actuated_joints_);
+  for (unsigned int r = 0; r < 3; ++r) {
+    for (unsigned int j = 0; j < num_actuated_joints_; ++j) {
+      jacobian(r, j) = full_jacobian(r, actuated_idx_to_joint_idx_[j]);
+    }
+  }
+
 //  ROS_INFO_STREAM("Mass with chassis: " << mass);
 }
 

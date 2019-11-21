@@ -1,6 +1,7 @@
 #include <whole_body_posture_optimization/common.h>
 
 #include <ctime>
+#include <ceres/gradient_checker.h>
 
 namespace whole_body_posture_optimization {
 
@@ -42,6 +43,21 @@ std::string getTimestamp()
   std::ostringstream oss;
   oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
   return oss.str();
+}
+
+bool checkGradient(const ceres::CostFunction* cost_function)
+{
+  ceres::NumericDiffOptions numeric_diff_options;
+  ceres::GradientChecker gradient_checker(cost_function, nullptr, numeric_diff_options);
+  ceres::GradientChecker::ProbeResults probe_results;
+  std::vector<double> x = std::vector<double>(cost_function->parameter_block_sizes()[0], 0);
+  double const* x_ptr = &x[0];
+  double const *const *parameters_ptr = &x_ptr;
+  if (!gradient_checker.Probe(parameters_ptr, 1e-5, &probe_results)) {
+    ROS_ERROR_STREAM("Gradient check failed. Max relative error: " << probe_results.maximum_relative_error);
+    ROS_ERROR_STREAM("Gradient: " << probe_results.jacobians[0]);
+    ROS_ERROR_STREAM("Numeric gradient: " << probe_results.numeric_jacobians[0]);
+  }
 }
 
 }
