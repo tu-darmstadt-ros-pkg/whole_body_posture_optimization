@@ -22,6 +22,8 @@
     <param name="penalty_weight" value="0.1"/>
   </node>
   <include file="$(find drz_telemax_onboard_launch)/launch/nav/vehicle_controller.launch"/>
+  <include file="$(find hector_joy_teleop)/launch/joy_teleop.launch"/>
+  <include file="$(find hector_joy_mode_switcher)/launch/topic_mode_switcher.launch"/>
   
   <!-- Lidar processing -->  
   <include file="$(find drz_telemax_onboard_launch)/launch/lidar_proc/vlp16_self_filter.launch"/>
