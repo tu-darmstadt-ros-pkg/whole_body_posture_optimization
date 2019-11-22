@@ -13,7 +13,7 @@
     
     <param name="tsdf_voxel_size" value="0.025" />
     <param name="tsdf_voxels_per_side" value="16" />
-    <param name="voxel_carving_enabled" value="true" />
+    <param name="voxel_carving_enabled" value="false" />
     <param name="truncation_distance" value="0.4" />
     
     <param name="publish_slices" value="true" />
