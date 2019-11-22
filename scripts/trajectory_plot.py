@@ -55,9 +55,11 @@ def plot_stability(data, ax):
     ax.set_title("Stability margin")
     ax.set_xlabel('x position (m)')
     ax.set_ylabel('FASM')
+    print("Average stability:")
     for label, d in data:
         x = d[:, 1]
         y = d[:, 6]
+        print("-", label, np.mean(d[:, 6]))
 
         ax.plot(x, y, label=label)
 
