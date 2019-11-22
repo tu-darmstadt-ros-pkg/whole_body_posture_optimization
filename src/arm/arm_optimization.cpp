@@ -38,6 +38,17 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   ros::NodeHandle stopping_criteria_nh(nh_, "stopping_criteria");
   ceres_nlopt_wrapper::setParametersFromServer(stopping_criteria_nh, opt_);
 
+  // Set local optimizer
+  std::string local_algorithm;
+  if (nh.getParam("local_algorithm", local_algorithm)) {
+    nlopt::opt local_opt(local_algorithm.c_str(), free_joints_.size());
+    ros::NodeHandle local_stopping_criteria_nh(nh_, "local_stopping_criteria");
+    ceres_nlopt_wrapper::setParametersFromServer(local_stopping_criteria_nh, local_opt);
+
+    local_opt.set_lower_bounds(lower_bounds_);
+    local_opt.set_upper_bounds(upper_bounds_);
+    opt_.set_local_optimizer(local_opt); // makes a copy
+  }
 }
 
 bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -165,7 +176,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     previous_parameters = jointVectorToParamVector(previous_joint_angles);
   }
   ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost(
-        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0);
+        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 2);
   stability_cost.setName("stability_cost");
   stability_cost.enableInfCheck(true);
   stability_cost.enableNanCheck(true);
