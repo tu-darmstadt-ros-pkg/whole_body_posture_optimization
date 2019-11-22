@@ -112,7 +112,11 @@ public:
       movement_cost /= T(previous_param_angles_.size()); // Normalize by joint count
     }
 
-    cost[0] = parameters_.function_scale * (stability_sum + T(parameters_.movement_cost_weight) * movement_cost);
+    T weighted_movement_cost = T(parameters_.movement_cost_weight) * movement_cost;
+    cost[0] = parameters_.function_scale * (stability_sum + weighted_movement_cost);
+
+    ROS_INFO_STREAM("Stability cost: " << stability_sum << std::endl <<
+                    "Movement cost: " << movement_cost << "[" << weighted_movement_cost << "]");
     return true;
   }
 
