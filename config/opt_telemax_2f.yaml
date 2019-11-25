@@ -48,7 +48,10 @@ arm_optimization:
   self_collision_padding: {
     arm_link_5: 0.3
   }
-  self_collision_tsdf_padding: 0.005
+  self_collision_tsdf_default_padding: 0.005
+  self_collision_tsdf_padding: {
+    arm_link_5: 0.3
+  }
   self_collision_tsdf_truncation_distance: 0.4
   
   objective_parameters:

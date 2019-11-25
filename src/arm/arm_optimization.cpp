@@ -76,7 +76,8 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param<std::vector<std::string>>("semi_static_link_names", semi_static_link_names_, semi_static_link_names_);
   nh.param("self_collision_default_padding", self_collision_default_padding_, 0.0);
   nh.param<std::map<std::string, double>>("self_collision_padding", self_collision_padding_map_, self_collision_padding_map_);
-  nh.param("self_collision_tsdf_padding", self_collision_tsdf_padding_, 0.0);
+  nh.param("self_collision_tsdf_default_padding", self_collision_tsdf_default_padding_, 0.0);
+  nh.param<std::map<std::string, double>>("self_collision_tsdf_padding", self_collision_tsdf_padding_map_, self_collision_tsdf_padding_map_);
   nh.param("self_collision_tsdf_truncation_distance", self_collision_tsdf_truncation_distance_, 0.4);
   nh.param("self_collision_tsdf_voxel_size", self_collision_tsdf_voxel_size_, 0.05);
   nh.param("enabled", enabled_, enabled_);
@@ -99,7 +100,7 @@ double ArmOptimization::getJointPadding(std::string joint_name, CollisionType co
       padding_map = &self_collision_padding_map_;
       break;
     default:
-      padding_map = nullptr;
+      padding_map = &self_collision_tsdf_padding_map_;
   }
   bool found;
   double padding = 0.0;
@@ -126,7 +127,7 @@ double ArmOptimization::getDefaultJointPadding(CollisionType collision_type)
   switch (collision_type) {
     case ENVIRONMENT: return environment_collision_default_padding_;
     case SELF_COLLISION: return self_collision_default_padding_;
-    case SELF_COLLISION_TSDF: return self_collision_tsdf_padding_;
+    case SELF_COLLISION_TSDF: return self_collision_tsdf_default_padding_;
     default: ROS_WARN_STREAM("Unknown collision type. Defaulting to zero padding.");
   }
   return 0.0;

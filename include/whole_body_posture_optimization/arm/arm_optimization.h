@@ -69,7 +69,8 @@ private:
   std::map<std::string, double> environment_collision_padding_map_;
   double self_collision_default_padding_;
   std::map<std::string, double> self_collision_padding_map_;
-  double self_collision_tsdf_padding_;
+  double self_collision_tsdf_default_padding_;
+  std::map<std::string, double> self_collision_tsdf_padding_map_;
 
   double self_collision_tsdf_truncation_distance_;
   double self_collision_tsdf_voxel_size_;
