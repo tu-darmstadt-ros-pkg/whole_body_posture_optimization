@@ -27,9 +27,11 @@ def plot_flipper_cost(data, ax):
     ax.set_title("Flipper reward functions")
     # ax.set_xlabel('x position (m)')
     ax.set_ylabel('function value')
+    print("Average flipper reward:")
     for label, d in data:
         x = d[:, 1]
         y = -d[:, 3]
+        print("-", label, np.mean(-d[:, 3]))
 
         ax.plot(x, y, label=label)
 
@@ -41,9 +43,11 @@ def plot_arm_cost(data, ax):
     ax.set_title("Arm reward functions")
     # ax.set_xlabel('x position (m)')
     ax.set_ylabel('function value')
+    print("Average arm reward:")
     for label, d in data:
         x = d[:, 1]
         y = -d[:, 4]
+        print("-", label, np.mean(-d[:, 4]))
 
         ax.plot(x, y, label=label)
 
