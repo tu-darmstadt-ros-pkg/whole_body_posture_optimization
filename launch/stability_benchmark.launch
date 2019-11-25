@@ -5,16 +5,11 @@
     <param name="save_folder" value="$(find whole_body_posture_optimization)/data/benchmark"/>
     <param name="max_recording_duration" value="60"/>
     <param name="recording_frequency" value="0.5"/>
-    
-    <rosparam subst_value="true">
-      flipper_joint_names:
-        - flipper_joint_1
-    </rosparam>
 
     <remap from="goal" to="/controller/follow_path/goal"/>
     <remap from="feedback" to="/controller/follow_path/feedback"/>
     <remap from="result" to="/controller/follow_path/result"/>
-    <remap from="sdf" to="//driving_controller_node/planning_sdf"/>
+    <remap from="sdf" to="/driving_controller_node/planning_sdf"/>
   </node>
   
 </launch>

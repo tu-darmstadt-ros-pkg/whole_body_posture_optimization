@@ -20,7 +20,7 @@
 
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <sdf_contact_estimation/visualisation.h>
-#include <sdf_contact_estimation/body_shapes/argo_tracker_robot_shape.h>
+#include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
 #include <whole_body_posture_optimization/robot_model.h>
 #include <whole_body_posture_optimization/common.h>
 #include <voxblox_msgs/Layer.h>
@@ -38,36 +38,36 @@ struct DataPoint {
   double stability;
 };
 
-std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+static std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+static std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
-std::shared_ptr<whole_body_posture_optimization::RobotModel> robot_model_;
-std::vector<std::string> joint_names_;
+static std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
+static std::shared_ptr<whole_body_posture_optimization::RobotModel> robot_model_;
+static std::vector<std::string> joint_names_;
 
-sensor_msgs::JointState last_joint_state_;
-bool joint_state_received_;
+static sensor_msgs::JointState last_joint_state_;
+static bool joint_state_received_;
 
-std::shared_ptr<voxblox::EsdfMap> esdf_;
-State current_state_;
-nav_msgs::Path path_;
-unsigned int current_waypoint_id_; // id of leg which is currently approached
+static std::shared_ptr<voxblox::EsdfMap> esdf_;
+static State current_state_;
+static nav_msgs::Path path_;
+static unsigned int current_waypoint_id_; // id of leg which is currently approached
                                    // corresponds to idx of path, that is already completed
-ros::Time start_time_;
-ros::Time end_time_;
-ros::Timer recording_timer_;
+static ros::Time start_time_;
+static ros::Time end_time_;
+static ros::Timer recording_timer_;
 // Recorded data
-std::vector<DataPoint> data_;
+static std::vector<DataPoint> data_;
 
 // Parameters
-std::string base_link_name_;
-std::string save_folder_;
-std::vector<std::string> flipper_joint_names_;
+static std::string base_link_name_;
+static std::string save_folder_;
+static std::vector<std::string> flipper_joint_names_;
 
-ros::Publisher stability_vis_pub_;
-ros::Publisher com_pub_;
-double max_recording_duration_;
-double recording_frequency_;
+static ros::Publisher stability_vis_pub_;
+static ros::Publisher com_pub_;
+static double max_recording_duration_;
+static double recording_frequency_;
 
 
 // Declarations
@@ -124,7 +124,7 @@ void startRecordingCb(const std_msgs::EmptyConstPtr&) {
 }
 
 void recordingTimerCb(const ros::TimerEvent& event) {
-  if (current_state_ = TRACKING) {
+  if (current_state_ == TRACKING) {
     if (event.current_expected < end_time_) {
       recordStability(false);
     } else {
@@ -278,7 +278,6 @@ int main(int argc, char** argv) {
   pnh.param<std::string>("base_link_name", base_link_name_, "base_link");
   pnh.param("max_recording_duration", max_recording_duration_, 30.0);
   pnh.param("recording_frequency", recording_frequency_, 1.0);
-  pnh.param<std::vector<std::string>>("flipper_joint_names", flipper_joint_names_, std::vector<std::string>());
 
   // Init tf
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>();
@@ -286,8 +285,9 @@ int main(int argc, char** argv) {
 
   robot_model_ = std::make_shared<whole_body_posture_optimization::RobotModel>(nh);
   joint_names_ = robot_model_->getActuatedJointNames();
-  sdf_contact_estimation::RobotShapeGeneratorBasePtr tracker_shape = std::make_shared<argo_tracker::ArgoTrackerShape>();
-  contact_estimation_ = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(nh, tracker_shape);
+  sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape = std::make_shared<sdf_contact_estimation::RobotShapeFromUrdf>(pnh);
+  contact_estimation_ = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(nh, robot_shape);
+  flipper_joint_names_ = robot_shape->getJointNames();
 
   // Publishers and subscribers
   stability_vis_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("stability", 10, true);
