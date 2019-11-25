@@ -12,10 +12,10 @@ complete_robot_with_world_group: complete_robot_with_world
   
 arm_optimization:
   enabled: true
-  algorithm: LD_SLSQP
+  #algorithm: LD_SLSQP
   #algorithm: LD_MMA
   #algorithm: LN_COBYLA
-  #algorithm: LD_AUGLAG
+  algorithm: LD_AUGLAG
   stopping_criteria:
     #maxtime: 0.200
     maxeval: 300
@@ -42,7 +42,7 @@ arm_optimization:
   self_collision_padding: {
     arm_link_5: 0.3
   }
-  self_collision_tsdf_padding: 0.0
+  self_collision_tsdf_padding: 0.005
   self_collision_tsdf_truncation_distance: 0.4
   
   objective_parameters:
