@@ -45,6 +45,7 @@ private:
 
   ros::NodeHandle nh_;
   nlopt::opt opt_;
+  std::shared_ptr<nlopt::opt> sub_opt_;
 
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<std::size_t> param_idx_to_jnt_idx_;

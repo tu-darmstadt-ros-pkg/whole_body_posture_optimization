@@ -49,6 +49,16 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
     local_opt.set_upper_bounds(upper_bounds_);
     opt_.set_local_optimizer(local_opt); // makes a copy
   }
+
+  std::string sub_algorithm;
+  if (nh.getParam("sub_algorithm", sub_algorithm)) {
+    sub_opt_ = std::make_shared<nlopt::opt>(sub_algorithm.c_str(), free_joints_.size());
+    // Define parameter bounds
+    sub_opt_->set_lower_bounds(lower_bounds_);
+    sub_opt_->set_upper_bounds(upper_bounds_);
+    ros::NodeHandle sub_stopping_criteria_nh(nh_, "sub_stopping_criteria");
+    ceres_nlopt_wrapper::setParametersFromServer(sub_stopping_criteria_nh, *sub_opt_);
+  }
 }
 
 bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -315,13 +325,49 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   catch (std::runtime_error e) {
     ROS_ERROR_STREAM("Optimization failed: " << e.what());
   }
-  STOP_TIMING_AVG
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                   << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
 
-//  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
+  // Subsidiary optimization
+  if (sub_opt_) {
+    start = std::chrono::high_resolution_clock::now();
+    stability_cost.resetEvaluationCounter();
+    sub_opt_->set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost);
+
+    sub_opt_->remove_inequality_constraints();
+    for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: environment_constraints) {
+      sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+    }
+    for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: self_collision_tsdf_constraints) {
+      sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+    }
+    for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: self_collision_constraints) {
+      sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+    }
+
+    try {
+      if (enabled_) {
+        nlopt_result = sub_opt_->optimize(parameters, minf);
+        ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
+      }
+    }
+    catch (std::invalid_argument e) {
+      ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());
+    }
+    catch (nlopt::roundoff_limited e) {
+      ROS_ERROR_STREAM("Optimization failed: " << e.what());
+    }
+    catch (std::runtime_error e) {
+      ROS_ERROR_STREAM("Optimization failed: " << e.what());
+    }
+
+    elapsed = std::chrono::high_resolution_clock::now() - start;
+    ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
+                    << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
+  }
+  STOP_TIMING_AVG
 
   // Check for collisions in solution  
 //  std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
@@ -343,18 +389,6 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       ROS_WARN_STREAM(violation.toString());
     }
   }
-
-  // DEBUG print environment constraint values:
-//  for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& c: environment_constraints) {
-//    if (!c) {
-//      ROS_ERROR_STREAM("Constraint is null.");
-//      continue;
-//    }
-//    std::vector<double> gradient(parameters.size());
-//    double cost = c->operator ()(parameters, gradient);
-//    ROS_INFO_STREAM(c->getName() << ":" << cost);
-//  }
-
   // Compose result
   ArmOptimizationResult result;
   result.joint_angles = initial_angles;

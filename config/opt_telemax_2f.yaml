@@ -14,8 +14,8 @@ arm_optimization:
   enabled: true
   #algorithm: LD_SLSQP
   #algorithm: LD_MMA
-  #algorithm: LN_COBYLA
-  algorithm: LD_AUGLAG
+  algorithm: LN_COBYLA
+  #algorithm: LD_AUGLAG
   stopping_criteria:
     #maxtime: 0.200
     maxeval: 300
@@ -27,8 +27,14 @@ arm_optimization:
     maxeval: 300
     #ftol_abs: 0.0001
     xtol_abs: 0.01
+  sub_algorithm: LD_SLSQP
+  sub_stopping_criteria:
+    #maxtime: 0.200
+    maxeval: 300
+    #ftol_abs: 0.0001
+    xtol_abs: 0.01
   joints:
-    #- arm_joint_0
+    - arm_joint_0
     - arm_joint_1 # first pitch
     - arm_joint_2 # second pitch
     #- arm_joint_3 # middle roll joint
@@ -49,7 +55,7 @@ arm_optimization:
     function_scale: 1
     exp_parameters: [14.0, -2.6, 0.3]
     lorentzian_sigma: 0.01
-    movement_cost_weight: 0.025
+    movement_cost_weight: 0.25
 
   # moveable, but static regarding arm optimization
   # i.e. flipper links
