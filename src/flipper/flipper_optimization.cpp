@@ -29,7 +29,6 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   std::string algorithm;
   nh.param<std::string>("algorithm", algorithm, "GN_DIRECT_L");
   opt_ = nlopt::opt(algorithm.c_str(), free_joints_.size());
-  std::string local_algorithm;
 
   // Define parameter bounds
   opt_.set_lower_bounds(lower_bounds_);
@@ -40,6 +39,7 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   ceres_nlopt_wrapper::setParametersFromServer(stopping_criteria_nh, opt_);
 
   // Set local optimizer
+  std::string local_algorithm;
   if (nh.getParam("local_algorithm", local_algorithm)) {
     nlopt::opt local_opt(local_algorithm.c_str(), free_joints_.size());
     ros::NodeHandle local_stopping_criteria_nh(nh_, "local_stopping_criteria");
@@ -49,8 +49,6 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
     local_opt.set_upper_bounds(upper_bounds_);
     opt_.set_local_optimizer(local_opt); // makes a copy
   }
-
-
 }
 
 bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)

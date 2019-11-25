@@ -176,7 +176,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     previous_parameters = jointVectorToParamVector(previous_joint_angles);
   }
   ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost(
-        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 2);
+        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0);
   stability_cost.setName("stability_cost");
   stability_cost.enableInfCheck(true);
   stability_cost.enableNanCheck(true);
@@ -275,6 +275,27 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
 //  stability_cost.checkGradient(parameters);
 
+  // Check for collisions in solution
+  std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
+  if (!ceres_nlopt_wrapper::checkConstraints(parameters, environment_constraints, 0.001, constraint_violations)) {
+    ROS_WARN_STREAM("Detected environment collision before optimization!");
+    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
+      ROS_WARN_STREAM(violation.toString());
+    }
+  }
+  if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_tsdf_constraints, 0.001, constraint_violations)) {
+    ROS_WARN_STREAM("Detected self-collision with tsdf before optimization!");
+    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
+      ROS_WARN_STREAM(violation.toString());
+    }
+  }
+  if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_constraints, 0.001, constraint_violations)) {
+    ROS_WARN_STREAM("Detected self-collision before optimization!");
+    for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
+      ROS_WARN_STREAM(violation.toString());
+    }
+  }
+
   START_TIMING("Arm optimization")
   double minf = std::nan("");
   auto start = std::chrono::high_resolution_clock::now();
@@ -303,7 +324,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 //  ROS_INFO_STREAM("Result: " << ceres_nlopt_wrapper::vecToString(parameters));
 
   // Check for collisions in solution  
-  std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
+//  std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
   if (!ceres_nlopt_wrapper::checkConstraints(parameters, environment_constraints, 0.001, constraint_violations)) {
     ROS_WARN_STREAM("Detected environment collision!");
     for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
