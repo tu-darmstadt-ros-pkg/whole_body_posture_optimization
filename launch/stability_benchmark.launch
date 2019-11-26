@@ -1,6 +1,8 @@
 <?xml version="1.0"?>
 <launch> 
-    <node name="stability_benchmark" pkg="whole_body_posture_optimization" type="stability_benchmark_node" respawn="false" output="screen">
+  <arg name="telemax_config" default="telemax_2f"/>
+  
+  <node name="stability_benchmark" pkg="whole_body_posture_optimization" type="stability_benchmark_node" respawn="false" output="screen">
     
     <param name="save_folder" value="$(find whole_body_posture_optimization)/data/benchmark"/>
     <param name="max_recording_duration" value="60"/>
@@ -10,6 +12,8 @@
     <remap from="feedback" to="/controller/follow_path/feedback"/>
     <remap from="result" to="/controller/follow_path/result"/>
     <remap from="sdf" to="/driving_controller_node/planning_sdf"/>
+    
+    <rosparam file="$(find sdf_contact_estimation)/config/$(arg telemax_config)_shape_config.yaml" command="load" />
   </node>
   
 </launch>
