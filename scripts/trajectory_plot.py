@@ -18,7 +18,7 @@ def load_data(data_files):
     data = []
     for data_path in data_files:
         if os.path.isfile(data_path):
-            d = np.loadtxt(data_path, skiprows=1)
+            d = np.genfromtxt(data_path, names=True)
             label = os.path.splitext(os.path.basename(data_path))[0]
             data.append([label, d])
     return data
@@ -30,9 +30,9 @@ def plot_flipper_cost(data, ax):
     ax.set_ylabel('function value')
     print("Average flipper reward:")
     for label, d in data:
-        x = d[:, 1]
-        y = -d[:, 3]
-        print("-", label, np.mean(-d[:, 3]))
+        x = d["pos_x"]
+        y = -d["flipper_cost"]
+        print("-", label, -np.mean(d["flipper_cost"]))
 
         ax.plot(x, y, label=label)
 
@@ -46,9 +46,9 @@ def plot_arm_cost(data, ax):
     ax.set_ylabel('function value')
     print("Average arm reward:")
     for label, d in data:
-        x = d[:, 1]
-        y = -d[:, 4]
-        print("-", label, np.mean(-d[:, 4]))
+        x = d["pos_x"]
+        y = -d["arm_cost"]
+        print("-", label, -np.mean(d["arm_cost"]))
 
         ax.plot(x, y, label=label)
 
@@ -62,9 +62,9 @@ def plot_stability(data, ax):
     ax.set_ylabel('FASM')
     print("Average stability:")
     for label, d in data:
-        x = d[:, 1]
-        y = d[:, 6]
-        print("-", label, np.mean(d[:, 6]))
+        x = d["pos_x"]
+        y = d["stability"]
+        print("-", label, np.mean(d["stability"]))
 
         ax.plot(x, y, label=label)
 
