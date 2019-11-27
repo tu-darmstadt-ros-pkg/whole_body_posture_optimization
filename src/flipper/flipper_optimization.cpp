@@ -108,8 +108,18 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   opt_.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, objective.get());
 
   // Publish start state
+  Eigen::Vector3d default_rpy = sdf_contact_estimation::rotToNormalizedRpy(robot_pose.linear());
+  Eigen::Vector3d default_xyz = robot_pose.translation();
+
+  Eigen::Vector3d previous_rpy = sdf_contact_estimation::rotToNormalizedRpy(init_contact.estimated_pose.linear());
+  Eigen::Vector3d previous_xyz = init_contact.estimated_pose.translation();
+
+  Eigen::Affine3d new_init_pose(Eigen::AngleAxisd(default_rpy(2), Eigen::Vector3d::UnitZ())
+      * Eigen::AngleAxisd(/*0*/ previous_rpy(1), Eigen::Vector3d::UnitY())
+      * Eigen::AngleAxisd(/*0*/ previous_rpy(0), Eigen::Vector3d::UnitX()));
+  new_init_pose.translation() = Eigen::Vector3d(default_xyz(0), default_xyz(1), previous_xyz(2));
   robot_shape_gen_->updateShape(init_flipper_angles);
-  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
+  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, new_init_pose, "world", Eigen::Vector3d(1, 0, 0));
 
   std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
   START_TIMING("Flipper optimization")

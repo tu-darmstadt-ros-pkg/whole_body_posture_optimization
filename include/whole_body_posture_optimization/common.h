@@ -4,12 +4,10 @@
 #include <eigen_conversions/eigen_msg.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <moveit/robot_state/conversions.h>
-
 #include <moveit/collision_distance_field/collision_distance_field_types.h>
-
 #include <ceres_nlopt_wrapper/utils.h>
-
 #include <ceres/cost_function.h>
+#include <sdf_contact_estimation/utils.h>
 
 namespace whole_body_posture_optimization {
 
@@ -41,6 +39,8 @@ std::string vecToString(const std::vector<T>& vec) {
   ss << "]";
   return ss.str();
 }
+
+std::string poseToString(const Eigen::Affine3d& pose);
 
 template <typename T> T lorentzian(const T& x, const T& sigma) {
   return log(T(1) + (x*x)/(T(2) * sigma * sigma));

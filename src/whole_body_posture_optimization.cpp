@@ -12,6 +12,7 @@
 #include <voxblox/io/layer_io.h>
 
 #include <whole_body_posture_optimization/timing.h>
+#include <whole_body_posture_optimization/common.h>
 
 #include <voxblox_msgs/Layer.h>
 
@@ -206,10 +207,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
                                                                                 const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
 {
   START_TIMING("findOptimalPostureSplit")
-  Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
-  Eigen::Vector3d xyz = pose.translation();
   ROS_INFO_STREAM("**********************************************");
-  ROS_INFO("Requested pose: [%f, %f, %f, %f, %f, %f]", xyz(0), xyz(1), xyz(2), rpy(0), rpy(1), rpy(2));
+  ROS_INFO_STREAM("Requested pose: " << poseToString(pose));
   ROS_INFO_STREAM("**********************************************");
 
   PostureOptimizationResult result;
@@ -246,9 +245,10 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   std::vector<sdf_contact_estimation::ContactEstimationResult> request_contact;
 
   // Check if updating contact was successful
-  if (updated_init_contact.convex_hull_points.empty()) {
-    ROS_WARN_STREAM("Updated init contact estimation failed.");
-    updated_init_contact.estimated_pose = pose;
+  if (!updated_init_contact.stable) {
+    ROS_WARN_STREAM("Failed to update previous contact estimation.");
+    updated_init_contact.estimated_pose = updated_init_contact.request_pose;
+    ROS_WARN_STREAM("Using pose: " << poseToString(updated_init_contact.estimated_pose));
   } else {
     result.initial_stability = updated_init_contact.min_stability;
 

@@ -50,14 +50,25 @@ bool checkGradient(const ceres::CostFunction* cost_function)
   ceres::NumericDiffOptions numeric_diff_options;
   ceres::GradientChecker gradient_checker(cost_function, nullptr, numeric_diff_options);
   ceres::GradientChecker::ProbeResults probe_results;
-  std::vector<double> x = std::vector<double>(cost_function->parameter_block_sizes()[0], 0);
+  std::vector<double> x = std::vector<double>(static_cast<size_t>(cost_function->parameter_block_sizes()[0]), 0);
   double const* x_ptr = &x[0];
   double const *const *parameters_ptr = &x_ptr;
   if (!gradient_checker.Probe(parameters_ptr, 1e-5, &probe_results)) {
     ROS_ERROR_STREAM("Gradient check failed. Max relative error: " << probe_results.maximum_relative_error);
     ROS_ERROR_STREAM("Gradient: " << probe_results.jacobians[0]);
     ROS_ERROR_STREAM("Numeric gradient: " << probe_results.numeric_jacobians[0]);
+    return false;
   }
+  return true;
+}
+
+std::string poseToString(const Eigen::Affine3d& pose)
+{
+  Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
+  Eigen::Vector3d xyz = pose.translation();
+  std::string s = "[" + std::to_string(xyz(0)) + ", " + std::to_string(xyz(1)) + ", " + std::to_string(xyz(2)) + ", "
+      + std::to_string(rpy(0)) + ", " + std::to_string(rpy(1)) + ", " + std::to_string(rpy(2)) + "]";
+  return s;
 }
 
 }
