@@ -61,13 +61,15 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   for (Eigen::Vector3d& contact_point: result.contact_points) {
     Eigen::Vector3d normal;
     contact_estimation_->getSdf().getDistanceAndGradient(contact_point, normal);
+    if (normal == Eigen::Vector3d::Zero()) continue; // No gradient
     double angle = std::acos(gravity_vector.dot(normal)/(normal.norm()));
     double a = -2/M_PI;
     double b = 1;
     double v = std::max(a * angle + b, 0.0); // Value between 0 (low traction) and 1 (high traction)
     track_contact_sum += v;
+//    ROS_INFO_STREAM("Track contact value: " << v);
   }
-
+//  ROS_INFO_STREAM("Total track count: " << result.total_track_count);
   // Reward track contact and penalize body contact
   double track_contact_pct = static_cast<double>(track_contact_sum)/result.total_track_count;
 //  double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
