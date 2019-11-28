@@ -39,17 +39,18 @@
 
 <!--       robot_pose: [0.814453, 0.022880, -1.321568, 0.000000, -0.000000, 1.557972] # step: sideways on step -->
 <!--       robot_pose: [0.204386, 0.000000, -1.323822, 0.000000, -0.000000, 0.000000] # first contact with step -->
-      robot_pose: [0.400000, 0.000000, 0.000000, 0.000000, -0.000000, 0.000000] # gazebo asym
+<!--       robot_pose: [2.469902, 0.000000, 1.947217, 0.000000, -0.000000, 0.000000] -->
+      robot_pose: [0, 0.000000,0, 0.000000, -0.000000, 0.000000] # gazebo asym
+      
     </rosparam>
     
     <param name="scenario" value="sdf"/>
     <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/real_robot1.esdf"/> -->
     <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_step.esdf"/> -->
     <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_highstep.esdf"/> -->
-    <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf"/> -->
-    <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/tsdf/gazebo_stairs2.tsdf"/> -->
+        <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf"/>
     <!--         <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf"/> -->
-    <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_asym.esdf"/>
+<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_asym.esdf"/> -->
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
     
     <!-- posture optimization lib parameters -->

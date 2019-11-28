@@ -5,7 +5,7 @@ optimization_type: split
 collision_group: arm_group
 
 stability_limit: 0.0
-front_tip_support_area_limit: 0.3
+front_tip_support_area_limit: 0.0
 
 complete_robot_group: complete_robot_group
 complete_robot_with_world_group: complete_robot_with_world
@@ -14,13 +14,15 @@ arm_optimization:
   enabled: true
   #algorithm: LD_SLSQP
   #algorithm: LD_MMA
-  algorithm: LN_COBYLA
+  #algorithm: LN_COBYLA
   #algorithm: LD_AUGLAG
+  #algorithm: GN_ISRES
   stopping_criteria:
     #maxtime: 0.200
     maxeval: 300
     #ftol_abs: 0.0001
-    xtol_abs: 0.001
+    #xtol_abs: 0.001
+    xtol_rel: 0.005
   local_algorithm: LD_LBFGS
   local_stopping_criteria:
     #maxtime: 0.200
@@ -32,7 +34,8 @@ arm_optimization:
     #maxtime: 0.200
     maxeval: 300
     #ftol_abs: 0.0001
-    xtol_abs: 0.01
+    #xtol_abs: 0.01
+    xtol_rel: 0.005
   joints:
     - arm_joint_0
     - arm_joint_1 # first pitch
@@ -50,15 +53,16 @@ arm_optimization:
   }
   self_collision_tsdf_default_padding: 0.005
   self_collision_tsdf_padding: {
-    arm_link_5: 0.3
+    arm_link_5: 0.3,
+    arm_link_2: 0.03
   }
   self_collision_tsdf_truncation_distance: 0.4
   
   objective_parameters:
     function_scale: 1
     exp_parameters: [14.0, -2.6, 0.3]
-    lorentzian_sigma: 0.01
-    movement_cost_weight: 0.25
+    lorentzian_sigma: 0.15
+    movement_cost_weight: 0.2
 
   # moveable, but static regarding arm optimization
   # i.e. flipper links
@@ -111,8 +115,8 @@ flipper_optimization:
     #xtol_rel: 1e-3
     
   joints:
-    - flipper_back_joint
     - flipper_front_joint
+    - flipper_back_joint
     
   objective: heuristic
     
