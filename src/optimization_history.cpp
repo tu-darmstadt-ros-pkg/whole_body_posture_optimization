@@ -24,6 +24,8 @@ void ObjectiveWriter::addEntry(const std::vector<double>& x, double fvalue)
 ConstraintWriter::ConstraintWriter(OptimizationHistory& history, size_t idx)
   : HistoryWriter(history), idx_(idx) {}
 
+ConstraintWriter::~ConstraintWriter() {}
+
 void ConstraintWriter::addEntry(const std::vector<double>& x, double fvalue)
 {
   // Check if entries are available
