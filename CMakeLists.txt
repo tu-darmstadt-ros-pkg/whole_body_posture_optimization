@@ -41,7 +41,6 @@ set(HEADERS
   include/${PROJECT_NAME}/common.h
   include/${PROJECT_NAME}/timing.h
   include/${PROJECT_NAME}/driving_controller.h
-  include/${PROJECT_NAME}/optimization_history.h
   include/${PROJECT_NAME}/arm/stability_error.h
   include/${PROJECT_NAME}/arm/arm_optimization.h
   include/${PROJECT_NAME}/arm/sdf_contact_constraint.h
@@ -60,7 +59,6 @@ set(SOURCES
   src/robot_model.cpp
   src/common.cpp
   src/driving_controller.cpp
-  src/optimization_history.cpp
   src/arm/stability_error.cpp
   src/arm/arm_optimization.cpp
   src/flipper/flipper_optimization.cpp

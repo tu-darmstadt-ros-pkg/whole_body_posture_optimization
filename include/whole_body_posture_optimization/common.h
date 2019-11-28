@@ -27,19 +27,6 @@ template<typename T>
 using Matrix3 = Eigen::Matrix<T, 3, 3>;
 
 template<typename T>
-bool is_equal(const std::vector<T>& v1, const std::vector<T>& v2) {
-  if (v1.size() != v2.size()) {
-    return false;
-  }
-  for (size_t i = 0; i < v1.size(); ++i) {
-    if (v1[i] != v2[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-template<typename T>
 std::string vecToString(const std::vector<T>& vec) {
   std::stringstream ss;
   ss << "[";

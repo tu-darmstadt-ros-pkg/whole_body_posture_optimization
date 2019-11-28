@@ -1,6 +1,7 @@
 #include <whole_body_posture_optimization/arm/arm_optimization.h>
 
 #include <whole_body_posture_optimization/timing.h>
+#include <ceres_nlopt_wrapper/optimization_history.h>
 
 namespace whole_body_posture_optimization {
 
@@ -178,16 +179,14 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     return result;
   }
 
-//  ROS_INFO_STREAM("lower bounds: " << ceres_nlopt_wrapper::vecToString(lower_bounds_));
-//  ROS_INFO_STREAM("upper bounds: " << ceres_nlopt_wrapper::vecToString(upper_bounds_));
-
   // Add objective function
+  ceres_nlopt_wrapper::OptimizationHistory history;
   std::vector<double> previous_parameters;
   if (!previous_joint_angles.empty()) {
     previous_parameters = jointVectorToParamVector(previous_joint_angles);
   }
   ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost(
-        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0);
+        StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0, history.setObjective());
   stability_cost.setName("stability_cost");
   stability_cost.enableInfCheck(true);
   stability_cost.enableNanCheck(true);
@@ -211,7 +210,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, ENVIRONMENT));
       ceres::CostFunction* cost_function = SdfContactConstraint::Create(
             robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_->getSdf(), collision_object);
-      std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
+      std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
       wrapper->setName("constraint_environment_" + collision_link);
       environment_constraints.push_back(wrapper);
       opt_.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
@@ -236,7 +235,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, SELF_COLLISION_TSDF));
       ceres::CostFunction* cost_function = SdfContactConstraint::Create(
             robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, Eigen::Affine3d::Identity(), robot_base_tsdf, collision_object);
-      std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
+      std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
       wrapper->setName("constraint_self_collision_tsdf_" + collision_link);
       self_collision_tsdf_constraints.push_back(wrapper);
       opt_.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
@@ -270,7 +269,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
           CollisionObject obj2(sphere2, link_name_2, getJointPadding(link_name_2, SELF_COLLISION));
           ceres::CostFunction* cost_function = SelfContactConstraint::Create(
                 robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, obj1, obj2);
-          std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function);
+          std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
           wrapper->setName("constraint_self_collision_" + link_name_1 + "_vs_" + link_name_2);
           self_collision_constraints.push_back(wrapper);
           opt_.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
@@ -368,7 +367,17 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                     << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
   }
+  const ceres_nlopt_wrapper::OptimizationResult* best_result = history.getBestResult();
+  if (best_result) {
+    parameters = best_result->parameters;
+  } else {
+    ROS_WARN_STREAM("No valid solution");
+  }
+  ROS_INFO_STREAM("Arm optimization final solution: " << ceres_nlopt_wrapper::vecToString(parameters) << ", cost: " << minf);
   STOP_TIMING_AVG
+
+//  ROS_INFO_STREAM("History: " << std::endl << history.toString());
+
 
   // Check for collisions in solution  
 //  std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
