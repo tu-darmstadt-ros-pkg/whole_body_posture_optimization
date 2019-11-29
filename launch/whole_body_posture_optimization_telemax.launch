@@ -11,14 +11,14 @@
     <param name="scenario" value="sdf"/>
 <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/real_robot1.esdf"/> -->
 <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_step.esdf"/> -->
-<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf"/> -->
+    <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf"/>
 <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf"/> -->
-    <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_asym.esdf"/>
+<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_asym2.esdf"/> -->
 <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_highstep.esdf"/> -->
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
     
-    <param name="path_start" value="0.0"/>
-    <param name="path_stop" value="2.5"/>
+    <param name="path_start" value="0"/>
+    <param name="path_stop" value="5"/>
     <param name="path_step" value="0.02"/>
     
     <!-- posture optimization lib parameters -->
