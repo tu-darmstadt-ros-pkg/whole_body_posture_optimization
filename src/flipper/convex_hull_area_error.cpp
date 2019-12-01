@@ -30,9 +30,9 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   // Do not allow for poses, that move us backwards
   // TODO: Moving direction is hardcoded as +X for now
   Eigen::Affine3d original_to_estimated = pose_.inverse(Eigen::Isometry) * result.estimated_pose;
-  double diff = original_to_estimated.translation().norm();
+  double diff = original_to_estimated.translation().block<2,1>(0,0).norm();
   double move_backward_weight = 10/*10.0*/;
-  double move_backward_cost = std::max(0.0, diff-0.04);
+  double move_backward_cost = std::max(0.0, diff-0.02);
 
   // Penalize joint movement
   double movement_cost = 0.0;
