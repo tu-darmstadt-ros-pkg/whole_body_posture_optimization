@@ -122,7 +122,7 @@ flipper_optimization:
     
   heuristic:
     lorentzian_sigma: 0.01 #0.15
-    movement_cost_weight: 0.025  #0.5
+    movement_cost_weight: 0.1  #0.5
     track_contact_weight: 8
     body_contact_weight: 3.0
     verbose: false
