@@ -28,16 +28,6 @@
   <!-- Lidar processing -->  
   <include file="$(find drz_telemax_onboard_launch)/launch/lidar_proc/vlp16_self_filter.launch"/>
   
-<!--  <node pkg="vigir_cloud_to_planar_scan" type="periodic_cloud_aggregator_node" name="laserscan_to_aggregated_cloud" output="screen" respawn="true">
-    <remap from="cloud" to="/scan_cloud_filtered" />
-    <remap from="cloud_out" to="/scan_cloud_aggregated" />    
-    <param name="publish_frequency_hz" value="0.5" />
-    <param name="target_frame" value="odom" />
-    <param name="publish_frame" value="spin_lidar_lidar_mount_link_fixed" />
-    <param name="actuated_joint_name" value="spin_lidar_spin_joint" />
-    <param name="actuated_joint_min_velocity" value="0.0" />
-  </node>  -->
-  
   <!-- TSDF -->
   <include file="$(find whole_body_posture_optimization)/launch/tsdf_server.launch"/>
   
