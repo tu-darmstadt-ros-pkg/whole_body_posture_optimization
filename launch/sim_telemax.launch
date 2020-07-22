@@ -14,7 +14,7 @@
   <include file="$(find drz_telemax_gazebo_launch)/launch/publish_ground_truth_state.launch"/>
   
   <!--Arm Motion planning-->
-  <include file="$(find drz_telemax_onboard_launch)/launch/onboard_move_group.launch"/>
+  <include file="$(find drz_telemax_onboard_launch)/launch/control/control_default.launch"/>
   
   <!-- Navigation-->
   <node pkg="move_base_lite_server" type="move_base_lite_node" name="move_base_lite_node" output="screen" respawn="true">

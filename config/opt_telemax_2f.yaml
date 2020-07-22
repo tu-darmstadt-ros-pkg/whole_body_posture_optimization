@@ -23,13 +23,13 @@ arm_optimization:
     #ftol_abs: 0.0001
     #xtol_abs: 0.001
     xtol_rel: 0.005
-  local_algorithm: LD_LBFGS
+  #local_algorithm: LD_LBFGS
   local_stopping_criteria:
     #maxtime: 0.200
     maxeval: 300
     #ftol_abs: 0.0001
     xtol_abs: 0.01
-  sub_algorithm: LD_SLSQP
+  #sub_algorithm: LD_SLSQP
   sub_stopping_criteria:
     #maxtime: 0.200
     maxeval: 300
@@ -73,7 +73,7 @@ arm_optimization:
     - flipper_back_right_link
     
   static_link_names:
-    - spin_lidar_pitch_hokuyo_laser_frame
+    - spin_lidar_laser_frame
     - realsense_d435_back_link
     - navigation_module_link
     #- manipulator_base_link
