@@ -7,7 +7,7 @@
 nav_msgs::Path createPath(double start_x, double stop_x, double step, const Eigen::Vector3d& offset=Eigen::Vector3d::Zero()) {
   nav_msgs::Path path;
   double dir = start_x < stop_x ? 1 : -1;
-  for (double x = start_x; dir * x < dir * stop_x; x+=step) {
+  for (double x = start_x; dir * x < dir * stop_x; x+=dir*step) {
     geometry_msgs::PoseStamped pose_msg;
     pose_msg.header.frame_id = "world";
 
