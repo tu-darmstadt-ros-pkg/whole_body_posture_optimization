@@ -367,12 +367,15 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                     << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
   }
-  const ceres_nlopt_wrapper::OptimizationResult* best_result = history.getBestResult();
-  if (best_result) {
-    parameters = best_result->parameters;
-  } else {
-    ROS_WARN_STREAM("No valid solution");
+  if (enabled_) {
+    const ceres_nlopt_wrapper::OptimizationResult* best_result = history.getBestResult();
+    if (best_result) {
+      parameters = best_result->parameters;
+    } else {
+      ROS_WARN_STREAM("Arm optimization history does not contain any valid solution.");
+    }
   }
+
   ROS_INFO_STREAM("Arm optimization final solution: " << ceres_nlopt_wrapper::vecToString(parameters) << ", cost: " << minf);
   STOP_TIMING_AVG
 
