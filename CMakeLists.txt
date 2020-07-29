@@ -48,6 +48,7 @@ set(HEADERS
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
   include/${PROJECT_NAME}/flipper/convex_hull_area_error.h
   include/${PROJECT_NAME}/flipper/flipper_stability_cost.h
+  include/${PROJECT_NAME}/flipper/fast_traction_cost.h
   include/${PROJECT_NAME}/combined/combined_optimization.h
   include/${PROJECT_NAME}/combined/combined_stability_cost.h
   include/${PROJECT_NAME}/combined/self_contact_constraint_no_gradient.h
@@ -64,6 +65,7 @@ set(SOURCES
   src/flipper/flipper_optimization.cpp
   src/flipper/convex_hull_area_error.cpp
   src/flipper/flipper_stability_cost.cpp
+  src/flipper/fast_traction_cost.cpp
   src/combined/combined_optimization.cpp
   src/combined/combined_stability_cost.cpp
 )
