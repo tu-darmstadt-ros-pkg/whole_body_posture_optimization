@@ -14,8 +14,8 @@ ConvexHullAreaError::ConvexHullAreaError(const std::vector<std::string>& free_jo
 
 bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double* cost) const
 {
+  // *** Simulation ** //
   // Simulate contact with given joint positions
-//  std::vector<double> flipper_angles_vec(flipper_angles[0], flipper_angles[0] + free_joints_.size());
   std::vector<double> flipper_angles_vec = init_flipper_angles_;
   for (unsigned int i = 0; i < free_joints_.size(); i++) {
     flipper_angles_vec[param_idx_to_flipper_state_[i]] = flipper_angles[0][i];
@@ -27,12 +27,12 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
     return true;
   }
 
-  // Do not allow for poses, that move us backwards
-  // TODO: Moving direction is hardcoded as +X for now
+  // *** Cost functions ** //
+  // Penalyze deviation from requested position
   Eigen::Affine3d original_to_estimated = pose_.inverse(Eigen::Isometry) * result.estimated_pose;
   double diff = original_to_estimated.translation().block<2,1>(0,0).norm();
   double move_backward_weight = 10/*10.0*/;
-  double move_backward_cost = std::max(0.0, diff-0.02);
+  double move_backward_cost = std::max(0.0, diff-0.02); // 2cm leeway
 
   // Penalize joint movement
   double movement_cost = 0.0;
@@ -44,12 +44,13 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
     movement_cost /= prev_flipper_param_angles_.size(); // Normalize by number of joints
   }
 
-  // Penalize base orientation
+  // Penalize chassis roll angle
   // We want the chassis to be upright
-  Eigen::Vector3d up = Eigen::Vector3d::UnitZ();
-  Eigen::Vector3d up_world = result.estimated_pose.linear() * up;
-  double inclination_weight = 0.0;
-  double inclination_angle = std::acos(up.dot(up_world));
+  double chassis_roll_weight = 2.0;
+  double chassis_roll_angle = result.estimated_pose.linear().eulerAngles(0, 1, 2)[0];
+  if (chassis_roll_angle > M_PI_2) {
+    chassis_roll_angle = M_PI - chassis_roll_angle;
+  }
 
   // Weight track contact by angle between contact normal and (inverse) gravity vector
   double track_contact_sum = 0;
@@ -91,7 +92,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   cost[0] = -result.support_area - parameters_.track_contact_weight * track_contact_pct
       + parameters_.body_contact_weight * body_contact_pct
       + parameters_.movement_cost_weight * movement_cost
-      + inclination_weight * inclination_angle * inclination_angle
+      + chassis_roll_weight * chassis_roll_angle * chassis_roll_angle
       + move_backward_weight * move_backward_cost;
 
   if (parameters_.verbose) {
@@ -100,7 +101,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
                     << "body contact: " << body_contact_pct << " (" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
                     << "movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
                     << "moving backward cost: " << move_backward_cost << " (" << move_backward_weight * move_backward_cost << ")" << std::endl
-                    << "inclination angle: " << inclination_angle << " (" << inclination_weight * inclination_angle * inclination_angle << ")");
+                    << "chassis roll angle: " << chassis_roll_angle << " (" << chassis_roll_weight * chassis_roll_angle << ")");
   }
 
   return true;
