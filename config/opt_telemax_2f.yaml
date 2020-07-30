@@ -11,7 +11,7 @@ complete_robot_group: complete_robot_group
 complete_robot_with_world_group: complete_robot_with_world
   
 arm_optimization:
-  enabled: true
+  enabled: false
   #algorithm: LD_SLSQP
   #algorithm: LD_MMA
   algorithm: LN_COBYLA
@@ -37,7 +37,7 @@ arm_optimization:
     #xtol_abs: 0.01
     xtol_rel: 0.005
   joints:
-    #- arm_joint_0
+    - arm_joint_0
     - arm_joint_1 # first pitch
     - arm_joint_2 # second pitch
     #- arm_joint_3 # middle roll joint
@@ -108,9 +108,9 @@ flipper_optimization:
     #xtol_rel: 1e-1
     #ftol_abs: 1-e2
     
-  local_algorithm: LN_NELDERMEAD
-  local_stopping_criteria:
-    maxeval: 10
+  #local_algorithm: LN_NELDERMEAD
+  #local_stopping_criteria:
+    #maxeval: 10
     #ftol_rel: 1e-3
     #xtol_rel: 1e-3
     
@@ -118,7 +118,7 @@ flipper_optimization:
     - flipper_front_joint
     - flipper_back_joint
     
-  objective: heuristic
+  objective: fast
     
   heuristic:
     lorentzian_sigma: 0.01 #0.15

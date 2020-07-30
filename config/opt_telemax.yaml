@@ -11,16 +11,33 @@ complete_robot_group: complete_robot_group
 complete_robot_with_world_group: complete_robot_with_world
   
 arm_optimization:
-  enabled: true
+  enabled: false
   #algorithm: LD_SLSQP
-  algorithm: LD_MMA
-  #algorithm: LN_COBYLA
+  #algorithm: LD_MMA
+  algorithm: LN_COBYLA
+  #algorithm: LD_AUGLAG
+  #algorithm: GN_ISRES
   stopping_criteria:
     #maxtime: 0.200
     maxeval: 300
-    ftol_abs: 0.00001
+    #ftol_abs: 0.0001
+    #xtol_abs: 0.001
+    xtol_rel: 0.005
+  #local_algorithm: LD_LBFGS
+  local_stopping_criteria:
+    #maxtime: 0.200
+    maxeval: 300
+    #ftol_abs: 0.0001
+    xtol_abs: 0.01
+  #sub_algorithm: LD_SLSQP
+  sub_stopping_criteria:
+    #maxtime: 0.200
+    maxeval: 300
+    #ftol_abs: 0.0001
+    #xtol_abs: 0.01
+    xtol_rel: 0.005
   joints:
-    #- arm_joint_0
+    - arm_joint_0
     - arm_joint_1 # first pitch
     - arm_joint_2 # second pitch
     #- arm_joint_3 # middle roll joint
@@ -34,14 +51,18 @@ arm_optimization:
   self_collision_padding: {
     arm_link_5: 0.3
   }
-  self_collision_tsdf_padding: 0.02
+  self_collision_tsdf_default_padding: 0.005
+  self_collision_tsdf_padding: {
+    arm_link_5: 0.3,
+    arm_link_2: 0.03
+  }
   self_collision_tsdf_truncation_distance: 0.4
   
   objective_parameters:
     function_scale: 1
     exp_parameters: [14.0, -2.6, 0.3]
     lorentzian_sigma: 0.15
-    movement_cost_weight: 0.05
+    movement_cost_weight: 0.3
 
   # moveable, but static regarding arm optimization
   # i.e. flipper links
@@ -52,7 +73,7 @@ arm_optimization:
     - flipper_back_right_link
     
   static_link_names:
-    - spin_lidar_pitch_hokuyo_laser_frame
+    - spin_lidar_laser_frame
     - realsense_d435_back_link
     - navigation_module_link
     #- manipulator_base_link
@@ -81,15 +102,16 @@ flipper_optimization:
   #algorithm: G_MLSL
   #algorithm: G_MLSL_LDS
   stopping_criteria:
-    maxeval: 8000
+    maxeval: 100
+    #stopval: -1.5
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1
     #ftol_abs: 1-e2
     
-  local_algorithm: LN_NELDERMEAD
-  local_stopping_criteria:
-    maxeval: 10
+  #local_algorithm: LN_NELDERMEAD
+  #local_stopping_criteria:
+    #maxeval: 10
     #ftol_rel: 1e-3
     #xtol_rel: 1e-3
     
@@ -99,55 +121,20 @@ flipper_optimization:
     - flipper_back_left_joint
     - flipper_back_right_joint
     
-  objective: heuristic
+  objective: fast
     
   heuristic:
     lorentzian_sigma: 0.01 #0.15
-    movement_cost_weight: 0.05  #0.5
-    track_contact_weight: 4
-    body_contact_weight: 3.0
+    movement_cost_weight: 0.1  #0.5
+    track_contact_weight: 8
+    body_contact_weight: 50
+    verbose: false
     
   stability:
     exp_parameters: [14.0, -2.6, 0.3] 
     lorentzian_sigma: 0.2
     movement_cost_weight: 0.02
   
-combined_optimization:
-  enabled: true
-  algorithm: LN_COBYLA
-  flipper_joints:
-    - flipper_front_left_joint
-    - flipper_front_right_joint
-    - flipper_back_left_joint
-    - flipper_back_right_joint
-  arm_joints:
-    #- arm_joint_0
-    - arm_joint_1 # first pitch
-    - arm_joint_2 # second pitch
-    #- arm_joint_3 # middle roll joint
-    - arm_joint_4 # third pitch
-    #- arm_joint_5 # last roll joint
-    
-  environment_collision_default_padding: 0.1
-  environment_collision_padding: {
-    arm_link_5: 0.3, # additional padding to cover fingers
-  }
-  self_collision_padding: 0.05
-  self_collision_tsdf_padding: 0.05
-  self_collision_tsdf_truncation_distance: 0.4
-  
-  exp_parameters: [4.0, -3, 0.3]
-
-  lorentzian_sigma: 0.2
-  regularization_weight: 0.02
-  
-  static_link_names:
-    - spin_lidar_pitch_hokuyo_laser_frame
-    - realsense_d435_back_link
-    - navigation_module_link
-    #- manipulator_base_link
-    - chassis_link
-    - autonomy_box_link
 ## Debug
 posture_optimization_debug: false
 contact_estimation/debug: false    
