@@ -9,6 +9,7 @@
 #include <whole_body_posture_optimization/robot_model.h>
 #include <whole_body_posture_optimization/flipper/convex_hull_area_error.h>
 #include <whole_body_posture_optimization/flipper/flipper_stability_cost.h>
+#include <whole_body_posture_optimization/flipper/fast_traction_cost.h>
 
 namespace whole_body_posture_optimization {
 
@@ -48,6 +49,7 @@ private:
 
   nlopt::opt opt_;
   bool enabled_;
+  unsigned int parameter_count_;
   std::vector<std::string> free_joints_;
   std::vector<double> upper_bounds_;
   std::vector<double> lower_bounds_;
@@ -55,6 +57,7 @@ private:
 
   ConvexHullAreaErrorParameters convex_hull_error_parameters_;
   FlipperStabilityCostParameters stability_cost_parameters_;
+  FastTractionCost::Parameters fast_traction_cost_parameters_;
 
   ros::Publisher start_state_pub_;
   ros::Publisher result_state_pub_;

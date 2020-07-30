@@ -26,9 +26,13 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com_pose", 10, true);
 
   // Create nlopt optimizer
+  parameter_count_ = static_cast<unsigned int>(free_joints_.size());
+  if (objective_ == "fast") {
+    parameter_count_ += 3;
+  }
   std::string algorithm;
   nh.param<std::string>("algorithm", algorithm, "GN_DIRECT_L");
-  opt_ = nlopt::opt(algorithm.c_str(), free_joints_.size());
+  opt_ = nlopt::opt(algorithm.c_str(), parameter_count_);
 
   // Define parameter bounds
   opt_.set_lower_bounds(lower_bounds_);
@@ -41,7 +45,7 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   // Set local optimizer
   std::string local_algorithm;
   if (nh.getParam("local_algorithm", local_algorithm)) {
-    nlopt::opt local_opt(local_algorithm.c_str(), free_joints_.size());
+    nlopt::opt local_opt(local_algorithm.c_str(), parameter_count_);
     ros::NodeHandle local_stopping_criteria_nh(nh_, "local_stopping_criteria");
     ceres_nlopt_wrapper::setParametersFromServer(local_stopping_criteria_nh, local_opt);
 
@@ -67,6 +71,8 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
   } else if (objective_ == "stability") {
     stability_cost_parameters_ = FlipperStabilityCostParameters::createFromServer(ros::NodeHandle(nh, "stability"));
     ROS_INFO_STREAM(stability_cost_parameters_.toString());
+  } else if (objective_ == "fast") {
+    fast_traction_cost_parameters_ = FastTractionCost::Parameters::createFromServer(ros::NodeHandle(nh, "fast"));
   }
 
   return true;
@@ -99,6 +105,10 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
     objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
           FlipperStabilityCost::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_parameters, init_contact, stability_cost_parameters_),
           verbosity_level);
+  } else if (objective_ == "fast") {
+    objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
+          FastTractionCost::Create(init_contact.estimated_pose, free_joints_, init_flipper_angles, previous_parameters, contact_estimation_, fast_traction_cost_parameters_),
+          verbosity_level);
   } else {
     ROS_ERROR_STREAM("Unknown objective '" << objective_ << "'!");
   }
@@ -122,6 +132,12 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, new_init_pose, "world", Eigen::Vector3d(1, 0, 0));
 
   std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
+  if (objective_ == "fast") {
+    // z position and roll, pitch orientation parameters
+    parameters.push_back(previous_xyz(2));
+    parameters.push_back(previous_rpy(0));
+    parameters.push_back(previous_rpy(1));
+  }
   START_TIMING("Flipper optimization")
   double minf = std::nan("");
   auto start = std::chrono::high_resolution_clock::now();
@@ -156,27 +172,34 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   // Compose result
   FlipperOptimizationResult result;
   result.final_cost = minf;
-  result.flipper_angles = parameters;
   // Fill in complete robot state with solution
   result.joint_state = init_joint_angles;
-  for (unsigned int i = 0; i < parameters.size(); i++) {
+  for (unsigned int i = 0; i < param_idx_to_jnt_idx_.size(); i++) {
     result.joint_state[param_idx_to_jnt_idx_[i]] = parameters[i];
   }
   // Fill in complete flipper state with solution
-  std::vector<double> flipper_state = init_flipper_angles;
+  result.flipper_angles = init_flipper_angles;
   for (unsigned int i = 0; i < free_joints_.size(); ++i) {
-    flipper_state[param_idx_to_flippers_idx_[i]] = parameters[i];
+    result.flipper_angles[param_idx_to_flippers_idx_[i]] = parameters[i];
   }
-  contact_estimation_->updateJointStates(flipper_state);
+  // Estimate robot pose with flipper solution
+  contact_estimation_->updateJointStates(result.flipper_angles);
   result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
-  const Eigen::Vector3d& xyz = result.contact_result.estimated_pose.translation();
+  Eigen::Affine3d result_pose = result.contact_result.estimated_pose;
+  if (objective_ == "fast") {
+    result_pose = Eigen::Affine3d(Eigen::AngleAxisd(previous_rpy(2), Eigen::Vector3d::UnitZ())
+        * Eigen::AngleAxisd(parameters[free_joints_.size() + 2], Eigen::Vector3d::UnitY())
+        * Eigen::AngleAxisd(parameters[free_joints_.size() + 1], Eigen::Vector3d::UnitX()));
+    new_init_pose.translation() = Eigen::Vector3d(previous_xyz(0), previous_xyz(1), previous_xyz(2) + parameters[free_joints_.size() + 0]);
+  }
+  const Eigen::Vector3d& xyz = result_pose.translation();
   ROS_INFO("New robot position: [%f, %f, %f]", xyz(0), xyz(1), xyz(2));
 
   // Publish result
   // Final robot shape
-  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), result_state_pub_, result.contact_result.estimated_pose, "world", Eigen::Vector3d(1, 1, 0));
+  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), result_state_pub_, result_pose, "world", Eigen::Vector3d(1, 1, 0));
   // COM pose
-  Eigen::Affine3d result_com_pose = result.contact_result.estimated_pose * base_to_com;
+  Eigen::Affine3d result_com_pose = result_pose * base_to_com;
   sdf_contact_estimation::publishPose(result_com_pub_, result_com_pose, "world");
   // Contact points and support polygon
   visualization_msgs::MarkerArray contact_points_array_msg;
@@ -234,6 +257,18 @@ bool FlipperOptimization::loadLimits()
     }
     upper_bounds_.push_back(upper);
     lower_bounds_.push_back(lower);
+  }
+
+  if (objective_ == "fast") {
+    // Z offset
+    upper_bounds_.push_back(2);
+    lower_bounds_.push_back(-2);
+    // Roll
+    upper_bounds_.push_back(M_PI_4);
+    lower_bounds_.push_back(-M_PI_4);
+    // Pitch
+    upper_bounds_.push_back(M_PI_2);
+    lower_bounds_.push_back(-M_PI_2);
   }
   return true;
 }
