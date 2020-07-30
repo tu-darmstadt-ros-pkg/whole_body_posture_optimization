@@ -24,11 +24,11 @@ bool FastTractionCost::operator()(const double* const * parameters, double* cost
   Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(pose_.linear());
   // Parameters N-N+3: Z offset, Roll, Pitch coordinates of robot base in world
   Eigen::Affine3d pose(Eigen::AngleAxisd(pose_rpy(2), Eigen::Vector3d::UnitZ())
-      * Eigen::AngleAxisd(free_joints_.size() + 2, Eigen::Vector3d::UnitY())
-      * Eigen::AngleAxisd(free_joints_.size() + 1, Eigen::Vector3d::UnitX()));
+      * Eigen::AngleAxisd(parameters[0][free_joints_.size() + 2], Eigen::Vector3d::UnitY())
+      * Eigen::AngleAxisd(parameters[0][free_joints_.size() + 1], Eigen::Vector3d::UnitX()));
   pose.translation().x() = pose_.translation().x();
   pose.translation().y() = pose_.translation().y();
-  pose.translation().z() = pose_.translation().z() + free_joints_.size() + 0;
+  pose.translation().z() = pose_.translation().z() + parameters[0][free_joints_.size() + 0];
 
 
   // Get sampled points in base link
@@ -46,7 +46,11 @@ bool FastTractionCost::operator()(const double* const * parameters, double* cost
       // Evaluate SDF at points
       double distance = contact_estimation_->getSdfValue(contact_world.x(), contact_world.y(), contact_world.z());
       // Apply cost function
-      track_contact_costs += distance * distance;
+      if (distance > 0) {
+//        track_contact_costs += distance;
+      } else {
+        track_contact_costs += -100*distance;
+      }
     }
   }
 
