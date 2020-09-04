@@ -34,7 +34,8 @@ bool FastTractionCost::operator()(const double* const * parameters, double* cost
   // Get sampled points in base link
   const sdf_contact_estimation::RobotShape& robot_shape = contact_estimation_->getRobotShape();
 
-  double track_contact_costs = 0;
+  double track_contact_cost = 0;
+  double ground_obstacle_cost = 0;
   for (sdf_contact_estimation::ShapePtr shape: robot_shape) {
     if (!shape->isTrack()) {
       continue;
@@ -47,14 +48,21 @@ bool FastTractionCost::operator()(const double* const * parameters, double* cost
       double distance = contact_estimation_->getSdfValue(contact_world.x(), contact_world.y(), contact_world.z());
       // Apply cost function
       if (distance > 0) {
-//        track_contact_costs += distance;
+        track_contact_cost += distance;
       } else {
-        track_contact_costs += -100*distance;
+        ground_obstacle_cost += distance*distance;
       }
     }
   }
 
-  *cost = track_contact_costs;
+  double height_cost = pose.translation().z();
+
+  ROS_INFO_STREAM(std::endl <<
+                  "Track contact cost: " << track_contact_cost << std::endl <<
+                  "Ground obstacle cost: " << ground_obstacle_cost
+                  );
+
+  *cost = track_contact_cost + ground_obstacle_cost + 10*height_cost;
   return true;
 }
 
