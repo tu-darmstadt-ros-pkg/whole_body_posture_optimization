@@ -7,7 +7,7 @@ namespace whole_body_posture_optimization {
 FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel> &robot_model,
                                          const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
                                          const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation)
-  : nh_(nh), contact_estimation_(contact_estimation), robot_model_(robot_model), robot_shape_gen_(robot_shape_gen), enabled_(true)
+  : nh_(nh), robot_model_(robot_model), contact_estimation_(contact_estimation), robot_shape_gen_(robot_shape_gen), enabled_(true)
 {
   if (!loadParameters(nh)) {
     ROS_ERROR_STREAM("Loading flipper parameters failed.");
@@ -103,7 +103,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
           verbosity_level);
   } else if (objective_ == "stability") {
     objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
-          FlipperStabilityCost::Create(free_joints_.size(), contact_estimation_, robot_pose, base_to_com, previous_parameters, init_contact, stability_cost_parameters_),
+          FlipperStabilityCost::Create(static_cast<unsigned int>(free_joints_.size()), contact_estimation_, robot_pose, base_to_com, previous_parameters, init_contact, stability_cost_parameters_),
           verbosity_level);
   } else if (objective_ == "fast") {
     objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
@@ -261,8 +261,8 @@ bool FlipperOptimization::loadLimits()
 
   if (objective_ == "fast") {
     // Z offset
-    upper_bounds_.push_back(2);
-    lower_bounds_.push_back(-2);
+    upper_bounds_.push_back(0.5);
+    lower_bounds_.push_back(-0.5);
     // Roll
     upper_bounds_.push_back(M_PI_4);
     lower_bounds_.push_back(-M_PI_4);
