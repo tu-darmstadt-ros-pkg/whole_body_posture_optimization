@@ -7,14 +7,13 @@
   <param name="robot_description_semantic" textfile="$(find drz_telemax_moveit_config)/config/drz_telemax.srdf" />
   
   <!-- Joint state UI -->
-  <param name="use_gui" value="True"/>
   <rosparam subst_value="true">
     zeros:
       arm_joint_1: -2
       arm_joint_2: 1.2
       arm_joint_4: 1
   </rosparam>
-  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+  <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" />
   
   <!-- Robot pose interactive marker -->
   <node pkg="vigir_interactive_marker_pose_server" type="interactive_marker_pose_server" name="robot_pose_interactive_marker" output="screen" 
@@ -40,7 +39,7 @@
 <!--       robot_pose: [0.814453, 0.022880, -1.321568, 0.000000, -0.000000, 1.557972] # step: sideways on step -->
 <!--       robot_pose: [0.204386, 0.000000, -1.323822, 0.000000, -0.000000, 0.000000] # first contact with step -->
 <!--       robot_pose: [2.469902, 0.000000, 1.947217, 0.000000, -0.000000, 0.000000] -->
-      robot_pose: [0, 0.000000,0, 0.000000, -0.000000, 0.000000] # gazebo asym
+      robot_pose: [0,0,0,0,0,0] # gazebo asym
       
     </rosparam>
     
@@ -50,12 +49,12 @@
     <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_highstep.esdf"/> -->
 <!--         <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf"/> -->
     <!--         <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf"/> -->
-    <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_asym.esdf"/>
+<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_asym.esdf"/> -->
+    <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_mob4.esdf"/>
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
     
     <!-- posture optimization lib parameters -->
 <!--     <param name="sdf_save_folder" value="$(find sdf_contact_estimation)/sdf"/> -->
-    <param name="sdf_save_folder" value=""/>
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_$(arg telemax_config).yaml" command="load" />  
     
     <!-- contact estimation lib parameters -->

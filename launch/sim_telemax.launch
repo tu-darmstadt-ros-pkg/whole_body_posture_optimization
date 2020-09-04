@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 
 <launch>
+  <arg name="world_path" default="$(find whole_body_posture_optimization)/worlds"/>
   <arg name="world" default="step.world"/>
   
   <arg name="spawn_x_pos" default="0" />
@@ -43,7 +44,7 @@
   
   <param name="/use_sim_time" value="true" />
 
-  <node name="gazebo" pkg="gazebo_ros" type="gzserver" args="$(find whole_body_posture_optimization)/worlds/$(arg world) --verbose --pause" respawn="false" output="screen"/>
+  <node name="gazebo" pkg="gazebo_ros" type="gzserver" args="$(arg world_path)/$(arg world) --verbose --pause" respawn="false" output="screen"/>
   
   <!-- start gui -->
   <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen"/>
