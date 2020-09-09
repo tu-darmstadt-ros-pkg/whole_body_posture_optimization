@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>  
-  <arg name="telemax_config" default="telemax_2f"/>
+  <arg name="telemax_config" default="telemax"/>
   
   <!-- Load robot description -->
   <param name="robot_description" command="$(find xacro)/xacro --inorder $(find drz_telemax_description)/urdf/drz_telemax_complete.urdf.xacro" />

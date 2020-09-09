@@ -5,7 +5,7 @@ optimization_type: split
 collision_group: arm_group
 
 stability_limit: 0.3
-front_tip_support_area_limit: 0.3
+front_tip_support_area_limit: 0.0
 
 complete_robot_group: complete_robot_group
 complete_robot_with_world_group: complete_robot_with_world
@@ -102,8 +102,8 @@ flipper_optimization:
   #algorithm: G_MLSL
   #algorithm: G_MLSL_LDS
   stopping_criteria:
-    maxeval: 100
-    #stopval: -1.5
+    maxeval: 10000
+    stopval: -1.5
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1
@@ -121,7 +121,7 @@ flipper_optimization:
     - flipper_back_left_joint
     - flipper_back_right_joint
     
-  objective: fast
+  objective: heuristic
     
   heuristic:
     lorentzian_sigma: 0.01 #0.15
