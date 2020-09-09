@@ -76,8 +76,7 @@ arm_optimization:
     - spin_lidar_laser_frame
     - front_rgbd_cam_link
     - back_rgbd_cam_link
-    #- manipulator_base_link
-    - chassis_link
+    #- chassis_link
     - autonomy_box_link
     - camera360_center_link
     - main_track_left_link
@@ -110,7 +109,7 @@ flipper_optimization:
   #algorithm: G_MLSL_LDS
   stopping_criteria:
     maxeval: 1000
-    #stopval: -1.5
+    stopval: -2
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1
