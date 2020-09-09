@@ -192,8 +192,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
         * Eigen::AngleAxisd(parameters[free_joints_.size() + 1], Eigen::Vector3d::UnitX()));
     result_pose.translation() = Eigen::Vector3d(default_xyz(0), default_xyz(1), default_xyz(2) + parameters[free_joints_.size() + 0]);
   }
-  const Eigen::Vector3d& xyz = result_pose.translation();
-  ROS_INFO("New robot position: [%f, %f, %f]", xyz(0), xyz(1), xyz(2));
+  ROS_INFO("New robot position: [%f, %f, %f]", result_pose.translation()(0), result_pose.translation()(1), result_pose.translation()(2));
 
   // Publish result
   // Final robot shape
