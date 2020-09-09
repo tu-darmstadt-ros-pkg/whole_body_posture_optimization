@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<launch>    
+  <!-- Load robot description -->
+  <param name="robot_description" command="$(find xacro)/xacro --inorder $(find asterix_description)/urdf/asterix_ugv.urdf.xacro" />
+  <param name="robot_description_semantic" textfile="$(find asterix_moveit_config)/config/asterix_ugv.srdf" />
+  
+  <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen" clear_params="true">
+    <!-- node parameters -->    
+    <param name="scenario" value="sdf"/>
+<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/real_robot1.esdf"/> -->
+    <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_step.esdf"/>
+<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_mob4.esdf"/> -->
+<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf"/> -->
+<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf"/> -->
+<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_asym2.esdf"/> -->
+<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_highstep.esdf"/> -->
+    <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
+    
+    <param name="path_start" value="0"/>
+    <param name="path_stop" value="2"/>
+    <param name="path_step" value="0.02"/>
+    
+    <!-- posture optimization lib parameters -->
+    <param name="stepping" value="false"/>
+    <param name="stepping_start" value="16"/>
+<!--     <param name="sdf_save_folder" value="$(find sdf_contact_estimation)/sdf"/> -->
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />  
+    
+    <!-- contact estimation lib parameters -->
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="contact_estimation"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" />      
+  </node>
+</launch>
