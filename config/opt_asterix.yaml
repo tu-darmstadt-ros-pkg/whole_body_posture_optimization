@@ -1,5 +1,6 @@
 # default
-default_joint_state: [0.0, 0.0, 0.0, 0.0, 0.0, 1.57, -1.57, 1.49, -1.57, -1.3, 0.05, 0] # (12) default for all joints
+default_joint_state: [1.57, -1.57, 1.49, -1.57, -1.3, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0] # (12) default for all joints
+#default_joint_state: [0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0.0, 0] # (12) default for all joints
 
 optimization_type: split
 collision_group: arm_group
@@ -7,8 +8,8 @@ collision_group: arm_group
 stability_limit: 0.3
 front_tip_support_area_limit: 0.0
 
-complete_robot_group: complete_robot_group
-complete_robot_with_world_group: complete_robot_with_world
+complete_robot_group: flipper_group
+complete_robot_with_world_group: flipper_group_with_world
   
 arm_optimization:
   enabled: false
@@ -45,16 +46,17 @@ arm_optimization:
     #- arm_joint_5 # last roll joint
   environment_collision_default_padding: 0.15
   environment_collision_padding: {
-    arm_link_5: 0.3, # additional padding to cover fingers
+    arm_link_5: 0.30, # additional padding to cover fingers
+    arm_link_0: 0.0, # prevent permanent collision with ground
   }
   self_collision_default_padding: 0.05
   self_collision_padding: {
-    arm_link_5: 0.3
+    arm_link_5: 0.1,
   }
   self_collision_tsdf_default_padding: 0.005
   self_collision_tsdf_padding: {
     arm_link_5: 0.3,
-    arm_link_2: 0.03
+    arm_link_2: 0.0
   }
   self_collision_tsdf_truncation_distance: 0.4
   
@@ -108,7 +110,7 @@ flipper_optimization:
   #algorithm: G_MLSL
   #algorithm: G_MLSL_LDS
   stopping_criteria:
-    maxeval: 1000
+    maxeval: 2000
     stopval: -2
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
@@ -129,7 +131,7 @@ flipper_optimization:
     
   heuristic:
     lorentzian_sigma: 0.01 #0.15
-    movement_cost_weight: 0.1  #0.5
+    movement_cost_weight: 0.2  #0.5
     track_contact_weight: 8
     body_contact_weight: 50
     verbose: false
