@@ -53,12 +53,10 @@ public:
   void setDefaultJointPositions(const std::vector<double>& default_joint_positions);
   const std::vector<double>& getDefaultJointPositions();
   std::vector<PostureOptimizationResult> findOptimalPostures(const nav_msgs::Path& path);
-  PostureOptimizationResult findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_angles, const std::vector<double> &previous_joint_angles,
-                                               const sdf_contact_estimation::ContactEstimationResult *init_contact_result=nullptr);
-  PostureOptimizationResult findOptimalPostureSplit(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_angles, const std::vector<double> &previous_joint_angles,
-                                               const sdf_contact_estimation::ContactEstimationResult *init_contact_result);
-  PostureOptimizationResult findOptimalPostureCombined(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_angles, const std::vector<double> &previous_joint_angles,
-                                               const sdf_contact_estimation::ContactEstimationResult *init_contact_result);
+  PostureOptimizationResult findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_angles, const PostureOptimizationResult* previous_result=nullptr);
+  PostureOptimizationResult findOptimalPostureSplit(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_angles, const PostureOptimizationResult* previous_result=nullptr);
+//  PostureOptimizationResult findOptimalPostureCombined(const Eigen::Affine3d& pose, const std::vector<double> &init_joint_angles, const std::vector<double> &previous_joint_angles,
+//                                               const sdf_contact_estimation::ContactEstimationResult *init_contact_result);
 
 
 

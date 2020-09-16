@@ -79,7 +79,7 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
 }
 
 FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_joint_angles,
-                                                        const std::vector<double> &previous_joint_angles, const sdf_contact_estimation::ContactEstimationResult &init_contact)
+                                                        const std::vector<double> &previous_joint_angles)
 {
   Eigen::Vector3d com_pos = base_to_com.translation();
   ROS_DEBUG_STREAM("COM position: [" << com_pos[0] << ", " << com_pos[1] << ", " << com_pos[2] << "]");
@@ -99,11 +99,11 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
   if (objective_ == "heuristic") {
     objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
-          ConvexHullAreaError::Create(free_joints_, contact_estimation_, robot_pose, base_to_com, init_flipper_angles, previous_parameters, init_contact, convex_hull_error_parameters_),
+          ConvexHullAreaError::Create(free_joints_, contact_estimation_, robot_pose, base_to_com, init_flipper_angles, previous_parameters, convex_hull_error_parameters_),
           verbosity_level);
   } else if (objective_ == "stability") {
     objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
-          FlipperStabilityCost::Create(static_cast<unsigned int>(free_joints_.size()), contact_estimation_, robot_pose, base_to_com, previous_parameters, init_contact, stability_cost_parameters_),
+          FlipperStabilityCost::Create(static_cast<unsigned int>(free_joints_.size()), contact_estimation_, robot_pose, base_to_com, previous_parameters, stability_cost_parameters_),
           verbosity_level);
   } else if (objective_ == "fast") {
     objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
@@ -118,25 +118,16 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   opt_.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, objective.get());
 
   // Publish start state
-  Eigen::Vector3d default_rpy = sdf_contact_estimation::rotToNormalizedRpy(robot_pose.linear());
-  Eigen::Vector3d default_xyz = robot_pose.translation();
-
-  Eigen::Vector3d initial_contact_rpy = sdf_contact_estimation::rotToNormalizedRpy(init_contact.estimated_pose.linear());
-  Eigen::Vector3d initial_contact_xyz = init_contact.estimated_pose.translation();
-
-  Eigen::Affine3d new_init_pose(Eigen::AngleAxisd(default_rpy(2), Eigen::Vector3d::UnitZ())
-      * Eigen::AngleAxisd(/*0*/ initial_contact_rpy(1), Eigen::Vector3d::UnitY())
-      * Eigen::AngleAxisd(/*0*/ initial_contact_rpy(0), Eigen::Vector3d::UnitX()));
-  new_init_pose.translation() = Eigen::Vector3d(default_xyz(0), default_xyz(1), initial_contact_xyz(2));
   robot_shape_gen_->updateShape(init_flipper_angles);
-  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, new_init_pose, "world", Eigen::Vector3d(1, 0, 0));
+  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
 
   std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
   if (objective_ == "fast") {
+    Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(robot_pose.linear());
     // z position and roll, pitch orientation parameters
     parameters.push_back(0);
-    parameters.push_back(default_rpy(0));
-    parameters.push_back(default_rpy(1));
+    parameters.push_back(pose_rpy(0));
+    parameters.push_back(pose_rpy(1));
   }
   START_TIMING("Flipper optimization")
   double minf = std::nan("");
@@ -187,13 +178,14 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   }
   // Estimate robot pose with flipper solution
   contact_estimation_->updateJointStates(result.flipper_angles);
-  result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
+  result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com);
   Eigen::Affine3d result_pose = result.contact_result.estimated_pose;
   if (objective_ == "fast") {
-    result_pose = Eigen::Affine3d(Eigen::AngleAxisd(default_rpy(2), Eigen::Vector3d::UnitZ())
+    Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(robot_pose.linear());
+    result_pose = Eigen::Affine3d(Eigen::AngleAxisd(pose_rpy(2), Eigen::Vector3d::UnitZ())
         * Eigen::AngleAxisd(parameters[free_joints_.size() + 2], Eigen::Vector3d::UnitY())
         * Eigen::AngleAxisd(parameters[free_joints_.size() + 1], Eigen::Vector3d::UnitX()));
-    result_pose.translation() = Eigen::Vector3d(default_xyz(0), default_xyz(1), default_xyz(2) + parameters[free_joints_.size() + 0]);
+    result_pose.translation() = Eigen::Vector3d(robot_pose.translation()(0), robot_pose.translation()(1), robot_pose.translation()(2) + parameters[free_joints_.size() + 0]);
   }
   ROS_INFO("New robot position: [%f, %f, %f]", result_pose.translation()(0), result_pose.translation()(1), result_pose.translation()(2));
 

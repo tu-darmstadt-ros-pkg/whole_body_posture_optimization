@@ -4,10 +4,10 @@ namespace whole_body_posture_optimization {
 
 ConvexHullAreaError::ConvexHullAreaError(const std::vector<std::string>& free_joints, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                                          const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_flipper_angles,
-                                         const std::vector<double> &prev_flipper_angles, const sdf_contact_estimation::ContactEstimationResult &init_contact,
+                                         const std::vector<double> &prev_flipper_angles,
                                          const ConvexHullAreaErrorParameters &parameters)
-  : free_joints_(free_joints), contact_estimation_(contact_estimation), init_flipper_angles_(init_flipper_angles), prev_flipper_param_angles_(prev_flipper_angles),
-    pose_(pose), base_to_com_(base_to_com), init_contact_(init_contact), parameters_(parameters)
+  : free_joints_(free_joints), contact_estimation_(contact_estimation), pose_(pose), base_to_com_(base_to_com), init_flipper_angles_(init_flipper_angles),
+    prev_flipper_param_angles_(prev_flipper_angles), parameters_(parameters)
 {
   param_idx_to_flipper_state_ = contact_estimation_->getJointIndices(free_joints_);
 }
@@ -21,7 +21,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
     flipper_angles_vec[param_idx_to_flipper_state_[i]] = flipper_angles[0][i];
   }
   contact_estimation_->updateJointStates(flipper_angles_vec);
-  sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(pose_, base_to_com_, init_contact_);
+  sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(pose_, base_to_com_);
   if (result.convex_hull_points.empty()) {
     cost[0] = std::numeric_limits<double>::max();
     return true;
@@ -109,10 +109,10 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 
 ceres::CostFunction* ConvexHullAreaError::Create(const std::vector<std::string>& free_joints, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation,
                                                  const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_flipper_angles,
-                                                 const std::vector<double> &prev_flipper_angles, const sdf_contact_estimation::ContactEstimationResult &init_contact, const ConvexHullAreaErrorParameters &parameters)
+                                                 const std::vector<double> &prev_flipper_angles, const ConvexHullAreaErrorParameters &parameters)
 {
   ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>* cost_function = new ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>(
-        new ConvexHullAreaError(free_joints, contact_estimation, pose, base_to_com, init_flipper_angles, prev_flipper_angles, init_contact, parameters));
+        new ConvexHullAreaError(free_joints, contact_estimation, pose, base_to_com, init_flipper_angles, prev_flipper_angles, parameters));
 
   cost_function->AddParameterBlock(static_cast<int>(free_joints.size()));
   cost_function->SetNumResiduals(1);

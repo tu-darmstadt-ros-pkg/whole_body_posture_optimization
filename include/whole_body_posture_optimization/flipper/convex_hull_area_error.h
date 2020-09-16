@@ -40,25 +40,23 @@ class ConvexHullAreaError {
 public:
   ConvexHullAreaError(const std::vector<std::string>& free_joints, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                       const Eigen::Affine3d& pose, const Eigen::Affine3d& base_to_com, const std::vector<double>& init_flipper_angles,
-                      const std::vector<double>& prev_flipper_angles, const sdf_contact_estimation::ContactEstimationResult &init_contact,
-                      const ConvexHullAreaErrorParameters& parameters);
+                      const std::vector<double>& prev_flipper_angles, const ConvexHullAreaErrorParameters& parameters);
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
   static ceres::CostFunction* Create(const std::vector<std::string>& free_joints, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                                      const Eigen::Affine3d& pose, const Eigen::Affine3d& base_to_com, const std::vector<double>& init_flipper_angles,
-                                     const std::vector<double>& prev_flipper_angles, const sdf_contact_estimation::ContactEstimationResult &init_contact,
-                                     const ConvexHullAreaErrorParameters &parameters);
+                                     const std::vector<double>& prev_flipper_angles, const ConvexHullAreaErrorParameters &parameters);
 private:
   const std::vector<std::string>& free_joints_;
-  std::vector<double> init_flipper_angles_;
-  std::vector<double> prev_flipper_param_angles_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
-  std::vector<size_t> param_idx_to_flipper_state_;
-
   Eigen::Affine3d pose_;
   Eigen::Affine3d base_to_com_;
-  sdf_contact_estimation::ContactEstimationResult init_contact_;
+  std::vector<double> init_flipper_angles_;
+  std::vector<double> prev_flipper_param_angles_;
+  std::vector<size_t> param_idx_to_flipper_state_;
+
+
 
   const ConvexHullAreaErrorParameters& parameters_;
 };

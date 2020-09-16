@@ -96,10 +96,10 @@ int main(int argc, char** argv) {
     if (pose_updated_ || state_updated_) {
       auto start = std::chrono::high_resolution_clock::now();
       if (reset) {
-        last_result = po_->findOptimalPosture(robot_pose_, state_, std::vector<double>());
+        last_result = po_->findOptimalPosture(robot_pose_, state_);
         reset = false;
       } else {
-          last_result = po_->findOptimalPosture(robot_pose_, state_, last_result.result_joint_angles, &last_result.result_contact);
+          last_result = po_->findOptimalPosture(robot_pose_, state_, &last_result);
         // Always initialize optimization from default joint position
         // No movement penalty (do not use previous solution)
 //        last_result = po_->findOptimalPosture(robot_pose_, state_, std::vector<double>(), &last_result.result_contact);

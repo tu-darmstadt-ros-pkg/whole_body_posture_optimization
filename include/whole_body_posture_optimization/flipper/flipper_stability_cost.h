@@ -44,13 +44,13 @@ class FlipperStabilityCost {
 public:
   FlipperStabilityCost(unsigned int parameter_size, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                       const Eigen::Affine3d& pose, const Eigen::Affine3d& base_to_com, const std::vector<double>& prev_flipper_angles,
-                      const sdf_contact_estimation::ContactEstimationResult &init_contact, const FlipperStabilityCostParameters& parameters);
+                       const FlipperStabilityCostParameters& parameters);
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
   static ceres::CostFunction* Create(unsigned int parameter_size, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                                      const Eigen::Affine3d& pose, const Eigen::Affine3d& base_to_com, const std::vector<double>& prev_flipper_angles,
-                                     const sdf_contact_estimation::ContactEstimationResult &init_contact, const FlipperStabilityCostParameters &parameters);
+                                     const FlipperStabilityCostParameters &parameters);
 private:
   unsigned int parameter_size_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
@@ -58,7 +58,6 @@ private:
 
   Eigen::Affine3d pose_;
   Eigen::Affine3d base_to_com_;
-  sdf_contact_estimation::ContactEstimationResult init_contact_;
 
   FlipperStabilityCostParameters parameters_;
 };

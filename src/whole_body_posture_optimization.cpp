@@ -151,7 +151,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     tf::poseMsgToEigen(pose_msg.pose, pose);
 
     if (first) {
-      last_result = findOptimalPosture(pose, getDefaultJointPositions(), std::vector<double>());
+      last_result = findOptimalPosture(pose, getDefaultJointPositions());
       first = false;
     } else {
       if (last_result.result_contact.estimated_pose.translation().x() > pose.translation().x()) {
@@ -162,7 +162,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
         continue;
       }
 //      last_result = findOptimalPosture(pose, last_result.result_joint_angles, last_result.result_joint_angles, &last_result.result_contact);
-      last_result = findOptimalPosture(pose, getDefaultJointPositions(), last_result.result_joint_angles, &last_result.result_contact);
+      last_result = findOptimalPosture(pose, getDefaultJointPositions(), &last_result);
     }
     if (!last_result.success) {
       ROS_ERROR_STREAM("Posture optimization failed.");
@@ -189,13 +189,13 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
 }
 
 PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
-                                                                           const std::vector<double> &previous_joint_angles,
-                                                                           const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
+                                                                           const PostureOptimizationResult* previous_result)
 {
   if (optimization_type_ == SPLIT) {
-    return findOptimalPostureSplit(pose, init_joint_angles, previous_joint_angles, init_contact_result);
+    return findOptimalPostureSplit(pose, init_joint_angles, previous_result);
   } else if (optimization_type_ == COMBINED) {
-    return findOptimalPostureCombined(pose, init_joint_angles, previous_joint_angles, init_contact_result);
+    ROS_ERROR_STREAM("Combined optimization currently not supported.");
+//    return findOptimalPostureCombined(pose, init_joint_angles, previous_joint_angles, init_contact_result);
   } else {
     ROS_ERROR_STREAM("Unknown optimization type");
     return PostureOptimizationResult();
@@ -203,8 +203,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
 }
 
 PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
-                                                                                const std::vector<double>& previous_joint_angles,
-                                                                                const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
+                                                                                const PostureOptimizationResult* previous_result)
 {
   START_TIMING("findOptimalPostureSplit")
   ROS_INFO_STREAM("**********************************************");
@@ -215,70 +214,64 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   result.requested_pose = pose;
   result.init_joint_angles = init_joint_angles;
 
+  // Use previous solution as current joint state, if available
+  // otherwise, use default
+  const std::vector<double>* previous_joint_angles;
+  if (previous_result) {
+    previous_joint_angles = &previous_result->result_joint_angles;
+  } else {
+    previous_joint_angles = &init_joint_angles;
+  }
+
   // Compute center of mass
   // TODO we should be able to just take this from the previous time step. com shouldn't have changed
-  if (!previous_joint_angles.empty()) {
-    robot_model_->computeCenterOfMass(previous_joint_angles, result.init_com);
-  } else {
-    robot_model_->computeCenterOfMass(init_joint_angles, result.init_com);
-  }
+  robot_model_->computeCenterOfMass(*previous_joint_angles, result.init_com);
   Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity();
   base_to_com.translation() = result.init_com;
 
-  // Estimate our new position
-  sdf_contact_estimation::ContactEstimationResult updated_init_contact;
-  const std::vector<double>* contact_joint_angles;
-  if (!previous_joint_angles.empty()) {
-    contact_joint_angles = &previous_joint_angles;
-  } else {
-    contact_joint_angles = &init_joint_angles;
+  // Estimate our new position  
+  Eigen::Affine3d estimated_pose = pose; // Estimated pose of the robot at the requested position
+  // Use last estimated pose to update estimate, if available
+  if (previous_result) {
+    result.init_contact = previous_result->result_contact;
+    estimated_pose = sdf_contact_estimation::updatePoseFromLastResult(pose, previous_result->result_contact.estimated_pose);
   }
-  if (init_contact_result != nullptr) {
-    result.init_contact = *init_contact_result;
-    updated_init_contact = flipper_optimization_->computeContactEstimation(*contact_joint_angles, pose, base_to_com, result.init_contact);
-  } else {
-    updated_init_contact = flipper_optimization_->computeContactEstimation(*contact_joint_angles, pose, base_to_com);
-  }
+  // Re-run contact estimation at new position
+  sdf_contact_estimation::ContactEstimationResult updated_contact = flipper_optimization_->computeContactEstimation(*previous_joint_angles, estimated_pose, base_to_com);
 
   // Collect requests to optimization
   std::vector<Eigen::Affine3d> request_com;
-  std::vector<sdf_contact_estimation::ContactEstimationResult> request_contact;
+  std::vector<Eigen::Affine3d> request_pose;
 
   // Check if updating contact was successful
-  if (!updated_init_contact.stable) {
-    ROS_WARN_STREAM("Failed to update previous contact estimation.");
-    updated_init_contact.estimated_pose = updated_init_contact.request_pose;
-    ROS_WARN_STREAM("Using pose: " << poseToString(updated_init_contact.estimated_pose));
+  if (!updated_contact.stable) {
+    ROS_WARN_STREAM("Robot fell during contact update, using estimate of previous iteration");
   } else {
-    result.initial_stability = updated_init_contact.min_stability;
+    // Update successful
+    estimated_pose = updated_contact.estimated_pose;
+    result.initial_stability = updated_contact.min_stability;
 
-    if (result.initial_stability < 0) {
-      ROS_ERROR_STREAM("Robot fell over during pose estimate update. Try increasing the sampling density.");
-      result.success = false;
-      return result;
-    }
-
-    ROS_INFO_STREAM("Convex hull size: " << updated_init_contact.support_area);
+    ROS_INFO_STREAM("Convex hull size: " << updated_contact.support_area);
 
     // Check if tipping to front makes sense
-    if (updated_init_contact.support_area < front_tip_support_area_limit_) {
+    if (updated_contact.support_area < front_tip_support_area_limit_) {
       // Find axis we want to tip over
       double min_stability = std::numeric_limits<double>::max();
       unsigned int front_idx = 0;
-      for (unsigned int i = 0; i < updated_init_contact.convex_hull_points.size(); i++) {
-        const Eigen::Vector3d& p0 = updated_init_contact.convex_hull_points[i];
-        const Eigen::Vector3d& p1 = updated_init_contact.convex_hull_points[(i+1) % updated_init_contact.convex_hull_points.size()];
+      for (unsigned int i = 0; i < updated_contact.convex_hull_points.size(); i++) {
+        const Eigen::Vector3d& p0 = updated_contact.convex_hull_points[i];
+        const Eigen::Vector3d& p1 = updated_contact.convex_hull_points[(i+1) % updated_contact.convex_hull_points.size()];
 
         // Transform points to base link
-        Eigen::Vector3d p0_base = updated_init_contact.estimated_pose.inverse(Eigen::Isometry) * p0;
-        Eigen::Vector3d p1_base = updated_init_contact.estimated_pose.inverse(Eigen::Isometry) * p1;
+        Eigen::Vector3d p0_base = updated_contact.estimated_pose.inverse(Eigen::Isometry) * p0;
+        Eigen::Vector3d p1_base = updated_contact.estimated_pose.inverse(Eigen::Isometry) * p1;
 
         // Check if forward edge
         Eigen::Vector3d a = p1_base - p0_base;
         Eigen::Vector3d cross = Eigen::Vector3d::UnitX().cross(a);
         if (cross.z() < -0.01) {
           // Check if stability is lower
-          double stability = updated_init_contact.stabilities[i];
+          double stability = updated_contact.stabilities[i];
           if (stability < min_stability) {
             min_stability = stability;
             front_idx = i;
@@ -288,9 +281,9 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       ROS_INFO_STREAM("Trying to tip over front axis " << front_idx);
 
       // Move COM to front
-      const Eigen::Vector3d& p0 = updated_init_contact.convex_hull_points[front_idx];
-      const Eigen::Vector3d& p1 = updated_init_contact.convex_hull_points[(front_idx+1) % updated_init_contact.convex_hull_points.size()];
-      Eigen::Vector3d com_world = updated_init_contact.estimated_pose * result.init_com;
+      const Eigen::Vector3d& p0 = updated_contact.convex_hull_points[front_idx];
+      const Eigen::Vector3d& p1 = updated_contact.convex_hull_points[(front_idx+1) % updated_contact.convex_hull_points.size()];
+      Eigen::Vector3d com_world = updated_contact.estimated_pose * result.init_com;
 
       // Project to 2D
       Eigen::Vector3d p0_xy(p0.x(), p0.y(), 0);
@@ -306,38 +299,36 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       // Move com across axis
       Eigen::Vector3d com_world_new = com_xy + axis_normal + 0.05 * axis_normal_norm;
       com_world_new.z() = com_world.z();
-      Eigen::Affine3d new_world_to_com(Eigen::Translation3d(updated_init_contact.estimated_pose.inverse(Eigen::Isometry) * com_world_new));
+      Eigen::Affine3d new_world_to_com(Eigen::Translation3d(updated_contact.estimated_pose.inverse(Eigen::Isometry) * com_world_new));
 
       // rerun contact estimation
       sdf_contact_estimation::ContactEstimationResult front_tip_contact = flipper_optimization_->computeContactEstimation(
-            *contact_joint_angles, pose, new_world_to_com, updated_init_contact);
+            *previous_joint_angles, estimated_pose, new_world_to_com);
 
       // Push new com and contact to request list
       request_com.push_back(new_world_to_com);
-      request_contact.push_back(front_tip_contact);
+      request_pose.push_back(front_tip_contact.estimated_pose);
     }
   }
 
   // Push back original updated pose
   request_com.push_back(base_to_com);
-  request_contact.push_back(updated_init_contact);
+  request_pose.push_back(estimated_pose);
 
   // Collect results
   std::vector<PostureOptimizationResult> results;
   for(unsigned int i = 0; i < request_com.size(); i++) {
+    ROS_INFO_STREAM("Estimated pose: " << poseToString(request_pose[i]));
     PostureOptimizationResult prelim_result = result;
-    FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(pose, request_com[i], init_joint_angles, previous_joint_angles,
-                                                                               request_contact[i]);
+    FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(request_pose[i], request_com[i], init_joint_angles, *previous_joint_angles);
     prelim_result.result_contact = flipper_result.contact_result;
     prelim_result.result_joint_angles = flipper_result.joint_state;
     prelim_result.stability_flipper_opt = flipper_result.contact_result.min_stability;
     prelim_result.flipper_cost = flipper_result.final_cost;
 
-
-
     // Optimize the arm
     ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.contact_result.convex_hull_points,
-                                                                   flipper_result.contact_result.estimated_pose, previous_joint_angles);
+                                                                   flipper_result.contact_result.estimated_pose, *previous_joint_angles);
     prelim_result.result_joint_angles = arm_result.joint_angles;
     prelim_result.result_com = arm_result.center_of_mass;
     prelim_result.stability_arm_opt = arm_result.stability;
@@ -379,61 +370,61 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   return result;
 }
 
-PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombined(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
-                                                                                   const std::vector<double>& previous_joint_angles,
-                                                                                   const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
-{
-  START_TIMING("findOptimalPostureCombined")
-  Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
-  Eigen::Vector3d xyz = pose.translation();
-  ROS_INFO_STREAM("**********************************************");
-  ROS_INFO("Requested pose: [%f, %f, %f, %f, %f, %f]", xyz(0), xyz(1), xyz(2), rpy(0), rpy(1), rpy(2));
-  ROS_INFO_STREAM("**********************************************");
+//PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombined(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
+//                                                                                   const std::vector<double>& previous_joint_angles,
+//                                                                                   const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
+//{
+//  START_TIMING("findOptimalPostureCombined")
+//  Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
+//  Eigen::Vector3d xyz = pose.translation();
+//  ROS_INFO_STREAM("**********************************************");
+//  ROS_INFO("Requested pose: [%f, %f, %f, %f, %f, %f]", xyz(0), xyz(1), xyz(2), rpy(0), rpy(1), rpy(2));
+//  ROS_INFO_STREAM("**********************************************");
 
-  PostureOptimizationResult result;
-  result.requested_pose = pose;
-  result.init_joint_angles = init_joint_angles;
+//  PostureOptimizationResult result;
+//  result.requested_pose = pose;
+//  result.init_joint_angles = init_joint_angles;
 
-  if (!previous_joint_angles.empty()) {
-    robot_model_->computeCenterOfMass(previous_joint_angles, result.init_com);
-  } else {
-    robot_model_->computeCenterOfMass(init_joint_angles, result.init_com);
-  }
-  Eigen::Affine3d base_to_com(Eigen::Translation3d(result.init_com));
+//  if (!previous_joint_angles.empty()) {
+//    robot_model_->computeCenterOfMass(previous_joint_angles, result.init_com);
+//  } else {
+//    robot_model_->computeCenterOfMass(init_joint_angles, result.init_com);
+//  }
+//  Eigen::Affine3d base_to_com(Eigen::Translation3d(result.init_com));
 
-  sdf_contact_estimation::ContactEstimationResult updated_init_contact;
-  if (init_contact_result != nullptr) {
-    result.init_contact = *init_contact_result;
-    updated_init_contact = *init_contact_result;
-  } else {
-    if (!previous_joint_angles.empty()) {
-      updated_init_contact = combined_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com);
-    } else {
-      updated_init_contact = combined_optimization_->computeContactEstimation(init_joint_angles, pose, base_to_com);
-    }
-  }
-  if (updated_init_contact.convex_hull_points.empty()) {
-    ROS_WARN_STREAM("Updated init contact estimation failed.");
-      updated_init_contact.estimated_pose = pose;
-  } else {
-    result.initial_stability = updated_init_contact.min_stability;
-  }
+//  sdf_contact_estimation::ContactEstimationResult updated_init_contact;
+//  if (init_contact_result != nullptr) {
+//    result.init_contact = *init_contact_result;
+//    updated_init_contact = *init_contact_result;
+//  } else {
+//    if (!previous_joint_angles.empty()) {
+//      updated_init_contact = combined_optimization_->computeContactEstimation(previous_joint_angles, pose, base_to_com);
+//    } else {
+//      updated_init_contact = combined_optimization_->computeContactEstimation(init_joint_angles, pose, base_to_com);
+//    }
+//  }
+//  if (updated_init_contact.convex_hull_points.empty()) {
+//    ROS_WARN_STREAM("Updated init contact estimation failed.");
+//      updated_init_contact.estimated_pose = pose;
+//  } else {
+//    result.initial_stability = updated_init_contact.min_stability;
+//  }
 
-  CombinedOptimizationResult combined_result = combined_optimization_->optimize(init_joint_angles, pose, previous_joint_angles, updated_init_contact);
-  result.result_joint_angles = combined_result.joint_angles;
-  result.result_com = combined_result.center_of_mass;
-  result.stability_arm_opt = combined_result.contact_result.min_stability;
-  result.result_contact = combined_result.contact_result;
-  result.stability_flipper_opt = result.initial_stability;
+//  CombinedOptimizationResult combined_result = combined_optimization_->optimize(init_joint_angles, pose, previous_joint_angles, updated_init_contact);
+//  result.result_joint_angles = combined_result.joint_angles;
+//  result.result_com = combined_result.center_of_mass;
+//  result.stability_arm_opt = combined_result.contact_result.min_stability;
+//  result.result_contact = combined_result.contact_result;
+//  result.stability_flipper_opt = result.initial_stability;
 
-  robot_model_->updateRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
-  robot_model_->publishRobotState();
-  robot_model_->publishCollisionSpheres();
+//  robot_model_->updateRobotState(result.result_contact.estimated_pose, result.result_joint_angles);
+//  robot_model_->publishRobotState();
+//  robot_model_->publishCollisionSpheres();
 
-  STOP_TIMING_AVG
+//  STOP_TIMING_AVG
 
-  return result;
-}
+//  return result;
+//}
 
 std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
 {
