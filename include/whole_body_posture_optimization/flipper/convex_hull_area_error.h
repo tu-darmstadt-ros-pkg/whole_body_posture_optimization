@@ -60,7 +60,7 @@ private:
   Eigen::Affine3d base_to_com_;
   sdf_contact_estimation::ContactEstimationResult init_contact_;
 
-  ConvexHullAreaErrorParameters parameters_;
+  const ConvexHullAreaErrorParameters& parameters_;
 };
 
 }

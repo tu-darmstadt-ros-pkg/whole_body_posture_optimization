@@ -164,10 +164,13 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
                   << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
 
   // Estimating again for debug output
+  bool cost_function_verbosity = convex_hull_error_parameters_.verbose;
+  convex_hull_error_parameters_.verbose = true;
   if (convex_hull_error_parameters_.verbose) {
     std::vector<double> gradient;
-    ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
+    (*objective)(parameters, gradient);
   }
+  convex_hull_error_parameters_.verbose = cost_function_verbosity;
 
   // Compose result
   FlipperOptimizationResult result;
