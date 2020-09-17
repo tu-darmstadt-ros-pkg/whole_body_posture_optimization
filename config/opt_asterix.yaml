@@ -91,9 +91,9 @@ arm_optimization:
 
 flipper_optimization:
   enabled: true
-  #algorithm: GN_DIRECT
+  algorithm: GN_DIRECT
   #algorithm: GN_DIRECT_L
-  algorithm: GN_ORIG_DIRECT_L
+  #algorithm: GN_ORIG_DIRECT_L
   #algorithm: LN_NELDERMEAD
   #algorithm: LN_PRAXIS
   #algorithm: GN_CRS2_LM
@@ -110,7 +110,7 @@ flipper_optimization:
   #algorithm: G_MLSL
   #algorithm: G_MLSL_LDS
   stopping_criteria:
-    maxeval: 2000
+    maxeval: 1000
     stopval: -2
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
@@ -130,10 +130,12 @@ flipper_optimization:
   objective: heuristic
     
   heuristic:
-    lorentzian_sigma: 0.01 #0.15
-    movement_cost_weight: 0.2  #0.5
+    lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
+    movement_cost_weight: 0.04 #0.05  #0.2  #0.5
     track_contact_weight: 8
     body_contact_weight: 50
+    roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
+    position_deviation_weight: 0
     verbose: false
     
   stability:
