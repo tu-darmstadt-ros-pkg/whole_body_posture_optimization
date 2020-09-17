@@ -15,11 +15,12 @@ ConvexHullAreaError::ConvexHullAreaError(const std::vector<std::string>& free_jo
 bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double* cost) const
 {
   // *** Simulation ** //
-  // Simulate contact with given joint positions
+  // Fill parameters into flipper positon vector
   std::vector<double> flipper_angles_vec = init_flipper_angles_;
   for (unsigned int i = 0; i < free_joints_.size(); i++) {
     flipper_angles_vec[param_idx_to_flipper_state_[i]] = flipper_angles[0][i];
   }
+  // Simulate contact with given joint positions
   contact_estimation_->updateJointStates(flipper_angles_vec);
   sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(pose_, base_to_com_);
   if (result.convex_hull_points.empty()) {
@@ -31,7 +32,6 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   // Penalize deviation from requested position
   Eigen::Affine3d original_to_estimated = pose_.inverse(Eigen::Isometry) * result.estimated_pose;
   double diff = original_to_estimated.translation().block<2,1>(0,0).norm();
-  double move_backward_weight = 10/*10.0*/;
   double move_backward_cost = std::max(0.0, diff-0.02); // 2cm leeway
 
   // Joint movement cost
@@ -46,7 +46,6 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 
   // Penalize chassis roll angle
   // We want the chassis to be upright
-  double chassis_roll_weight = 2.0;
   double chassis_roll_angle = result.estimated_pose.linear().eulerAngles(0, 1, 2)[0];
   if (chassis_roll_angle > M_PI_2) {
     chassis_roll_angle = M_PI - chassis_roll_angle;
@@ -66,12 +65,9 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
     double b = 1;
     double v = std::max(a * angle + b, 0.0); // Value between 0 (low traction) and 1 (high traction)
     track_contact_sum += v;
-//    ROS_INFO_STREAM("Track contact value: " << v);
   }
-//  ROS_INFO_STREAM("Total track count: " << result.total_track_count);
   // Reward track contact and penalize body contact
   double track_contact_pct = static_cast<double>(track_contact_sum)/result.total_track_count;
-//  double track_contact_pct = static_cast<double>(result.contact_track_count)/result.total_track_count;
   double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
 
   // Penalyze contact normals that point against the moving direction
@@ -94,16 +90,16 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   cost[0] = -result.support_area - parameters_.track_contact_weight * track_contact_pct
       + parameters_.body_contact_weight * body_contact_pct
       + parameters_.movement_cost_weight * movement_cost
-      + chassis_roll_weight * chassis_roll_angle * chassis_roll_angle
-      + move_backward_weight * move_backward_cost;
+      + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
+      + parameters_.position_deviation_weight * move_backward_cost;
 
   if (parameters_.verbose) {
     ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
                     << "track contact: " << track_contact_pct << " (" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl
                     << "body contact: " << body_contact_pct << " (" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
                     << "movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
-                    << "moving backward cost: " << move_backward_cost << " (" << move_backward_weight * move_backward_cost << ")" << std::endl
-                    << "chassis roll angle: " << chassis_roll_angle << " (" << chassis_roll_weight * chassis_roll_angle << ")");
+                    << "moving backward cost: " << move_backward_cost << " (" << parameters_.position_deviation_weight * move_backward_cost << ")" << std::endl
+                    << "chassis roll angle: " << chassis_roll_angle << " (" << parameters_.roll_cost_weight * chassis_roll_angle << ")");
   }
 
   return true;
