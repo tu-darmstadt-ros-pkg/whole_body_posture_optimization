@@ -159,7 +159,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   convex_hull_error_parameters_.verbose = true;
   if (convex_hull_error_parameters_.verbose) {
     std::vector<double> gradient;
-    (*objective)(parameters, gradient);
+    ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
   }
   convex_hull_error_parameters_.verbose = cost_function_verbosity;
 

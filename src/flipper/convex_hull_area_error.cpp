@@ -28,13 +28,13 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   }
 
   // *** Cost functions ** //
-  // Penalyze deviation from requested position
+  // Penalize deviation from requested position
   Eigen::Affine3d original_to_estimated = pose_.inverse(Eigen::Isometry) * result.estimated_pose;
   double diff = original_to_estimated.translation().block<2,1>(0,0).norm();
   double move_backward_weight = 10/*10.0*/;
   double move_backward_cost = std::max(0.0, diff-0.02); // 2cm leeway
 
-  // Penalize joint movement
+  // Joint movement cost
   double movement_cost = 0.0;
   if (!prev_flipper_param_angles_.empty()) {
     for (unsigned int idx = 0; idx < prev_flipper_param_angles_.size(); idx++) {
@@ -52,7 +52,9 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
     chassis_roll_angle = M_PI - chassis_roll_angle;
   }
 
+  // Traction cost
   // Weight track contact by angle between contact normal and (inverse) gravity vector
+  // Approximates normal force
   double track_contact_sum = 0;
   Eigen::Vector3d gravity_vector = Eigen::Vector3d::UnitZ();
   for (Eigen::Vector3d& contact_point: result.contact_points) {

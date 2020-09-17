@@ -31,8 +31,8 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
   flipper_optimization_ = std::make_shared<FlipperOptimization>(flipper_nh, robot_model_, robot_shape_gen, contact_estimation_);
   ros::NodeHandle arm_nh(nh, "arm_optimization");
   arm_optimization_ = std::make_shared<ArmOptimization>(arm_nh, robot_model_, contact_estimation_);
-  ros::NodeHandle combined_nh(nh, "combined_optimization");
-  combined_optimization_ = std::make_shared<CombinedOptimization>(combined_nh, robot_model_, contact_estimation_);
+//  ros::NodeHandle combined_nh(nh, "combined_optimization");
+//  combined_optimization_ = std::make_shared<CombinedOptimization>(combined_nh, robot_model_, contact_estimation_);
 
   trajectory_pub_ = nh_.advertise<moveit_msgs::DisplayTrajectory>("trajectory", 10, true);
   sdf_pub_ = nh_.advertise<voxblox_msgs::Layer>("planning_sdf", 10, true);
@@ -171,7 +171,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     results.push_back(last_result);
 
     if (last_result.stability_arm_opt < stability_limit_) {
-      ROS_WARN_STREAM("Robot instable (" << last_result.stability_arm_opt << " < " << stability_limit_ << "). Aborting!");
+      ROS_WARN_STREAM("Robot unstable (" << last_result.stability_arm_opt << " < " << stability_limit_ << "). Aborting!");
       break;
     }
 
@@ -196,6 +196,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   } else if (optimization_type_ == COMBINED) {
     ROS_ERROR_STREAM("Combined optimization currently not supported.");
 //    return findOptimalPostureCombined(pose, init_joint_angles, previous_joint_angles, init_contact_result);
+    return PostureOptimizationResult();
   } else {
     ROS_ERROR_STREAM("Unknown optimization type");
     return PostureOptimizationResult();
@@ -299,14 +300,14 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
       // Move com across axis
       Eigen::Vector3d com_world_new = com_xy + axis_normal + 0.05 * axis_normal_norm;
       com_world_new.z() = com_world.z();
-      Eigen::Affine3d new_world_to_com(Eigen::Translation3d(updated_contact.estimated_pose.inverse(Eigen::Isometry) * com_world_new));
+      Eigen::Affine3d new_base_to_com(Eigen::Translation3d(updated_contact.estimated_pose.inverse(Eigen::Isometry) * com_world_new));
 
       // rerun contact estimation
       sdf_contact_estimation::ContactEstimationResult front_tip_contact = flipper_optimization_->computeContactEstimation(
-            *previous_joint_angles, estimated_pose, new_world_to_com);
+            *previous_joint_angles, estimated_pose, new_base_to_com);
 
       // Push new com and contact to request list
-      request_com.push_back(new_world_to_com);
+      request_com.push_back(new_base_to_com);
       request_pose.push_back(front_tip_contact.estimated_pose);
     }
   }
