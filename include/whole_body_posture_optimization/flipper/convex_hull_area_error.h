@@ -1,9 +1,15 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_CONVEX_HULL_AREA_ERROR_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_CONVEX_HULL_AREA_ERROR_H
 
-#include <sdf_contact_estimation/sdf_contact_estimation.h>
-
+#include <ros/node_handle.h>
 #include <ceres/cost_function.h>
+#include <sstream>
+#include <Eigen/Eigen>
+
+//Forward declarations
+namespace sdf_contact_estimation {
+  class SDFContactEstimation;
+}
 
 namespace whole_body_posture_optimization {
 

@@ -1,6 +1,7 @@
 #include <whole_body_posture_optimization/flipper/convex_hull_area_error.h>
 
 #include <whole_body_posture_optimization/common.h>
+#include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <algorithm>
 #include <ceres/dynamic_numeric_diff_cost_function.h>
 
