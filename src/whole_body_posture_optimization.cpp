@@ -9,12 +9,12 @@
 #include <moveit/trajectory_processing/iterative_spline_parameterization.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 
+#include <voxblox_msgs/Layer.h>
+#include <voxblox_ros/conversions.h>
 #include <voxblox/io/layer_io.h>
 
 #include <whole_body_posture_optimization/timing.h>
 #include <whole_body_posture_optimization/common.h>
-
-#include <voxblox_msgs/Layer.h>
 
 INIT_TIMING
 

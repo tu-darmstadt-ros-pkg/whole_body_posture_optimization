@@ -7,6 +7,7 @@
 #include <whole_body_posture_optimization/arm/arm_optimization.h>
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
 #include <whole_body_posture_optimization/combined/combined_optimization.h>
+#include <whole_body_posture_optimization/robot_model.h>
 
 #include <moveit/robot_trajectory/robot_trajectory.h>
 

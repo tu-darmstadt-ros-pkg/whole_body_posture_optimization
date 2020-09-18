@@ -2,6 +2,8 @@
 
 #include <whole_body_posture_optimization/timing.h>
 
+#include <geometry_msgs/PoseStamped.h>
+
 namespace whole_body_posture_optimization {
 
 FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel> &robot_model,

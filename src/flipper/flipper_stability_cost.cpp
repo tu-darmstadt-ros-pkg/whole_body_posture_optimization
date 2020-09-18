@@ -1,5 +1,8 @@
 #include <whole_body_posture_optimization/flipper/flipper_stability_cost.h>
 
+#include <algorithm>
+#include <ceres/dynamic_numeric_diff_cost_function.h>
+
 namespace whole_body_posture_optimization {
 
 FlipperStabilityCost::FlipperStabilityCost(unsigned int parameter_size, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,

@@ -1,5 +1,9 @@
 #include <whole_body_posture_optimization/flipper/convex_hull_area_error.h>
 
+#include <whole_body_posture_optimization/common.h>
+#include <algorithm>
+#include <ceres/dynamic_numeric_diff_cost_function.h>
+
 namespace whole_body_posture_optimization {
 
 ConvexHullAreaError::ConvexHullAreaError(const std::vector<std::string>& free_joints, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,

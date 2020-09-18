@@ -3,9 +3,7 @@
 
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 
-#include <sdf_contact_estimation/body_shapes/robot_shape_generator_base.h>
-#include <whole_body_posture_optimization/common.h>
-#include <algorithm>
+#include <ceres/cost_function.h>
 
 namespace whole_body_posture_optimization {
 

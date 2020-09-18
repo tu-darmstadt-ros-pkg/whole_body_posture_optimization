@@ -1,5 +1,9 @@
 #include <whole_body_posture_optimization/robot_model.h>
 
+#include <differentiation/rbdl_utilsAD.h>
+#include <urdfreader/urdfreader.h>
+
+
 namespace whole_body_posture_optimization {
 
 RobotModel::RobotModel(ros::NodeHandle &nh)

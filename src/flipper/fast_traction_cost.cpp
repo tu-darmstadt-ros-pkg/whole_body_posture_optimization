@@ -1,5 +1,7 @@
 #include <whole_body_posture_optimization/flipper/fast_traction_cost.h>
 
+#include <sdf_contact_estimation/util/utils.h>
+
 namespace whole_body_posture_optimization {
 
 FastTractionCost::FastTractionCost(const Eigen::Affine3d& pose, const std::vector<std::string>& free_joints, const std::vector<double>& initial_flipper_position, const std::vector<double>& previous_parameter_result,

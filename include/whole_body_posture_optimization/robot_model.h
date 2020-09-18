@@ -12,16 +12,17 @@
 
 #include <ad_kinematics/chain.h>
 
-#undef LOG // of course everyone names their logging macro the same
-#include <differentiation/rbdl_utilsAD.h>
-#include <urdfreader/urdfreader.h>
-
-#undef LOG
 #include <voxblox/core/tsdf_map.h>
+#include <voxblox_ros/conversions.h>
 
 #include <whole_body_posture_optimization/common.h>
 #include <sdf_contact_estimation/visualisation.h>
 
+// Forward declarations for RBDL
+namespace RigidBodyDynamics {
+class Model;
+}
+class ADModel;
 namespace rbdl = RigidBodyDynamics;
 
 namespace whole_body_posture_optimization {

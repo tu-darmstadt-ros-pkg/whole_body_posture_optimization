@@ -1,5 +1,8 @@
 #include <whole_body_posture_optimization/combined/combined_stability_cost.h>
 
+#include <algorithm>
+#include <ceres/dynamic_numeric_diff_cost_function.h>
+
 namespace whole_body_posture_optimization {
 
 CombinedStabilityCost::CombinedStabilityCost(const std::shared_ptr<RobotModel>& robot_model, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
