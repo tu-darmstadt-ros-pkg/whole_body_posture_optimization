@@ -111,7 +111,7 @@ flipper_optimization:
   #algorithm: G_MLSL_LDS
   stopping_criteria:
     maxeval: 1000
-    stopval: -2
+    stopval: -2.5
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1

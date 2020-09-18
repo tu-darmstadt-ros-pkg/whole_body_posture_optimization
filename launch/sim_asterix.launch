@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+
+<launch>
+  <arg name="world_path" default="$(find whole_body_posture_optimization)/worlds"/>
+  <arg name="world" default="step.world"/>
+  
+  <arg name="spawn_x_pos" default="0" />
+  <arg name="spawn_y_pos" default="0" />
+  <arg name="spawn_z_pos" default="0.1" />
+  <arg name="spawn_roll"  default="0.0" />
+  <arg name="spawn_pitch" default="0.0" />    
+  <arg name="spawn_yaw"   default="0" />
+  
+    
+  <include file="$(find asterix_gazebo_launch)/launch/publish_ground_truth_state.launch"/>
+  
+  <!--Arm Motion planning-->
+  <include file="$(find asterix_onboard_launch)/launch/onboard_default.launch"/>
+  
+  <!-- Navigation-->
+<!--   <include file="$(find hector_joy_teleop)/launch/joy_teleop.launch"/> -->
+<!--   <include file="$(find hector_joy_mode_switcher)/launch/topic_mode_switcher.launch"/> -->
+  
+  <!-- TSDF -->
+  <include file="$(find whole_body_posture_optimization)/launch/tsdf_server.launch"/>
+  
+  <!-- Gazebo -->
+  <include file="$(find asterix_gazebo_launch)/launch/spawn_default.launch">
+    <arg name="spawn_x_pos" value="$(arg spawn_x_pos)" />
+    <arg name="spawn_y_pos" value="$(arg spawn_y_pos)" />
+    <arg name="spawn_z_pos" value="$(arg spawn_z_pos)" />
+    <arg name="spawn_roll"  value="$(arg spawn_roll)" />
+    <arg name="spawn_pitch" value="$(arg spawn_pitch)" />
+    <arg name="spawn_yaw"   value="$(arg spawn_yaw)" />
+  </include>
+  
+  <param name="/use_sim_time" value="true" />
+
+  <node name="gazebo" pkg="gazebo_ros" type="gzserver" args="$(arg world_path)/$(arg world) --verbose --pause" respawn="false" output="screen"/>
+  
+  <!-- start gui -->
+  <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen"/>
+</launch>

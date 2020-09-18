@@ -22,7 +22,7 @@
     
     <!-- posture optimization lib parameters -->
     <param name="stepping" value="false"/>
-    <param name="stepping_start" value="16"/>
+    <param name="stepping_start" value="0"/>
 <!--     <param name="sdf_save_folder" value="$(find sdf_contact_estimation)/sdf"/> -->
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />  
     
