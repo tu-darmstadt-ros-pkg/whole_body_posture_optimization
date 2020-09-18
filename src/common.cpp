@@ -1,7 +1,10 @@
 #include <whole_body_posture_optimization/common.h>
 
+#include <eigen_conversions/eigen_msg.h>
 #include <ctime>
 #include <ceres/gradient_checker.h>
+#include <moveit/robot_state/conversions.h>
+
 
 namespace whole_body_posture_optimization {
 

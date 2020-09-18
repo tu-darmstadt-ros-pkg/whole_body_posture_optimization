@@ -6,7 +6,7 @@
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <whole_body_posture_optimization/arm/arm_optimization.h>
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
-#include <whole_body_posture_optimization/combined/combined_optimization.h>
+//#include <whole_body_posture_optimization/combined/combined_optimization.h>
 #include <whole_body_posture_optimization/robot_model.h>
 
 #include <moveit/robot_trajectory/robot_trajectory.h>
@@ -71,7 +71,7 @@ public:
 private:
   ros::NodeHandle nh_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
-  std::shared_ptr<CombinedOptimization> combined_optimization_;
+//  std::shared_ptr<CombinedOptimization> combined_optimization_;
   std::shared_ptr<ArmOptimization> arm_optimization_;
   std::shared_ptr<FlipperOptimization> flipper_optimization_;
   std::shared_ptr<RobotModel> robot_model_;

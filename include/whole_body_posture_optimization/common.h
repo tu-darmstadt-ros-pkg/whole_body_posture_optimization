@@ -1,10 +1,8 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_COMMON_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_COMMON_H
 
-#include <eigen_conversions/eigen_msg.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <moveit/robot_state/conversions.h>
 #include <moveit/collision_distance_field/collision_distance_field_types.h>
+#include <moveit/robot_state/robot_state.h>
 #include <ceres_nlopt_wrapper/utils.h>
 #include <ceres/cost_function.h>
 #include <sdf_contact_estimation/util/utils.h>
@@ -87,7 +85,6 @@ template <typename T> std::vector<T> computeForceAngleStabilitiesWithGravity(con
 }
 
 void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Affine3d& pose);
-//void updateState(robot_state::RobotState &state, const std::vector<double>& angles);
 
 std::string line(int length);
 

@@ -1,11 +1,12 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_FLIPPER_STABILITY_COST_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_FLIPPER_STABILITY_COST_H
 
+#include <ros/node_handle.h>
+#include <Eigen/Eigen>
+#include <ceres/cost_function.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 
-#include <sdf_contact_estimation/body_shapes/robot_shape_generator_base.h>
-#include <whole_body_posture_optimization/common.h>
-#include <algorithm>
+//#include <whole_body_posture_optimization/common.h>
 
 namespace whole_body_posture_optimization {
 

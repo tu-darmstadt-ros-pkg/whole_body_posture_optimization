@@ -1,8 +1,12 @@
 #include <ros/ros.h>
+
+#include <eigen_conversions/eigen_msg.h>
+
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
+#include <whole_body_posture_optimization/timing.h>
+
 #include <sdf_contact_estimation/test_scenarios.h>
 #include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
-#include <whole_body_posture_optimization/timing.h>
 
 nav_msgs::Path createPath(double start_x, double stop_x, double step, const Eigen::Vector3d& offset=Eigen::Vector3d::Zero()) {
   nav_msgs::Path path;

@@ -1,5 +1,11 @@
 #include <whole_body_posture_optimization/robot_model.h>
 
+#include <whole_body_posture_optimization/common.h>
+#include <sdf_contact_estimation/visualisation.h>
+
+#include <moveit/robot_state/conversions.h>
+#include <moveit_msgs/DisplayRobotState.h>
+#include <eigen_conversions/eigen_msg.h>
 #include <differentiation/rbdl_utilsAD.h>
 #include <urdfreader/urdfreader.h>
 

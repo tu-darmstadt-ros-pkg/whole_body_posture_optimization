@@ -1,5 +1,6 @@
 #include <whole_body_posture_optimization/flipper/flipper_stability_cost.h>
 
+#include <whole_body_posture_optimization/common.h>
 #include <algorithm>
 #include <ceres/dynamic_numeric_diff_cost_function.h>
 

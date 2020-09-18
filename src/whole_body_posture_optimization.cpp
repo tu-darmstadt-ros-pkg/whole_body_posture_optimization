@@ -3,15 +3,19 @@
 #include <iomanip>
 
 #include <pluginlib/class_loader.h>
+
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit/trajectory_processing/iterative_spline_parameterization.h>
 #include <moveit_msgs/DisplayTrajectory.h>
+#include <moveit/robot_state/conversions.h>
 
 #include <voxblox_msgs/Layer.h>
 #include <voxblox_ros/conversions.h>
 #include <voxblox/io/layer_io.h>
+
+#include <eigen_conversions/eigen_msg.h>
 
 #include <whole_body_posture_optimization/timing.h>
 #include <whole_body_posture_optimization/common.h>

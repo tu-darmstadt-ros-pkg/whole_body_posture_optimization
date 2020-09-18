@@ -7,6 +7,7 @@
 // tf
 #include <tf2_ros/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
+#include <eigen_conversions/eigen_msg.h>
 
 // msgs
 #include <sensor_msgs/JointState.h>

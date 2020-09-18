@@ -4,19 +4,13 @@
 #include <ros/ros.h>
 #include <urdf/model.h>
 #include <Eigen/Eigen>
-#include <eigen_conversions/eigen_msg.h>
-#include <moveit/robot_state/conversions.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
-#include <moveit_msgs/DisplayRobotState.h>
 #include <moveit/collision_distance_field/collision_distance_field_types.h>
 
 #include <ad_kinematics/chain.h>
 
 #include <voxblox/core/tsdf_map.h>
 #include <voxblox_ros/conversions.h>
-
-#include <whole_body_posture_optimization/common.h>
-#include <sdf_contact_estimation/visualisation.h>
 
 // Forward declarations for RBDL
 namespace RigidBodyDynamics {
