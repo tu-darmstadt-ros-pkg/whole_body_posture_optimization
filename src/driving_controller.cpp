@@ -10,6 +10,7 @@ DrivingController::DrivingController(const ros::NodeHandle &nh)
   // Parameters
   nh_.param("auto_start", auto_start_, false);
   nh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
+  nh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
   // Create robot shape
   robot_shape_ = std::make_shared<sdf_contact_estimation::RobotShapeFromUrdf>(nh_);
   optimizer_= std::make_shared<WholeBodyPostureOptimization>(nh_, robot_shape_);
@@ -35,7 +36,7 @@ DrivingController::DrivingController(const ros::NodeHandle &nh)
     ROS_ERROR_STREAM("Timed out waiting for driving action server.");
   }
 
-  // Connect vehicle controller action client
+  // Connect move group action client
   ROS_INFO_STREAM("Waiting for move_group client..");
   move_group_client_ = std::make_shared<MoveGroupClient>(nh_, "/move_group", true);
   if (!move_group_client_->waitForServer(ros::Duration(5))) {
@@ -67,14 +68,13 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
     return true;
   }
 
-  std::string move_group = "complete_robot_group";
-  robot_trajectory::RobotTrajectory combined_trajectory(trajectories[0].getRobotModel(), move_group);
+  robot_trajectory::RobotTrajectory combined_trajectory(trajectories[0].getRobotModel(), move_group_);
 
   // Drive to starting pose
   ROS_INFO_STREAM("Moving to starting pose");
   if (!planAndMove(trajectories[0].getFirstWayPoint(), combined_trajectory.getGroup())) {
     ROS_WARN_STREAM("Moving to initial state failed.");
-//    return false;
+    return false;
   }
 
   // Assemble arm motion plan
@@ -170,18 +170,16 @@ bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, 
     return false;
   }
 
-  nav_msgs::Path path;
-  path.header.frame_id = "world";
-  path.header.stamp = ros::Time::now();
+  // Drive to pose in goal state
   geometry_msgs::PoseStamped goal_pose_msg;
   goal_pose_msg.header.frame_id = "world";
-  //  pose_msg.header.stamp = ros::Time::now();
   Eigen::Affine3d goal_pose = goal_state.getJointTransform("world_virtual_joint");
   tf::poseEigenToMsg(goal_pose, goal_pose_msg.pose);
-  path.poses.push_back(goal_pose_msg);
 
   move_base_lite_msgs::FollowPathGoal follow_path_goal;
-  follow_path_goal.target_path = path;
+  follow_path_goal.target_path.header.frame_id = "world";
+  follow_path_goal.target_path.header.stamp = ros::Time::now();
+  follow_path_goal.target_path.poses.push_back(goal_pose_msg);
   follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
   follow_path_goal.follow_path_options.reverse_allowed = true;
 //  follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.01;
@@ -199,7 +197,7 @@ bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, 
     return false;
   }
 
-  // Plan and execute from current to start state
+  // Plan and execute joint motion from current to goal state
   moveit_msgs::MoveGroupGoal move_group_goal;
   move_group_goal.request.group_name = jmg->getName();
   move_group_goal.request.num_planning_attempts = 3;

@@ -61,6 +61,7 @@ private:
   // Parameters
   bool auto_start_;
   std::string stability_info_save_folder_;
+  std::string move_group_;
 };
 
 }
