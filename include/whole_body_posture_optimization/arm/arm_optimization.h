@@ -2,22 +2,15 @@
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_ARM_OPTIMIZATION_H
 
 #include <ros/ros.h>
-#include <geometry_msgs/PointStamped.h>
-#include <eigen_conversions/eigen_msg.h>
 #include <Eigen/Eigen>
-#include <moveit/planning_scene/planning_scene.h>
 
 #include <nlopt.hpp>
-#include <chrono>
 
+#include <moveit/collision_detection/collision_matrix.h>
 #include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
 
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
-#include <sdf_contact_estimation/visualisation.h>
-#include <whole_body_posture_optimization/common.h>
 #include <whole_body_posture_optimization/arm/stability_error.h>
-#include <whole_body_posture_optimization/arm/sdf_contact_constraint.h>
-#include <whole_body_posture_optimization/arm/self_contact_constraint.h>
 
 namespace whole_body_posture_optimization {
 
@@ -79,7 +72,6 @@ private:
   ros::Publisher result_com_pub_;
   ros::Publisher convex_hull_pub_;
   ros::Publisher robot_tsdf_pub_;
-
 };
 
 }
