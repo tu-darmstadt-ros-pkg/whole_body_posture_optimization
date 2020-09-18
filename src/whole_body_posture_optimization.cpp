@@ -235,10 +235,11 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   // Use last estimated pose to update estimate, if available
   if (previous_result) {
     result.init_contact = previous_result->result_contact;
-    estimated_pose = sdf_contact_estimation::updatePoseFromLastResult(pose, previous_result->result_contact.estimated_pose);
+//    estimated_pose = sdf_contact_estimation::updatePoseFromLastResult(pose, previous_result->result_contact.estimated_pose);
   }
   // Re-run contact estimation at new position
-  sdf_contact_estimation::ContactEstimationResult updated_contact = flipper_optimization_->computeContactEstimation(*previous_joint_angles, estimated_pose, base_to_com);
+  sdf_contact_estimation::ContactEstimationResult updated_contact;
+//  updated_contact false= flipper_optimization_->computeContactEstimation(*previous_joint_angles, estimated_pose, base_to_com);
 
   // Collect requests to optimization
   std::vector<Eigen::Affine3d> request_com;
