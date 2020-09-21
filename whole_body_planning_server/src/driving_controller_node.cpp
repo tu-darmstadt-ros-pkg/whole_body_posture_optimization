@@ -2,9 +2,10 @@
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "driving_controller_node");
+  ros::NodeHandle nh;
   ros::NodeHandle pnh("~");
 
-  whole_body_planning_server::WholeBodyPlanningServer driving_controller(pnh);
+  whole_body_planning_server::WholeBodyPlanningServer driving_controller(nh, pnh);
   ROS_INFO_STREAM("Finished initializing driving controller");
 
   std::string tsdf_load_path;
