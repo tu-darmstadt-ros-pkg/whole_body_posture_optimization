@@ -39,7 +39,6 @@ set(HEADERS
   include/${PROJECT_NAME}/robot_model.h
   include/${PROJECT_NAME}/common.h
   include/${PROJECT_NAME}/timing.h
-  include/${PROJECT_NAME}/driving_controller.h
   include/${PROJECT_NAME}/arm/stability_error.h
   include/${PROJECT_NAME}/arm/arm_optimization.h
   include/${PROJECT_NAME}/arm/sdf_contact_constraint.h
@@ -58,7 +57,6 @@ set(SOURCES
   src/whole_body_posture_optimization.cpp
   src/robot_model.cpp
   src/common.cpp
-  src/driving_controller.cpp
   src/arm/stability_error.cpp
   src/arm/arm_optimization.cpp
   src/flipper/flipper_optimization.cpp
@@ -93,11 +91,6 @@ target_link_libraries(manual_control_node ${PROJECT_NAME})
 add_executable(com_visualisation_node src/com_visualisation_node.cpp)
 add_dependencies(com_visualisation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(com_visualisation_node ${PROJECT_NAME})
-
-## Declare an executable
-add_executable(driving_controller_node src/driving_controller_node.cpp)
-add_dependencies(driving_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(driving_controller_node ${PROJECT_NAME})
 
 ## Declare an executable
 add_executable(stability_benchmark_node src/stability_benchmark_node.cpp)

@@ -1,10 +1,10 @@
-#include <whole_body_posture_optimization/driving_controller.h>
+#include <whole_body_planning_server/whole_body_planning_server.h>
 
 #include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
 
-namespace whole_body_posture_optimization {
+namespace whole_body_planning_server {
 
-DrivingController::DrivingController(const ros::NodeHandle &nh)
+WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh)
   : nh_(nh), auto_start_(false)
 {
   // Parameters
@@ -48,7 +48,7 @@ DrivingController::DrivingController(const ros::NodeHandle &nh)
   execute_sub_ = nh_.subscribe("execute_planned_trajectory", 10, &DrivingController::executeCb, this);
 }
 
-bool DrivingController::loadTsdfFromPath(std::string tsdf_path)
+bool WholeBodyPlanningServer::loadTsdfFromPath(std::string tsdf_path)
 {
   ROS_INFO_STREAM("Loading tsdf from path '" << tsdf_path << "'.");
   voxblox::Layer<voxblox::TsdfVoxel>::Ptr layer_ptr;
@@ -61,7 +61,7 @@ bool DrivingController::loadTsdfFromPath(std::string tsdf_path)
   }
 }
 
-bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &trajectories) {
+bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &trajectories) {
   ROS_INFO_STREAM("Executing trajectory now.");
   if (trajectories.empty()) {
     ROS_WARN_STREAM("[executeTrajectory] Trajectory is empty.");
@@ -159,11 +159,11 @@ bool DrivingController::executeTrajectory(const std::vector<robot_trajectory::Ro
   return true;
 }
 
-void DrivingController::followPathFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr &feedback_ptr)
+void WholeBodyPlanningServer::followPathFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr &feedback_ptr)
 {
 }
 
-bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, const robot_model::JointModelGroup* jmg)
+bool WholeBodyPlanningServer::planAndMove(const moveit::core::RobotState &goal_state, const robot_model::JointModelGroup* jmg)
 {
   if (jmg == nullptr) {
     ROS_ERROR_STREAM("JointModelGroup is null.");
@@ -226,7 +226,7 @@ bool DrivingController::planAndMove(const moveit::core::RobotState &goal_state, 
   return true;
 }
 
-bool DrivingController::updateTsdf(std::shared_ptr<voxblox::TsdfMap> &tsdf)
+bool WholeBodyPlanningServer::updateTsdf(std::shared_ptr<voxblox::TsdfMap> &tsdf)
 {
   if (loaded_tsdf_) {
     tsdf = loaded_tsdf_;
@@ -248,7 +248,7 @@ bool DrivingController::updateTsdf(std::shared_ptr<voxblox::TsdfMap> &tsdf)
   return true;
 }
 
-void DrivingController::pathCb(const nav_msgs::PathConstPtr &path_msg) {
+void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {
   ROS_INFO_STREAM("Received new path, planning..");
 
   if (!updateTsdf(tsdf_)) {
@@ -275,7 +275,7 @@ void DrivingController::pathCb(const nav_msgs::PathConstPtr &path_msg) {
   }
 }
 
-void DrivingController::executeCb(const std_msgs::EmptyConstPtr &empty_msg)
+void WholeBodyPlanningServer::executeCb(const std_msgs::EmptyConstPtr &empty_msg)
 {
   executeTrajectory(trajectory_);
 }
