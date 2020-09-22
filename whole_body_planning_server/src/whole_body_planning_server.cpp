@@ -53,6 +53,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   // Start subscribers
   path_sub_ = nh_.subscribe("path_command", 10, &WholeBodyPlanningServer::pathCb, this);
   execute_sub_ = nh_.subscribe("execute_planned_trajectory", 10, &WholeBodyPlanningServer::confirmExecutionCb, this);
+  ROS_INFO_STREAM("Initialization finished");
 }
 
 bool WholeBodyPlanningServer::loadTsdfFromPath(std::string tsdf_path)
