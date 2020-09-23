@@ -38,8 +38,10 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
 //  ros::NodeHandle combined_nh(nh, "combined_optimization");
 //  combined_optimization_ = std::make_shared<CombinedOptimization>(combined_nh, robot_model_, contact_estimation_);
 
+  // Publishers
   trajectory_pub_ = nh_.advertise<moveit_msgs::DisplayTrajectory>("trajectory", 10, true);
   sdf_pub_ = nh_.advertise<voxblox_msgs::Layer>("planning_sdf", 10, true);
+  path_pub_ = nh_.advertise<nav_msgs::Path>("input_path", 10, true);
 }
 
 bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -140,6 +142,7 @@ const std::vector<double> &WholeBodyPostureOptimization::getDefaultJointPosition
 std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimalPostures(const nav_msgs::Path& path)
 {
   // Iterate over path poses and run optimization
+  path_pub_.publish(path);
   std::vector<PostureOptimizationResult> results;
   if (path.poses.empty()) {
     ROS_WARN_STREAM("Can't find optimal postures, path is empty.");

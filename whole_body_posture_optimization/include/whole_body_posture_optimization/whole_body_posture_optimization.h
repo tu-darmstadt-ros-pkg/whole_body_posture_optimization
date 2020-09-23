@@ -89,6 +89,7 @@ private:
 
   ros::Publisher trajectory_pub_;
   ros::Publisher sdf_pub_;
+  ros::Publisher path_pub_;
 
   std::string sdf_save_folder_;
 };
