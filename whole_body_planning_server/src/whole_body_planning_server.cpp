@@ -10,9 +10,9 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   : nh_(nh), pnh_(pnh), auto_start_(false)
 {
   // Parameters
-  nh_.param("auto_start", auto_start_, false);
-  nh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
-  nh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
+  pnh_.param("auto_start", auto_start_, false);
+  pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
+  pnh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
 
   // Create whole body path planner
   robot_shape_ = std::make_shared<sdf_contact_estimation::RobotShapeFromUrdf>(pnh_);
