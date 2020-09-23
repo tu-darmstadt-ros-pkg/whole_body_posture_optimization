@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>  
   <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen">
+<!--  <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" launch-prefix="gdb-args">-->
     <param name="auto_start" value="true"/>
     
     
@@ -14,8 +15,11 @@
     <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" />      
     
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
-    
-    <remap from="~tsdf" to="/tsdf_server/tsdf_map_out"/>
-    <remap from="~get_tsdf" to="/tsdf_server/get_map"/>
+
+    <remap from="tsdf" to="/tsdf_server/tsdf_map_out"/>
+    <remap from="get_tsdf" to="/tsdf_server/get_map"/>
   </node>
+
+  <!-- Debug -->
+<!--   <node pkg="rosservice" type="rosservice" name="set_ceres_nlopt_wrapper_log_level" args="call wait /whole_body_planning_server/set_logger_level 'ros.ceres_nlopt_wrapper' 'debug'" /> -->
 </launch>

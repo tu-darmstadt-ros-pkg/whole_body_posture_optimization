@@ -81,7 +81,9 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   optimizer_->updateWorldModel(tsdf_);
   auto result = optimizer_->findOptimalPostures(path_msg);
   trajectory_ = optimizer_->computeTimedTrajectory(result);
-
+  if (trajectory_.size() < 1) {
+    return false;
+  }
   // Statistics
   whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
   optimizer_->printContactEstimationStatistics();
