@@ -14,7 +14,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   pnh_.param("auto_start", auto_start_, false);
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
   pnh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
-  pnh_.param<std::string>("map_frame", map_frame_, "map");
+//  pnh_.param<std::string>("map_frame", map_frame_, "map");
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
 
   // Create whole body path planner
@@ -80,6 +80,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
     return true; // Executing an empty plan is always successful
   }
   nav_msgs::Path path_copy = path_msg;
+  map_frame_ = path_msg.header.frame_id;
   // Update worldmodel
   if (!updateTsdf(tsdf_)) {
     ROS_ERROR_STREAM("Failed to update world model.");
@@ -153,12 +154,12 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
 
   // Assemble driving plan
   nav_msgs::Path path;
-  path.header.frame_id = "world";
+  path.header.frame_id = map_frame_;
   path.header.stamp = ros::Time::now();
   ros::Time next_start_time = starting_time_;
   for (unsigned int i = 0; i < trajectories.size(); i++) {
     geometry_msgs::PoseStamped pose_msg;
-    pose_msg.header.frame_id = "world";
+    pose_msg.header.frame_id = map_frame_;
     pose_msg.header.stamp = next_start_time;
     Eigen::Affine3d goal_pose = trajectories[i].getFirstWayPoint().getJointTransform("world_virtual_joint");
     tf::poseEigenToMsg(goal_pose, pose_msg.pose);
