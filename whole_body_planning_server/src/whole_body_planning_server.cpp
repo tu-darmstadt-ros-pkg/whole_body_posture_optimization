@@ -1,18 +1,21 @@
 #include <whole_body_planning_server/whole_body_planning_server.h>
 
 #include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
+#include <sdf_contact_estimation/util/utils.h>
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
 
 namespace whole_body_planning_server {
 
 WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, const ros::NodeHandle& pnh)
-  : nh_(nh), pnh_(pnh), auto_start_(false)
+  : nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), auto_start_(false)
 {
   // Parameters
   pnh_.param("auto_start", auto_start_, false);
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
   pnh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
+  pnh_.param<std::string>("map_frame", map_frame_, "map");
+  pnh_.param<std::string>("base_frame", base_frame_, "base_link");
 
   // Create whole body path planner
   robot_shape_ = std::make_shared<sdf_contact_estimation::RobotShapeFromUrdf>(pnh_);
@@ -72,14 +75,35 @@ bool WholeBodyPlanningServer::loadTsdfFromPath(std::string tsdf_path)
 bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start)
 {
   ROS_INFO_STREAM("Received new path, planning..");
-
+  if (path_msg.poses.size() == 0) {
+    ROS_WARN_STREAM("Path is empty. Can't plan.");
+    return true; // Executing an empty plan is always successful
+  }
+  nav_msgs::Path path_copy = path_msg;
+  // Update worldmodel
   if (!updateTsdf(tsdf_)) {
     ROS_ERROR_STREAM("Failed to update world model.");
     return false;
   }
-
   optimizer_->updateWorldModel(tsdf_);
-  auto result = optimizer_->findOptimalPostures(path_msg);
+
+  // Initialize robot pose and state
+  geometry_msgs::TransformStamped base_transform;
+  try {
+    base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path_msg.header.stamp);
+    Eigen::Affine3d map_to_base_tf;
+    tf::transformMsgToEigen(base_transform.transform, map_to_base_tf);
+    Eigen::Affine3d first_pose;
+    tf::poseMsgToEigen(path_copy.poses[0].pose, first_pose);
+    // Update first pose with current state
+    first_pose = sdf_contact_estimation::updatePoseFromLastResult(first_pose, map_to_base_tf, true, false); // Z only
+    tf::poseEigenToMsg(first_pose, path_copy.poses[0].pose);
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("%s",ex.what());
+  }
+
+  auto result = optimizer_->findOptimalPostures(path_copy);
   trajectory_ = optimizer_->computeTimedTrajectory(result);
   if (trajectory_.size() < 1) {
     return false;

@@ -20,6 +20,7 @@
   <buildtool_depend>catkin</buildtool_depend>
   <depend>whole_body_posture_optimization</depend>
   <depend>actionlib</depend>
+  <depend>tf2_ros</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

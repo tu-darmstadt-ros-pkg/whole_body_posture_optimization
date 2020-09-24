@@ -4,6 +4,8 @@
 #include <nav_msgs/Path.h>
 #include <std_msgs/Empty.h>
 
+#include <tf2_ros/transform_listener.h>
+
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
 #include <move_base_lite_msgs/FollowPathAction.h>
@@ -74,7 +76,12 @@ private:
   moveit_msgs::ExecuteTrajectoryGoal execute_trajectory_goal_;
   ros::Time starting_time_;
 
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener tf_listener_;
+
   // Parameters
+  std::string map_frame_;
+  std::string base_frame_;
   std::string move_group_;
   bool auto_start_;
   std::string stability_info_save_folder_;

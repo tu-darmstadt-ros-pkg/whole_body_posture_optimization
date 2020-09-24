@@ -3,6 +3,8 @@
   <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen">
 <!--  <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" launch-prefix="gdb-args">-->
     <param name="auto_start" value="true"/>
+    <param name="map_frame" value="world"/>
+    <param name="base_frame" value="base_link"/>
     
     
     <!-- posture optimization lib parameters -->

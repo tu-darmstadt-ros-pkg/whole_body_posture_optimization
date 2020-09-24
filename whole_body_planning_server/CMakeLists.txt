@@ -9,6 +9,7 @@ add_compile_options(-std=c++14)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   whole_body_posture_optimization
+  tf2_ros
 )
 
 ## System dependencies are found with CMake's conventions
@@ -47,7 +48,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_planning_server
-  CATKIN_DEPENDS whole_body_posture_optimization
+  CATKIN_DEPENDS whole_body_posture_optimization tf2_ros
 #  DEPENDS system_lib
 )
 
