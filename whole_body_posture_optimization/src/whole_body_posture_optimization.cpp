@@ -242,7 +242,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   // Use last estimated pose to update estimate, if available
   if (previous_result) {
     result.init_contact = previous_result->result_contact;
-//    estimated_pose = sdf_contact_estimation::updatePoseFromLastResult(pose, previous_result->result_contact.estimated_pose);
+    estimated_pose = sdf_contact_estimation::updatePoseFromLastResult(pose, previous_result->result_contact.estimated_pose, true, false);
   }
   // Re-run contact estimation at new position
   sdf_contact_estimation::ContactEstimationResult updated_contact;
