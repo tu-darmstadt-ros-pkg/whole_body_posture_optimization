@@ -21,6 +21,10 @@
   <depend>whole_body_posture_optimization</depend>
   <depend>actionlib</depend>
   <depend>tf2_ros</depend>
+  <depend>voxblox_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>move_base_lite_msgs</depend>
+  <depend>moveit_msgs</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

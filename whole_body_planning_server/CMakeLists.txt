@@ -10,6 +10,11 @@ add_compile_options(-std=c++14)
 find_package(catkin REQUIRED COMPONENTS
   whole_body_posture_optimization
   tf2_ros
+  voxblox_msgs
+  actionlib
+  nav_msgs
+  move_base_lite_msgs
+  moveit_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -48,7 +53,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_planning_server
-  CATKIN_DEPENDS whole_body_posture_optimization tf2_ros
+  CATKIN_DEPENDS whole_body_posture_optimization tf2_ros voxblox_msgs actionlib nav_msgs move_base_lite_msgs moveit_msgs
 #  DEPENDS system_lib
 )
 
