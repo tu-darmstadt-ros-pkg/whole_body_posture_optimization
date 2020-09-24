@@ -84,10 +84,9 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
 
 ## Declare a C++ executable
-add_executable(${PROJECT_NAME}_driving_controller_node src/driving_controller_node.cpp)
-set_target_properties(${PROJECT_NAME}_driving_controller_node PROPERTIES OUTPUT_NAME driving_controller_node PREFIX "")
-add_dependencies(${PROJECT_NAME}_driving_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME}_driving_controller_node ${PROJECT_NAME})
+add_executable(driving_controller_node src/driving_controller_node.cpp)
+add_dependencies(driving_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(driving_controller_node ${PROJECT_NAME})
 
 #############
 ## Install ##
