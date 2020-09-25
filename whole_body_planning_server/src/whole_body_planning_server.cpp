@@ -56,8 +56,8 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   follow_path_as_->start();
 
   // Start subscribers
-  path_sub_ = nh_.subscribe("path_command", 10, &WholeBodyPlanningServer::pathCb, this);
-  execute_sub_ = nh_.subscribe("execute_planned_trajectory", 10, &WholeBodyPlanningServer::confirmExecutionCb, this);
+  path_sub_ = pnh_.subscribe("path_command", 10, &WholeBodyPlanningServer::pathCb, this);
+  execute_sub_ = pnh_.subscribe("execute_planned_trajectory", 10, &WholeBodyPlanningServer::confirmExecutionCb, this);
   joint_state_sub_ = nh_.subscribe("/joint_states", 10, &WholeBodyPlanningServer::jointStateCb, this);
   ROS_INFO_STREAM("Initialization finished");
 }
