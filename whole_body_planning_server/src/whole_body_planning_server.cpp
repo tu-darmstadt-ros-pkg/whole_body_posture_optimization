@@ -20,6 +20,8 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   // Create whole body path planner
   robot_shape_ = std::make_shared<sdf_contact_estimation::RobotShapeFromUrdf>(pnh_);
   optimizer_= std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(pnh_, robot_shape_);
+  joint_names_ = optimizer_->getRobotModel()->getActuatedJointNames();
+  joint_states_ = optimizer_->getDefaultJointPositions();
 
   // Connect get tsdf layer service client
   ROS_INFO_STREAM("Waiting for get tsdf client..");
@@ -56,6 +58,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   // Start subscribers
   path_sub_ = nh_.subscribe("path_command", 10, &WholeBodyPlanningServer::pathCb, this);
   execute_sub_ = nh_.subscribe("execute_planned_trajectory", 10, &WholeBodyPlanningServer::confirmExecutionCb, this);
+  joint_state_sub_ = nh_.subscribe("/joint_states", 10, &WholeBodyPlanningServer::jointStateCb, this);
   ROS_INFO_STREAM("Initialization finished");
 }
 
@@ -328,9 +331,25 @@ void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {
   planAndExecutePath(*path_msg, auto_start_);
 }
 
-void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr &empty_msg)
+void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
 {
   executeTrajectory(trajectory_);
+}
+
+void WholeBodyPlanningServer::jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg)
+{
+  bool state_changed = false;
+  for (unsigned int joint_idx = 0; joint_idx < joint_names_.size(); ++joint_idx) {
+    std::vector<std::string>::const_iterator it = std::find(joint_state_msg->name.begin(), joint_state_msg->name.end(), joint_names_[joint_idx]);
+    if (it != joint_state_msg->name.end()) {
+      size_t index = static_cast<size_t>(it - joint_state_msg->name.begin());
+      joint_states_[joint_idx] = joint_state_msg->position[index];
+      state_changed = true;
+    }
+  }
+  if (state_changed) {
+    optimizer_->setDefaultJointPositions(joint_states_);
+  }
 }
 
 }
