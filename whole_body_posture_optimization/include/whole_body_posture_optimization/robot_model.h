@@ -80,6 +80,7 @@ private:
   void updateActuatedJointMapping(const std::string& joint_name, unsigned int joint_index);
   void updateJointMimicMapping(const std::string& joint_name, unsigned int joint_index);
 
+  ros::NodeHandle nh_;
   std::string robot_description_;
 
   std::vector<collision_detection::BodyDecompositionConstPtr> body_decompositions_;

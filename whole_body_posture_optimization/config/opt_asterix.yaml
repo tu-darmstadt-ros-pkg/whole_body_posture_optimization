@@ -10,6 +10,10 @@ front_tip_support_area_limit: 0.0
 
 complete_robot_group: flipper_group
 complete_robot_with_world_group: flipper_group_with_world
+
+joint_limits:
+  flipper_front_joint: [-1.57, 1.57]
+  flipper_back_joint: [-1.57, 1.57]
   
 arm_optimization:
   enabled: false

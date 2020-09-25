@@ -13,7 +13,7 @@
 namespace whole_body_posture_optimization {
 
 RobotModel::RobotModel(ros::NodeHandle &nh)
-  : num_joints_(0), num_actuated_joints_(0), collision_group_(""), total_mass_(0)
+  : nh_(nh), num_joints_(0), num_actuated_joints_(0), collision_group_(""), total_mass_(0)
 {
   // Parameter loading
   if(!nh.getParam("/robot_description", robot_description_)) {
@@ -363,6 +363,23 @@ std::string RobotModel::getParentJointName(const std::string &link_name)
 
 bool RobotModel::getJointLimits(const std::string &joint_name, double &lower_limit, double &upper_limit)
 {
+  // Joint limits can be overriden by a parameter
+  std::vector<double> limits;
+  if (nh_.getParam("joint_limits/" + joint_name, limits)) {
+    if (limits.size() != 2) {
+      ROS_ERROR_STREAM("Parameter 'joint_limits/" << joint_name << "' is not size 2.");
+      return false;
+    }
+    if (limits[0] < limits[1]) {
+      upper_limit = limits[1];
+      lower_limit = limits[0];
+    } else {
+      upper_limit = limits[0];
+      lower_limit = limits[1];
+    }
+    return true;
+  }
+  // Load limits from URDF
   urdf::JointConstSharedPtr joint = urdf_model_.getJoint(joint_name);
   if (!joint) {
     ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
