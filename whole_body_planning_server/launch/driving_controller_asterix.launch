@@ -43,7 +43,7 @@
     
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
     
-    <remap from="~tsdf" to="/tsdf_server/tsdf_map_out"/>
-    <remap from="~get_tsdf" to="/tsdf_server/get_map"/>
+    <remap from="tsdf" to="/tsdf_server/tsdf_map_out"/>
+    <remap from="get_tsdf" to="/tsdf_server/get_map"/>
   </node>
 </launch>
