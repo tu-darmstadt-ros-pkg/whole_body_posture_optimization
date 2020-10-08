@@ -184,6 +184,7 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
   follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
   follow_path_goal.follow_path_options.reverse_allowed = true;
   follow_path_goal.follow_path_options.is_fixed = true;
+  follow_path_goal.follow_path_options.reset_stuck_history = true;
   follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.01;
   follow_path_goal.follow_path_options.goal_pose_angle_tolerance = 0.01;
 
