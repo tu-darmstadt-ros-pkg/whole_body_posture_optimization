@@ -110,23 +110,25 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::
   optimizer_->updateWorldModel(tsdf_);
 
   // *** Path pre-processing ***
-  nav_msgs::Path path_copy;
+  nav_msgs::Path path_copy = path_msg;
   // Re-sample and smooth path
   if (resample_path) {
     Pathsmoother3D path_smoother(true);
     path_smoother.setSmoothedPathDiscretization(path_sampling_resolution_);
-    path_copy = path_smoother.smooth(path_msg, true);
+    path_copy = path_smoother.smooth(path_copy, true);
   }
-  // Update first pose on path with current pose
+  // Replace first pose with current pose
   geometry_msgs::TransformStamped base_transform;
   try {
+    // Get world transform
     base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path_msg.header.stamp);
-    Eigen::Affine3d map_to_base_tf;
-    tf::transformMsgToEigen(base_transform.transform, map_to_base_tf);
-    Eigen::Affine3d first_pose;
-    tf::poseMsgToEigen(path_copy.poses[0].pose, first_pose);
-    first_pose = sdf_contact_estimation::updatePoseFromLastResult(first_pose, map_to_base_tf, true, false); // Z only
-    tf::poseEigenToMsg(first_pose, path_copy.poses[0].pose);
+    path_copy.poses.front().pose.orientation = base_transform.transform.rotation; // TODO only YAW
+    path_copy.poses.front().pose.position.z = base_transform.transform.translation.z;
+
+//    Eigen::Affine3d first_pose;
+//    tf::poseMsgToEigen(path_copy.poses[0].pose, first_pose);
+//    first_pose = sdf_contact_estimation::updatePoseFromLastResult(first_pose, map_to_base_tf, true, false); // Z only
+//    tf::poseEigenToMsg(first_pose, path_copy.poses[0].pose);
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("%s",ex.what());
