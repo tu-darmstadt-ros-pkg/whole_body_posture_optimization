@@ -26,6 +26,7 @@
   <depend>move_base_lite_msgs</depend>
   <depend>moveit_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>vehicle_controller</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

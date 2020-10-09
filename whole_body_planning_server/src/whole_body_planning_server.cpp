@@ -1,5 +1,7 @@
 #include <whole_body_planning_server/whole_body_planning_server.h>
 
+#include <vehicle_controller/ps3d.h>
+
 #include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
 #include <sdf_contact_estimation/util/utils.h>
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
@@ -16,6 +18,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   pnh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
 //  pnh_.param<std::string>("map_frame", map_frame_, "map");
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
+  pnh_.param<double>("path_sampling_resolution", path_sampling_resolution_, 0.02);
 
   // Create whole body path planner
   robot_shape_ = std::make_shared<sdf_contact_estimation::RobotShapeFromUrdf>(pnh_);
@@ -52,7 +55,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   }
 
   // Create FollowPathServer
-  follow_path_as_ = std::make_shared<FollowPathServer>(pnh, "follow_path", boost::bind(&WholeBodyPlanningServer::followPathExecuteCb, this, _1), false);
+  follow_path_as_ = std::make_shared<FollowPathServer>(pnh, "follow_path", boost::bind(&WholeBodyPlanningServer::followPathServerExecuteCb, this, _1), false);
   follow_path_as_->start();
 
   // Start subscribers
@@ -78,20 +81,43 @@ bool WholeBodyPlanningServer::loadTsdfFromPath(std::string tsdf_path)
 bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start)
 {
   ROS_INFO_STREAM("Received new path, planning..");
+  // Generate new plan
+  bool planning_success = generatePlan(path_msg, trajectory_);
+  if (!planning_success) {
+    return false;
+  }
+
+  // Execute
+  if (auto_start) {
+    return executeTrajectory(trajectory_);
+  }
+  return true;
+}
+
+bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out, bool resample_path)
+{
   if (path_msg.poses.size() == 0) {
     ROS_WARN_STREAM("Path is empty. Can't plan.");
     return true; // Executing an empty plan is always successful
   }
-  nav_msgs::Path path_copy = path_msg;
   map_frame_ = path_msg.header.frame_id;
-  // Update worldmodel
+
+  // *** Update worldmodel ***
   if (!updateTsdf(tsdf_)) {
     ROS_ERROR_STREAM("Failed to update world model.");
     return false;
   }
   optimizer_->updateWorldModel(tsdf_);
 
-  // Initialize robot pose and state
+  // *** Path pre-processing ***
+  nav_msgs::Path path_copy;
+  // Re-sample and smooth path
+  if (resample_path) {
+    Pathsmoother3D path_smoother(true);
+    path_smoother.setSmoothedPathDiscretization(path_sampling_resolution_);
+    path_copy = path_smoother.smooth(path_msg, true);
+  }
+  // Update first pose on path with current pose
   geometry_msgs::TransformStamped base_transform;
   try {
     base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path_msg.header.stamp);
@@ -99,7 +125,6 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
     tf::transformMsgToEigen(base_transform.transform, map_to_base_tf);
     Eigen::Affine3d first_pose;
     tf::poseMsgToEigen(path_copy.poses[0].pose, first_pose);
-    // Update first pose with current state
     first_pose = sdf_contact_estimation::updatePoseFromLastResult(first_pose, map_to_base_tf, true, false); // Z only
     tf::poseEigenToMsg(first_pose, path_copy.poses[0].pose);
   }
@@ -107,9 +132,10 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
     ROS_WARN("%s",ex.what());
   }
 
+  // *** Compute plan ***
   auto result = optimizer_->findOptimalPostures(path_copy);
-  trajectory_ = optimizer_->computeTimedTrajectory(result);
-  if (trajectory_.size() < 1) {
+  trajectory_out = optimizer_->computeTimedTrajectory(result);
+  if (trajectory_out.size() < 1) {
     return false;
   }
   // Statistics
@@ -118,12 +144,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   if (stability_info_save_folder_ != "") {
     std::string time_stamp = whole_body_posture_optimization::getTimestamp();
     std::string save_path = stability_info_save_folder_ + "/stability_" + time_stamp + ".dat";
-    whole_body_posture_optimization::WholeBodyPostureOptimization::saveResultInfo(result, trajectory_, save_path);
-  }
-
-  // Execute
-  if (auto_start) {
-    return executeTrajectory(trajectory_);
+    whole_body_posture_optimization::WholeBodyPostureOptimization::saveResultInfo(result, trajectory_out, save_path);
   }
   return true;
 }
@@ -193,7 +214,7 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
   // Execute
   execute_trajectory_client_->sendGoal(execute_trajectory_goal_);
   driving_client_->sendGoal(follow_path_goal, FollowPathClient::SimpleDoneCallback(), FollowPathClient::SimpleActiveCallback(),
-                            boost::bind(&WholeBodyPlanningServer::followPathFeedbackCb, this, _1));
+                            boost::bind(&WholeBodyPlanningServer::followPathClientFeedbackCb, this, _1));
 
   ros::Duration time_until_start = starting_time_ - ros::Time::now();
   time_until_start.sleep();
@@ -227,11 +248,11 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
   return true;
 }
 
-void WholeBodyPlanningServer::followPathFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr &feedback_ptr)
+void WholeBodyPlanningServer::followPathClientFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr &feedback_ptr)
 {
 }
 
-void WholeBodyPlanningServer::followPathExecuteCb(const move_base_lite_msgs::FollowPathGoalConstPtr& goal_ptr)
+void WholeBodyPlanningServer::followPathServerExecuteCb(const move_base_lite_msgs::FollowPathGoalConstPtr& goal_ptr)
 {
   bool success = planAndExecutePath(goal_ptr->target_path, auto_start_);
   move_base_lite_msgs::FollowPathResult result;

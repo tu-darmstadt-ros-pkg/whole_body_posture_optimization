@@ -48,10 +48,7 @@ public:
    */
   bool planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start=true);
 private:
-  void pathCb(const nav_msgs::PathConstPtr& path_msg);
-  void confirmExecutionCb(const std_msgs::EmptyConstPtr&);
-  void jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg);
-
+  bool generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out, bool resample_path=true);
   bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
   /**
    * @brief planAndMoveToGoal Move to goal joint state and robot base position
@@ -62,9 +59,12 @@ private:
   bool planAndMoveToGoal(const robot_state::RobotState& goal_state, const moveit::core::JointModelGroup *jmg);
   bool updateTsdf(std::shared_ptr<voxblox::TsdfMap>& tsdf);
 
-  void followPathFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr& feedback_ptr);
-
-  void followPathExecuteCb(const move_base_lite_msgs::FollowPathGoalConstPtr& goal_ptr);
+  // Callbacks
+  void pathCb(const nav_msgs::PathConstPtr& path_msg);
+  void confirmExecutionCb(const std_msgs::EmptyConstPtr&);
+  void jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg);
+  void followPathClientFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr& feedback_ptr);
+  void followPathServerExecuteCb(const move_base_lite_msgs::FollowPathGoalConstPtr& goal_ptr);
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
@@ -89,6 +89,7 @@ private:
   std::string move_group_;
   bool auto_start_;
   std::string stability_info_save_folder_;
+  double path_sampling_resolution_;
 
   // Input
   ros::Subscriber path_sub_;
