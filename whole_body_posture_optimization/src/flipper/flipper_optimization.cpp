@@ -124,6 +124,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
 
   std::vector<double> parameters = jointVectorToParamVector(init_joint_angles);
+  ceres_nlopt_wrapper::applyBounds(lower_bounds_, upper_bounds_, parameters);
   if (objective_ == "fast") {
     Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(robot_pose.linear());
     // z position and roll, pitch orientation parameters

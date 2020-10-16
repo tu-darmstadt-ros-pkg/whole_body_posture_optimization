@@ -292,6 +292,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
     // Fill in initial joint state
     std::vector<double> parameters = jointVectorToParamVector(initial_angles);
+    ceres_nlopt_wrapper::applyBounds(lower_bounds_, upper_bounds_, parameters);
 
   //  stability_cost.checkGradient(parameters);
 
