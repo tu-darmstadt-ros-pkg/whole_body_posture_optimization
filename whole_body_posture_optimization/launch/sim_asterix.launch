@@ -22,7 +22,7 @@
 <!--   <include file="$(find hector_joy_mode_switcher)/launch/topic_mode_switcher.launch"/> -->
   
   <!-- TSDF -->
-  <include file="$(find whole_body_posture_optimization)/launch/tsdf_server.launch"/>
+  <include file="$(find whole_body_planning_server)/launch/tsdf_server.launch"/>
   
   <!-- Gazebo -->
   <include file="$(find asterix_gazebo_launch)/launch/spawn_default.launch">

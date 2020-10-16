@@ -40,12 +40,14 @@
     <!-- node parameters -->
     <rosparam subst_value="true">
 <!--      robot_pose: [0.0,0,0,0,0,0]-->
-      robot_pose: [0.680000, 0.000000, 0.206300, -0.008606, -0.553678, 0.000000] # gazebo step -> why is the back flipper not used to climb up the step?
+<!--       robot_pose: [0.680000, 0.000000, 0.206300, -0.008606, -0.553678, 0.000000] # gazebo step -> why is the back flipper not used to climb up the step? -->
+      robot_pose: [1.015649, 0.000000, 0.475015, 0.000000, -0.000000, 0.000000] # real robot cinder block ->  why is the back flipper not used to climb up the step?
     </rosparam>
     
     <param name="scenario" value="sdf"/>
     <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/real_robot1.esdf"/> -->
-        <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_step.esdf"/>
+<!--         <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_step.esdf"/> -->
+        <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/real_robot_cinder_block.tsdf"/>
     <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_highstep.esdf"/> -->
 <!--         <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf"/> -->
     <!--         <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf"/> -->
