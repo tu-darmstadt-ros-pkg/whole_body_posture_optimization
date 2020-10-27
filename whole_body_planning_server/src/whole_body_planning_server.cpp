@@ -81,6 +81,7 @@ bool WholeBodyPlanningServer::loadTsdfFromPath(std::string tsdf_path)
 bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start)
 {
   ROS_INFO_STREAM("Received new path, planning..");
+  map_frame_ = path_msg.header.frame_id;
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
 
@@ -129,7 +130,6 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::
     ROS_WARN_STREAM("Path is empty. Can't plan.");
     return true; // Executing an empty plan is always successful
   }
-  map_frame_ = path_msg.header.frame_id;
 
   // *** Update worldmodel ***
   if (!updateTsdf()) {
@@ -276,7 +276,6 @@ bool WholeBodyPlanningServer::planAndMoveToState(const moveit::core::RobotState 
     ROS_ERROR_STREAM("Follow path action timed out.");
     return false;
   }
-
   move_base_lite_msgs::FollowPathResultConstPtr follow_path_result = driving_client_->getResult();
   if (follow_path_result->result.val != move_base_lite_msgs::ErrorCodes::SUCCESS) {
     ROS_ERROR_STREAM("Follow path action failed with error code: " << follow_path_result->result.val);
