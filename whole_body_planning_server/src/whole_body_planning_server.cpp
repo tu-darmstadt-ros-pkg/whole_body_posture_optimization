@@ -169,7 +169,7 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
 
   // *** Drive to starting pose ***
   ROS_INFO_STREAM("Moving to starting pose");
-  if (!planAndMoveToGoal(trajectories[0].getFirstWayPoint(), combined_trajectory.getGroup())) {
+  if (!planAndMoveToState(trajectories[0].getFirstWayPoint(), combined_trajectory.getGroup())) {
     ROS_WARN_STREAM("Moving to initial state failed.");
     return false;
   }
@@ -249,23 +249,23 @@ void WholeBodyPlanningServer::followPathServerExecuteCb(const move_base_lite_msg
   follow_path_as_->setSucceeded(result);
 }
 
-bool WholeBodyPlanningServer::planAndMoveToGoal(const moveit::core::RobotState &goal_state, const robot_model::JointModelGroup* jmg)
+bool WholeBodyPlanningServer::planAndMoveToState(const moveit::core::RobotState &goal_state, const robot_model::JointModelGroup* jmg)
 {
   if (jmg == nullptr) {
     ROS_ERROR_STREAM("JointModelGroup is null.");
     return false;
   }
-
-  // Drive to pose in goal state
+  // First, drive to pose in goal state
   geometry_msgs::PoseStamped goal_pose_msg;
-  goal_pose_msg.header.frame_id = "world";
+  goal_pose_msg.header.frame_id = map_frame_;
   Eigen::Affine3d goal_pose = goal_state.getJointTransform("world_virtual_joint");
   tf::poseEigenToMsg(goal_pose, goal_pose_msg.pose);
 
   move_base_lite_msgs::FollowPathGoal follow_path_goal;
-  follow_path_goal.target_path.header.frame_id = "world";
+  follow_path_goal.target_path.header.frame_id = map_frame_;
   follow_path_goal.target_path.header.stamp = ros::Time::now();
   follow_path_goal.target_path.poses.push_back(goal_pose_msg);
+  follow_path_goal.follow_path_options.reset_stuck_history = true;
   follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
   follow_path_goal.follow_path_options.reverse_allowed = true;
 //  follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.01;

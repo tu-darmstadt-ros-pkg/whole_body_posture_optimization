@@ -52,12 +52,12 @@ private:
   bool generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out);
   bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
   /**
-   * @brief planAndMoveToGoal Move to goal joint state and robot base position
+   * @brief planAndMoveToState Move to goal joint state and robot base position
    * @param goal_state
    * @param jmg
    * @return
    */
-  bool planAndMoveToGoal(const robot_state::RobotState& goal_state, const moveit::core::JointModelGroup *jmg);
+  bool planAndMoveToState(const robot_state::RobotState& goal_state, const moveit::core::JointModelGroup *jmg);
   bool updateTsdf();
 
   // Util
