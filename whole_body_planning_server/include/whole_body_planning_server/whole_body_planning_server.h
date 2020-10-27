@@ -48,7 +48,8 @@ public:
    */
   bool planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start=true);
 private:
-  bool generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out, bool resample_path=true);
+  nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
+  bool generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out);
   bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
   /**
    * @brief planAndMoveToGoal Move to goal joint state and robot base position
@@ -57,7 +58,7 @@ private:
    * @return
    */
   bool planAndMoveToGoal(const robot_state::RobotState& goal_state, const moveit::core::JointModelGroup *jmg);
-  bool updateTsdf(std::shared_ptr<voxblox::TsdfMap>& tsdf);
+  bool updateTsdf();
 
   // Callbacks
   void pathCb(const nav_msgs::PathConstPtr& path_msg);

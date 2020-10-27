@@ -81,8 +81,11 @@ bool WholeBodyPlanningServer::loadTsdfFromPath(std::string tsdf_path)
 bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start)
 {
   ROS_INFO_STREAM("Received new path, planning..");
+  // Path pre-processing
+  nav_msgs::Path path_smoothed = preprocessPath(path_msg);
+
   // Generate new plan
-  bool planning_success = generatePlan(path_msg, trajectory_);
+  bool planning_success = generatePlan(path_smoothed, trajectory_);
   if (!planning_success) {
     return false;
   }
@@ -94,34 +97,18 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   return true;
 }
 
-bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out, bool resample_path)
+nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& path) const
 {
-  if (path_msg.poses.size() == 0) {
-    ROS_WARN_STREAM("Path is empty. Can't plan.");
-    return true; // Executing an empty plan is always successful
-  }
-  map_frame_ = path_msg.header.frame_id;
-
-  // *** Update worldmodel ***
-  if (!updateTsdf(tsdf_)) {
-    ROS_ERROR_STREAM("Failed to update world model.");
-    return false;
-  }
-  optimizer_->updateWorldModel(tsdf_);
-
-  // *** Path pre-processing ***
-  nav_msgs::Path path_copy = path_msg;
   // Re-sample and smooth path
-  if (resample_path) {
-    Pathsmoother3D path_smoother(true);
-    path_smoother.setSmoothedPathDiscretization(path_sampling_resolution_);
-    path_copy = path_smoother.smooth(path_copy, true);
-  }
-  // Replace first pose with current pose
+  Pathsmoother3D path_smoother(true);
+  path_smoother.setSmoothedPathDiscretization(path_sampling_resolution_);
+  nav_msgs::Path path_copy = path_smoother.smooth(path, true);
+
+  // Replace first pose with current pose for better planning initialization
   geometry_msgs::TransformStamped base_transform;
   try {
     // Get world transform
-    base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path_msg.header.stamp);
+    base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path.header.stamp);
     path_copy.poses.front().pose.orientation = base_transform.transform.rotation; // TODO only YAW
     path_copy.poses.front().pose.position.z = base_transform.transform.translation.z;
 
@@ -133,9 +120,25 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::
   catch (tf2::TransformException &ex) {
     ROS_WARN("%s",ex.what());
   }
+  return path_copy;
+}
+
+bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out)
+{
+  if (path_msg.poses.size() == 0) {
+    ROS_WARN_STREAM("Path is empty. Can't plan.");
+    return true; // Executing an empty plan is always successful
+  }
+  map_frame_ = path_msg.header.frame_id;
+
+  // *** Update worldmodel ***
+  if (!updateTsdf()) {
+    ROS_ERROR_STREAM("Failed to update world model.");
+    return false;
+  }
 
   // *** Compute plan ***
-  auto result = optimizer_->findOptimalPostures(path_copy);
+  auto result = optimizer_->findOptimalPostures(path_msg);
   trajectory_out = optimizer_->computeTimedTrajectory(result);
   if (trajectory_out.size() < 1) {
     return false;
@@ -329,13 +332,15 @@ bool WholeBodyPlanningServer::planAndMoveToGoal(const moveit::core::RobotState &
   return true;
 }
 
-bool WholeBodyPlanningServer::updateTsdf(std::shared_ptr<voxblox::TsdfMap> &tsdf)
+bool WholeBodyPlanningServer::updateTsdf()
 {
   if (loaded_tsdf_) {
-    tsdf = loaded_tsdf_;
+    // Use tsdf loaded from disc
+    optimizer_->updateWorldModel(loaded_tsdf_);
     return true;
   }
 
+  // Request tsdf from server
   voxblox_msgs::GetLayer get_layer;
 //  get_layer.request.action = voxblox_msgs::Layer::ACTION_FULL_MAP;
   if (!get_tsdf_client_.call(get_layer)) {
@@ -347,7 +352,9 @@ bool WholeBodyPlanningServer::updateTsdf(std::shared_ptr<voxblox::TsdfMap> &tsdf
     tsdf_config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(get_layer.response.layer.voxel_size);
     tsdf_.reset(new voxblox::TsdfMap(tsdf_config));
   }
-  voxblox::deserializeMsgToLayer<voxblox::TsdfVoxel>(get_layer.response.layer, tsdf->getTsdfLayerPtr());
+  voxblox::deserializeMsgToLayer<voxblox::TsdfVoxel>(get_layer.response.layer, tsdf_->getTsdfLayerPtr());
+  optimizer_->updateWorldModel(tsdf_);
+
   return true;
 }
 
