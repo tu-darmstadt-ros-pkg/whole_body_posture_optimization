@@ -161,76 +161,56 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
     return true;
   }
 
+  // Merge trajectory-parts
   robot_trajectory::RobotTrajectory combined_trajectory(trajectories[0].getRobotModel(), move_group_);
+  for (unsigned int i = 0; i < trajectories.size(); i++) {
+    combined_trajectory.append(trajectories[i], 0.000000001);
+  }
 
-  // Drive to starting pose
+  // *** Drive to starting pose ***
   ROS_INFO_STREAM("Moving to starting pose");
   if (!planAndMoveToGoal(trajectories[0].getFirstWayPoint(), combined_trajectory.getGroup())) {
     ROS_WARN_STREAM("Moving to initial state failed.");
     return false;
   }
 
-  // Assemble arm motion plan
-  for (unsigned int i = 0; i < trajectories.size(); i++) {
-    combined_trajectory.append(trajectories[i], 0.000000001);
-  }
+  // *** Execute whole body trajectory ***
+  ros::Time starting_time = ros::Time::now() + ros::Duration(2);
 
-  combined_trajectory.getRobotTrajectoryMsg(execute_trajectory_goal_.trajectory);
-
-  // Set starting time
-  starting_time_ = ros::Time::now() + ros::Duration(2);
-  execute_trajectory_goal_.trajectory.joint_trajectory.header.stamp = starting_time_;
+  // Assemble arm motion goal
+  moveit_msgs::ExecuteTrajectoryGoal execute_trajectory_goal;
+  combined_trajectory.getRobotTrajectoryMsg(execute_trajectory_goal.trajectory);
+  execute_trajectory_goal.trajectory.joint_trajectory.header.stamp = starting_time;
 
   // Assemble driving plan
-  nav_msgs::Path path;
-  path.header.frame_id = map_frame_;
-  path.header.stamp = ros::Time::now();
-  ros::Time next_start_time = starting_time_;
-  for (unsigned int i = 0; i < trajectories.size(); i++) {
-    geometry_msgs::PoseStamped pose_msg;
-    pose_msg.header.frame_id = map_frame_;
-    pose_msg.header.stamp = next_start_time;
-    Eigen::Affine3d goal_pose = trajectories[i].getFirstWayPoint().getJointTransform("world_virtual_joint");
-    tf::poseEigenToMsg(goal_pose, pose_msg.pose);
-    path.poses.push_back(pose_msg);
-
-    next_start_time += ros::Duration(trajectories[i].getWayPointDurationFromStart(trajectories[i].getWayPointCount()-1));
-  }
-  // add last pose
-  geometry_msgs::PoseStamped end_pose_msg;
-  end_pose_msg.header.frame_id = "world";
-  end_pose_msg.header.stamp = next_start_time;
-  Eigen::Affine3d end_goal_pose = trajectories.back().getLastWayPoint().getJointTransform("world_virtual_joint");
-  tf::poseEigenToMsg(end_goal_pose, end_pose_msg.pose);
-  path.poses.push_back(end_pose_msg);
+  nav_msgs::Path path = extractPathFromTrajectories(trajectories, starting_time);
 
   move_base_lite_msgs::FollowPathGoal follow_path_goal;
   follow_path_goal.target_path = path;
-  follow_path_goal.follow_path_options.desired_speed = 0.0;
+  follow_path_goal.follow_path_options.desired_speed = 0.0; // Implicitly given by pose time stamps
   follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
   follow_path_goal.follow_path_options.reverse_allowed = true;
-  follow_path_goal.follow_path_options.is_fixed = true;
-  follow_path_goal.follow_path_options.reset_stuck_history = true;
+  follow_path_goal.follow_path_options.is_fixed = true; // No smoothing
+  follow_path_goal.follow_path_options.reset_stuck_history = true; // Mandatory, robot will not drive otherwise
   follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.01;
   follow_path_goal.follow_path_options.goal_pose_angle_tolerance = 0.01;
 
   ROS_INFO_STREAM("Executing planned trajectory");
 
-  // Execute
-  execute_trajectory_client_->sendGoal(execute_trajectory_goal_);
+  // Send goals simultaneously
+  execute_trajectory_client_->sendGoal(execute_trajectory_goal);
   driving_client_->sendGoal(follow_path_goal, FollowPathClient::SimpleDoneCallback(), FollowPathClient::SimpleActiveCallback(),
                             boost::bind(&WholeBodyPlanningServer::followPathClientFeedbackCb, this, _1));
 
-  ros::Duration time_until_start = starting_time_ - ros::Time::now();
+  ros::Duration time_until_start = starting_time - ros::Time::now();
   time_until_start.sleep();
   optimizer_->publishTrajectory(trajectories);
 
-  // Wait for result
+  // Wait for results
   if (!driving_client_->waitForResult()) {
     ROS_INFO_STREAM("FollowPath action failed.");
     return false;
   }
-
   if (!execute_trajectory_client_->waitForResult()) {
     ROS_INFO_STREAM("ExecuteTrajectory action failed");
     return false;
@@ -356,6 +336,32 @@ bool WholeBodyPlanningServer::updateTsdf()
   optimizer_->updateWorldModel(tsdf_);
 
   return true;
+}
+
+nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const std::vector<robot_trajectory::RobotTrajectory>& trajectories, const ros::Time& start_time) const
+{
+  nav_msgs::Path path;
+  path.header.frame_id = map_frame_;
+  path.header.stamp = ros::Time::now();
+  ros::Time next_start_time = start_time;
+  for (unsigned int i = 0; i < trajectories.size(); i++) {
+    geometry_msgs::PoseStamped pose_msg;
+    pose_msg.header.frame_id = map_frame_;
+    pose_msg.header.stamp = next_start_time;
+    Eigen::Affine3d goal_pose = trajectories[i].getFirstWayPoint().getJointTransform("world_virtual_joint");
+    tf::poseEigenToMsg(goal_pose, pose_msg.pose);
+    path.poses.push_back(pose_msg);
+
+    next_start_time += ros::Duration(trajectories[i].getWayPointDurationFromStart(trajectories[i].getWayPointCount()-1));
+  }
+  // add last pose
+  geometry_msgs::PoseStamped end_pose_msg;
+  end_pose_msg.header.frame_id = map_frame_;
+  end_pose_msg.header.stamp = next_start_time;
+  Eigen::Affine3d end_goal_pose = trajectories.back().getLastWayPoint().getJointTransform("world_virtual_joint");
+  tf::poseEigenToMsg(end_goal_pose, end_pose_msg.pose);
+  path.poses.push_back(end_pose_msg);
+  return path;
 }
 
 void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {

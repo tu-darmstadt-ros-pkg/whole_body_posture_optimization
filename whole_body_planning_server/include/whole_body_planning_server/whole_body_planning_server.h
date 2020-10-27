@@ -60,6 +60,9 @@ private:
   bool planAndMoveToGoal(const robot_state::RobotState& goal_state, const moveit::core::JointModelGroup *jmg);
   bool updateTsdf();
 
+  // Util
+  nav_msgs::Path extractPathFromTrajectories(const std::vector<robot_trajectory::RobotTrajectory> &trajectories, const ros::Time& start_time) const;
+
   // Callbacks
   void pathCb(const nav_msgs::PathConstPtr& path_msg);
   void confirmExecutionCb(const std_msgs::EmptyConstPtr&);
@@ -77,9 +80,6 @@ private:
   std::shared_ptr<voxblox::TsdfMap> tsdf_;
   std::shared_ptr<voxblox::TsdfMap> loaded_tsdf_;
   std::vector<robot_trajectory::RobotTrajectory> trajectory_;
-
-  moveit_msgs::ExecuteTrajectoryGoal execute_trajectory_goal_;
-  ros::Time starting_time_;
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
