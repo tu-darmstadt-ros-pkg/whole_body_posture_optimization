@@ -82,19 +82,25 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
 {
   ROS_INFO_STREAM("Received new path, planning..");
   map_frame_ = path_msg.header.frame_id;
+
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
 
-  // Generate new plan
-  bool planning_success = generatePlan(path_smoothed, trajectory_);
-  if (!planning_success) {
-    return false;
+  if (!continuous_replanning_) {
+    // Generate new plan of complete path
+    bool planning_success = generatePlan(path_smoothed, trajectory_);
+    if (!planning_success) {
+      return false;
+    }
+
+    // Execute
+    if (auto_start) {
+      return executeTrajectory(trajectory_);
+    }
+  } else {
+    // Start separate thread to plan/execute parts of the trajectory periodically
   }
 
-  // Execute
-  if (auto_start) {
-    return executeTrajectory(trajectory_);
-  }
   return true;
 }
 
@@ -337,6 +343,77 @@ bool WholeBodyPlanningServer::updateTsdf()
   return true;
 }
 
+bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_msg)
+{
+  // Parameters
+  double planning_rate = 1.0;
+  ros::Rate rate(planning_rate);
+  double min_distance_from_robot = 0.3; // Distance where plan starts
+  double planning_horizon = 1.0; // Distance where plan ends
+  unsigned int max_consecutive_planning_failures = 5;
+
+  std::vector<double> accumulated_distances;
+  double first_cycle = true;
+  unsigned int consecutive_planning_failures = 0;
+  ros::Time next_start_time = ros::Time::now() + ros::Duration(2);
+  while (consecutive_planning_failures < max_consecutive_planning_failures) {
+    // Get current robot pose
+    geometry_msgs::TransformStamped base_transform;
+    try {
+      base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, ros::Time::now());
+    }
+    catch (tf2::TransformException &ex) {
+      ROS_ERROR("%s. Skipping planning.",ex.what());
+      ++consecutive_planning_failures;
+      continue;
+    }
+
+    // Project pose onto path
+//    Eigen::Vector3d point_on_path =
+
+    // Compute new path slice
+    nav_msgs::Path path_slice;
+
+    // check if breaking condition is met
+    // remaining path length < min_distance_from_robot
+
+    // Update TSDF
+    if (!updateTsdf()) {
+      ROS_ERROR_STREAM("Failed to update TSDF. Skipping planning.");
+      ++consecutive_planning_failures;
+      continue;
+    }
+
+    // Compute plan for path slice
+    auto result = optimizer_->findOptimalPostures(path_slice);
+    trajectory_ = optimizer_->computeTimedTrajectory(result);
+    if (trajectory_.size() < 1) {
+      ROS_ERROR_STREAM("Trajectory generation failed. Skipping planning");
+      ++consecutive_planning_failures;
+      continue;
+    }
+
+    consecutive_planning_failures = 0;
+
+    // Send plan
+    executeTrajectory(trajectory_);
+
+
+    // Wait remaining time for next iteration
+    if (!rate.sleep()) {
+      ROS_WARN_STREAM("Replanning rate was not met.");
+    }
+    break;
+  }
+
+  if (consecutive_planning_failures >= max_consecutive_planning_failures) {
+    ROS_ERROR_STREAM("Continuous planning aborted. Maximum consecutive planning failures reached (" << max_consecutive_planning_failures << ").");
+    return false;
+  }
+
+  return true;
+}
+
 nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const std::vector<robot_trajectory::RobotTrajectory>& trajectories, const ros::Time& start_time) const
 {
   nav_msgs::Path path;
@@ -361,6 +438,19 @@ nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const std::v
   tf::poseEigenToMsg(end_goal_pose, end_pose_msg.pose);
   path.poses.push_back(end_pose_msg);
   return path;
+}
+
+Eigen::Vector3d WholeBodyPlanningServer::projectOntoPath(const nav_msgs::Path& path, geometry_msgs::Point& point)
+{
+  return Eigen::Vector3d::Zero();
+}
+
+std::vector<double> WholeBodyPlanningServer::computeAccumulatedDistances(const nav_msgs::Path& path) const
+{
+//  vector<double> result(positions.size(), 0);
+//  for(unsigned i = 1; i < positions.size(); i++)
+//    result[i] = result[i - 1] + (positions[i] - positions[i - 1]).norm();
+//  return result;
 }
 
 void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {

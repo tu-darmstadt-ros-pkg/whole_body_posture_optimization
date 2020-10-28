@@ -60,8 +60,12 @@ private:
   bool planAndMoveToState(const robot_state::RobotState& goal_state, const moveit::core::JointModelGroup *jmg);
   bool updateTsdf();
 
+  bool continuousReplanning(const nav_msgs::Path& path_msg);
+
   // Util
   nav_msgs::Path extractPathFromTrajectories(const std::vector<robot_trajectory::RobotTrajectory> &trajectories, const ros::Time& start_time) const;
+  Eigen::Vector3d projectOntoPath(const nav_msgs::Path& path, geometry_msgs::Point& point);
+  std::vector<double> computeAccumulatedDistances(const nav_msgs::Path& path) const;
 
   // Callbacks
   void pathCb(const nav_msgs::PathConstPtr& path_msg);
@@ -89,6 +93,7 @@ private:
   std::string base_frame_;
   std::string move_group_;
   bool auto_start_;
+  bool continuous_replanning_;
   std::string stability_info_save_folder_;
   double path_sampling_resolution_;
 
