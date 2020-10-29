@@ -346,44 +346,39 @@ bool WholeBodyPlanningServer::updateTsdf()
 bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_msg)
 {
   // Parameters
-  double min_distance_from_robot = 0.3; // Distance where plan starts
-  double planning_horizon = min_distance_from_robot + 0.04; // Distance where plan ends
+//  double min_distance_from_robot = 0.3; // Distance where plan starts
+  double planning_horizon = 0.3; // Distance where plan ends
   unsigned int max_consecutive_planning_failures = 5;
 
+  whole_body_posture_optimization::PostureOptimizationResult last_opt_result;
   std::vector<robot_trajectory::RobotTrajectory> full_trajectory;
+  std::vector<ros::Time> start_times;
   std::vector<double> accumulated_distances;
   bool first_cycle = true;
   unsigned int consecutive_planning_failures = 0;
   ros::Time next_start_time = ros::Time::now() + ros::Duration(2);
   size_t current_path_index = 0;
-  while (consecutive_planning_failures < max_consecutive_planning_failures) {
-    size_t start_index;
-    if (first_cycle) {
-      start_index = 0;
-      first_cycle = false;
-    } else {
-      double start_distance = accumulated_distances[current_path_index] + min_distance_from_robot;
-      auto start_it = std::upper_bound(accumulated_distances.begin(), accumulated_distances.end(), start_distance);
-      if (start_it != accumulated_distances.end()) {
-        start_index = static_cast<size_t>(start_it - accumulated_distances.begin());
-      } else {
-        ROS_WARN_STREAM("Start index is behind path");
-        break;
-      }
-    }
-    double end_distance = accumulated_distances[current_path_index] + planning_horizon;
-    auto end_it = std::upper_bound(accumulated_distances.begin(), accumulated_distances.end(), end_distance);
-    size_t end_index;
-    if (end_it != accumulated_distances.end()) {
-      end_index = static_cast<size_t>(end_it - accumulated_distances.begin());
-    } else {
-      ROS_WARN_STREAM("Planning horizon has reached end of path.");
-      end_index = accumulated_distances.size() - 1;
-    }
+  // Iterate until path finished or planning failure
+  size_t planning_index = 0;
+  while (consecutive_planning_failures < max_consecutive_planning_failures && planning_index < path_msg.poses.size()) {
     // Compute new path slice
     nav_msgs::Path path_slice;
     path_slice.header.frame_id = path_msg.header.frame_id;
-    path_slice.poses = std::vector<geometry_msgs::PoseStamped>(path_msg.poses.begin() + start_index, path_msg.poses.begin() + end_index +1);
+
+    if (first_cycle) {
+      auto end_it = std::upper_bound(accumulated_distances.begin(), accumulated_distances.end(), planning_horizon);
+      size_t end_index;
+      if (end_it != accumulated_distances.end()) {
+        end_index = static_cast<size_t>(end_it - accumulated_distances.begin()) -1;
+      } else {
+        ROS_WARN_STREAM("Planning horizon has reached end of path.");
+        end_index = accumulated_distances.size() - 1;
+      }
+      path_slice.poses = std::vector<geometry_msgs::PoseStamped>(path_msg.poses.begin(), path_msg.poses.begin() + end_index +1);
+      planning_index = end_index;
+    } else {
+      path_slice.poses = std::vector<geometry_msgs::PoseStamped>(1, path_msg.poses[planning_index]);
+    }
 
     // Update TSDF
     if (!updateTsdf()) {
@@ -394,22 +389,52 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
 
     // Compute plan for path slice
     auto result = optimizer_->findOptimalPostures(path_slice);
-    trajectory_ = optimizer_->computeTimedTrajectory(result);
+
+    if (!first_cycle) {
+      // Append previous result to front so a trajectory is created from the previous slice to the new one
+      result.insert(result.begin(), last_opt_result);
+    }
+    trajectory_ = optimizer_->computeTimedTrajectory(result); // trajectory.size() == result.size() - 1
     if (trajectory_.size() < 1) {
-      ROS_ERROR_STREAM("Trajectory generation failed. Skipping planning");
+      ROS_ERROR_STREAM("Trajectory generation failed. Skipping planning.");
       ++consecutive_planning_failures;
       continue;
+    }
+    last_opt_result = result.back();
+    full_trajectory.insert(full_trajectory.end(), trajectory_.begin(), trajectory_.end());
+
+    // Update the start times of each trajectory
+    if (first_cycle) {
+      start_times.resize(1, ros::Time::now());
+    }
+    for (unsigned int i = 0; i < trajectory_.size(); ++i) {
+      start_times.push_back(start_times[start_times.size()-1] + ros::Duration(trajectory_[i].getDuration()));
     }
 
     // Reset failure count
     consecutive_planning_failures = 0;
 
     // Send plan
+    if (first_cycle) {
+      // Go to start state
+
+      first_cycle = false;
+    }
     executeTrajectory(trajectory_); // Has to be non blocking
 
 
-    // Sleep duration of first trajectory
-    ros::Duration(full_trajectory[current_path_index].getDuration()).sleep();
+    // Sleep until one trajectory is finished
+    ros::Time time_of_next_cycle = start_times[current_path_index + 1];
+    ros::Time now = ros::Time::now();
+    if (time_of_next_cycle >= now) {
+      ros::Duration time_to_sleep = time_of_next_cycle - now;
+      time_to_sleep.sleep();
+    } else {
+      ros::Duration late = now - time_of_next_cycle;
+      ROS_WARN_STREAM("Next cycle is starting late (" << late.toSec() << ")");
+    }
+
+    ++planning_index;
     ++current_path_index; // We should be at the next path index after sleep time
   }
 
