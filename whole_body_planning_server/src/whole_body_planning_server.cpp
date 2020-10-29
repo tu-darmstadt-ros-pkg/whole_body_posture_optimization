@@ -346,36 +346,44 @@ bool WholeBodyPlanningServer::updateTsdf()
 bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_msg)
 {
   // Parameters
-  double planning_rate = 1.0;
-  ros::Rate rate(planning_rate);
   double min_distance_from_robot = 0.3; // Distance where plan starts
-  double planning_horizon = 1.0; // Distance where plan ends
+  double planning_horizon = min_distance_from_robot + 0.04; // Distance where plan ends
   unsigned int max_consecutive_planning_failures = 5;
 
+  std::vector<robot_trajectory::RobotTrajectory> full_trajectory;
   std::vector<double> accumulated_distances;
-  double first_cycle = true;
+  bool first_cycle = true;
   unsigned int consecutive_planning_failures = 0;
   ros::Time next_start_time = ros::Time::now() + ros::Duration(2);
+  size_t current_path_index = 0;
   while (consecutive_planning_failures < max_consecutive_planning_failures) {
-    // Get current robot pose
-    geometry_msgs::TransformStamped base_transform;
-    try {
-      base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, ros::Time::now());
+    size_t start_index;
+    if (first_cycle) {
+      start_index = 0;
+      first_cycle = false;
+    } else {
+      double start_distance = accumulated_distances[current_path_index] + min_distance_from_robot;
+      auto start_it = std::upper_bound(accumulated_distances.begin(), accumulated_distances.end(), start_distance);
+      if (start_it != accumulated_distances.end()) {
+        start_index = static_cast<size_t>(start_it - accumulated_distances.begin());
+      } else {
+        ROS_WARN_STREAM("Start index is behind path");
+        break;
+      }
     }
-    catch (tf2::TransformException &ex) {
-      ROS_ERROR("%s. Skipping planning.",ex.what());
-      ++consecutive_planning_failures;
-      continue;
+    double end_distance = accumulated_distances[current_path_index] + planning_horizon;
+    auto end_it = std::upper_bound(accumulated_distances.begin(), accumulated_distances.end(), end_distance);
+    size_t end_index;
+    if (end_it != accumulated_distances.end()) {
+      end_index = static_cast<size_t>(end_it - accumulated_distances.begin());
+    } else {
+      ROS_WARN_STREAM("Planning horizon has reached end of path.");
+      end_index = accumulated_distances.size() - 1;
     }
-
-    // Project pose onto path
-//    Eigen::Vector3d point_on_path =
-
     // Compute new path slice
     nav_msgs::Path path_slice;
-
-    // check if breaking condition is met
-    // remaining path length < min_distance_from_robot
+    path_slice.header.frame_id = path_msg.header.frame_id;
+    path_slice.poses = std::vector<geometry_msgs::PoseStamped>(path_msg.poses.begin() + start_index, path_msg.poses.begin() + end_index +1);
 
     // Update TSDF
     if (!updateTsdf()) {
@@ -393,17 +401,16 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
       continue;
     }
 
+    // Reset failure count
     consecutive_planning_failures = 0;
 
     // Send plan
-    executeTrajectory(trajectory_);
+    executeTrajectory(trajectory_); // Has to be non blocking
 
 
-    // Wait remaining time for next iteration
-    if (!rate.sleep()) {
-      ROS_WARN_STREAM("Replanning rate was not met.");
-    }
-    break;
+    // Sleep duration of first trajectory
+    ros::Duration(full_trajectory[current_path_index].getDuration()).sleep();
+    ++current_path_index; // We should be at the next path index after sleep time
   }
 
   if (consecutive_planning_failures >= max_consecutive_planning_failures) {
