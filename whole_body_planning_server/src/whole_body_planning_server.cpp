@@ -95,7 +95,8 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
 
     // Execute
     if (auto_start) {
-      return executeTrajectory(trajectory_);
+      ros::Time starting_time = ros::Time::now() + ros::Duration(2);
+      return executeTrajectory(trajectory_, starting_time);
     }
   } else {
     // Start separate thread to plan/execute parts of the trajectory periodically
@@ -160,7 +161,7 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::
   return true;
 }
 
-bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &trajectories) {
+bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &trajectories, ros::Time starting_time, bool move_to_start_state) {
   ROS_INFO_STREAM("Executing trajectory now.");
   if (trajectories.empty()) {
     ROS_WARN_STREAM("[executeTrajectory] Trajectory is empty.");
@@ -173,15 +174,16 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
     combined_trajectory.append(trajectories[i], 0.000000001);
   }
 
-  // *** Drive to starting pose ***
-  ROS_INFO_STREAM("Moving to starting pose");
-  if (!planAndMoveToState(trajectories[0].getFirstWayPoint(), combined_trajectory.getGroup())) {
-    ROS_WARN_STREAM("Moving to initial state failed.");
-    return false;
+  if (move_to_start_state) {
+    // *** Drive to starting pose ***
+    ROS_INFO_STREAM("Moving to starting pose");
+    if (!planAndMoveToState(trajectories[0].getFirstWayPoint(), combined_trajectory.getGroup())) {
+      ROS_WARN_STREAM("Moving to initial state failed.");
+      return false;
+    }
   }
 
   // *** Execute whole body trajectory ***
-  ros::Time starting_time = ros::Time::now() + ros::Duration(2);
 
   // Assemble arm motion goal
   moveit_msgs::ExecuteTrajectoryGoal execute_trajectory_goal;
@@ -356,7 +358,6 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
   std::vector<double> accumulated_distances;
   bool first_cycle = true;
   unsigned int consecutive_planning_failures = 0;
-  ros::Time next_start_time = ros::Time::now() + ros::Duration(2);
   size_t current_path_index = 0;
   // Iterate until path finished or planning failure
   size_t planning_index = 0;
@@ -407,6 +408,7 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
     if (first_cycle) {
       start_times.resize(1, ros::Time::now());
     }
+    ros::Time next_start_time = start_times[start_times.size()-1];
     for (unsigned int i = 0; i < trajectory_.size(); ++i) {
       start_times.push_back(start_times[start_times.size()-1] + ros::Duration(trajectory_[i].getDuration()));
     }
@@ -415,13 +417,11 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
     consecutive_planning_failures = 0;
 
     // Send plan
-    if (first_cycle) {
-      // Go to start state
+    executeTrajectory(trajectory_, next_start_time, first_cycle); // Has to be non blocking
 
+    if (first_cycle) {
       first_cycle = false;
     }
-    executeTrajectory(trajectory_); // Has to be non blocking
-
 
     // Sleep until one trajectory is finished
     ros::Time time_of_next_cycle = start_times[current_path_index + 1];
@@ -491,7 +491,8 @@ void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {
 
 void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
 {
-  executeTrajectory(trajectory_);
+  ros::Time starting_time = ros::Time::now() + ros::Duration(2);
+  executeTrajectory(trajectory_, starting_time);
 }
 
 void WholeBodyPlanningServer::jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg)

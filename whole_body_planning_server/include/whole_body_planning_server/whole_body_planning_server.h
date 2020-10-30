@@ -50,7 +50,7 @@ public:
 private:
   nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
   bool generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out);
-  bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
+  bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectory, ros::Time starting_time, bool move_to_start_state=true);
   /**
    * @brief planAndMoveToState Move to goal joint state and robot base position
    * @param goal_state
