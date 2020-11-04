@@ -33,7 +33,7 @@ void updateMoveitRobotState(moveit::core::RobotState &state, const Eigen::Affine
 
 std::string line(int length) {
   std::string l = "";
-  for (unsigned int i = 0; i < length; i++) {
+  for (int i = 0; i < length; i++) {
     l += "-";
   }
   return l;
@@ -72,6 +72,20 @@ std::string poseToString(const Eigen::Affine3d& pose)
   std::string s = "[" + std::to_string(xyz(0)) + ", " + std::to_string(xyz(1)) + ", " + std::to_string(xyz(2)) + ", "
       + std::to_string(rpy(0)) + ", " + std::to_string(rpy(1)) + ", " + std::to_string(rpy(2)) + "]";
   return s;
+}
+
+std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& trajectory)
+{
+  std::stringstream ss;
+  for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
+    const robot_state::RobotState& state = trajectory.getWayPoint(i);
+    ss << i << ": [";
+    for (size_t j = 0; j < state.getVariableCount(); ++j) {
+      ss << state.getVariablePosition(static_cast<int>(j)) << ", ";
+    }
+    ss << "]" << std::endl;
+  }
+  return ss.str();
 }
 
 }

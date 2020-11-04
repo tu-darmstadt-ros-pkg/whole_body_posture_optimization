@@ -510,8 +510,8 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     Eigen::Vector3d position_diff = end_position - start_position;
     Eigen::Quaterniond start_orientation(opt_result[i].result_contact.estimated_pose.linear());
     Eigen::Quaterniond end_orientation(opt_result[i+1].result_contact.estimated_pose.linear());
-    for (unsigned int j = 0; j < res.trajectory_->getWayPointCount(); j++) {
-      double t = static_cast<double>(j) / res.trajectory_->getWayPointCount();
+    for (unsigned int j = 0; j < res.trajectory_->getWayPointCount()-1; j++) {
+      double t = static_cast<double>(j) / (res.trajectory_->getWayPointCount()-1);
       Eigen::Quaterniond interpolated_orientation = start_orientation.slerp(t, end_orientation);
       Eigen::Affine3d interpolated_pose(interpolated_orientation);
       Eigen::Vector3d interpolated_position = start_position + t * position_diff;
@@ -520,11 +520,22 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
       updateMoveitRobotState(*state, interpolated_pose);
     }
 
-    // Compute time parameterization and push to vector
+    // Save start index in full trajectory of this trajectory part
     trajectory_start_index.push_back(full_trajectory.getWayPointCount());
-    full_trajectory.append(*res.trajectory_, 0);
+
+    if (i != opt_result.size()-2) {
+      // Append to full trajectory (minus the end point, which would be a duplicate of the next start)
+      full_trajectory.append(*res.trajectory_, 0, 0, res.trajectory_->getWayPointCount()-1);
+    } else {
+      // Keep end point on last trajectory
+      updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), opt_result[i+1].result_contact.estimated_pose);
+      full_trajectory.append(*res.trajectory_, 0);
+    }
   }
   trajectory_start_index.push_back(full_trajectory.getWayPointCount());
+  // Debug: print out trajectories
+//  ROS_INFO_STREAM(vecToString(trajectory_start_index));
+//  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(full_trajectory));
 
   trajectory_processing::IterativeSplineParameterization time_parameterization;
   time_parameterization.computeTimeStamps(full_trajectory);

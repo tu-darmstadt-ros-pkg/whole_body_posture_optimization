@@ -3,6 +3,7 @@
 
 #include <moveit/collision_distance_field/collision_distance_field_types.h>
 #include <moveit/robot_state/robot_state.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
 #include <ceres_nlopt_wrapper/utils.h>
 #include <ceres/cost_function.h>
 #include <sdf_contact_estimation/util/utils.h>
@@ -85,6 +86,8 @@ template <typename T> std::vector<T> computeForceAngleStabilitiesWithGravity(con
 }
 
 void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Affine3d& pose);
+
+std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& trajectory);
 
 std::string line(int length);
 
