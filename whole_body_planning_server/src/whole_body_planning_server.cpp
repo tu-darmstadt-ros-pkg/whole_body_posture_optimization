@@ -359,8 +359,8 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
   bool first_cycle = true;
   unsigned int consecutive_planning_failures = 0;
   size_t current_path_index = 0;
-  // Iterate until path finished or planning failure
   size_t planning_index = 0;
+  // Iterate until path finished or planning failure
   while (consecutive_planning_failures < max_consecutive_planning_failures && planning_index < path_msg.poses.size()) {
     // Compute new path slice
     nav_msgs::Path path_slice;
@@ -389,7 +389,7 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
     }
 
     // Compute plan for path slice
-    auto result = optimizer_->findOptimalPostures(path_slice);
+    auto result = optimizer_->findOptimalPostures(path_slice); // TODO give previous solution
 
     if (!first_cycle) {
       // Append previous result to front so a trajectory is created from the previous slice to the new one
@@ -404,11 +404,14 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
     last_opt_result = result.back();
     full_trajectory.insert(full_trajectory.end(), trajectory_.begin(), trajectory_.end());
 
+    // TODO: Re-compute time-parameterization on full trajectory
+
     // Update the start times of each trajectory
     if (first_cycle) {
       start_times.resize(1, ros::Time::now());
     }
     ros::Time next_start_time = start_times[start_times.size()-1];
+    start_times.reserve(start_times.size() + trajectory_.size());
     for (unsigned int i = 0; i < trajectory_.size(); ++i) {
       start_times.push_back(start_times[start_times.size()-1] + ros::Duration(trajectory_[i].getDuration()));
     }
@@ -417,7 +420,7 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
     consecutive_planning_failures = 0;
 
     // Send plan
-    executeTrajectory(trajectory_, next_start_time, first_cycle); // Has to be non blocking
+    executeTrajectory(trajectory_, next_start_time, first_cycle); // TODO Has to be non blocking
 
     if (first_cycle) {
       first_cycle = false;
