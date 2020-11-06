@@ -26,6 +26,8 @@
 
 #include <sdf_contact_estimation/body_shapes/robot_shape_generator_base.h>
 
+#include <moveit/moveit_cpp/moveit_cpp.h>
+
 // Forward declarations
 namespace whole_body_posture_optimization {
   class WholeBodyPostureOptimization;
@@ -50,14 +52,15 @@ public:
 private:
   nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
   bool generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out);
-  bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectory, ros::Time starting_time, bool move_to_start_state=true);
+  bool moveToStartAndExecute(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
+  bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectories, ros::Time starting_time, bool blocking=false);
   /**
    * @brief planAndMoveToState Move to goal joint state and robot base position
    * @param goal_state
    * @param jmg
    * @return
    */
-  bool planAndMoveToState(const robot_state::RobotState& goal_state, const moveit::core::JointModelGroup *jmg);
+  bool planAndMoveToState(const robot_state::RobotState& goal_state, std::string group_name);
   bool updateTsdf();
 
   bool continuousReplanning(const nav_msgs::Path& path_msg);
@@ -87,6 +90,9 @@ private:
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
+
+  // MoveIt
+  std::shared_ptr<moveit::planning_interface::MoveItCpp> moveit_cpp_ptr_;
 
   // Parameters
   std::string map_frame_;

@@ -26,6 +26,9 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   joint_names_ = optimizer_->getRobotModel()->getActuatedJointNames();
   joint_states_ = optimizer_->getDefaultJointPositions();
 
+  // Create moveit planner instance
+  moveit_cpp_ptr_ = std::make_shared<moveit::planning_interface::MoveItCpp>(nh);
+
   // Connect get tsdf layer service client
   ROS_INFO_STREAM("Waiting for get tsdf client..");
   get_tsdf_client_ = nh_.serviceClient<voxblox_msgs::GetLayer>("get_tsdf");
@@ -95,11 +98,10 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
 
     // Execute
     if (auto_start) {
-      ros::Time starting_time = ros::Time::now() + ros::Duration(2);
-      return executeTrajectory(trajectory_, starting_time);
+      return moveToStartAndExecute(trajectory_);
     }
   } else {
-    // Start separate thread to plan/execute parts of the trajectory periodically
+    return continuousReplanning(path_msg);
   }
 
   return true;
@@ -161,8 +163,31 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::
   return true;
 }
 
-bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &trajectories, ros::Time starting_time, bool move_to_start_state) {
+bool WholeBodyPlanningServer::moveToStartAndExecute(const std::vector<robot_trajectory::RobotTrajectory> &trajectories) {
   ROS_INFO_STREAM("Executing trajectory now.");
+  if (trajectories.empty()) {
+    ROS_WARN_STREAM("[executeTrajectory] Trajectory is empty.");
+    return true;
+  }
+
+  // *** Drive to starting pose ***
+  ROS_INFO_STREAM("Moving to starting pose");
+  if (!planAndMoveToState(trajectories[0].getFirstWayPoint(), move_group_)) {
+    ROS_WARN_STREAM("Moving to initial state failed.");
+    return false;
+  }
+
+  // *** Execute whole body trajectory ***
+  ros::Time starting_time = ros::Time::now() + ros::Duration(2);
+  if (executeTrajectory(trajectories, starting_time, true)) {
+    ROS_INFO_STREAM("Trajectory execution successful!");
+    return true;
+  }
+  return false;
+}
+
+bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectories, ros::Time starting_time, bool blocking)
+{
   if (trajectories.empty()) {
     ROS_WARN_STREAM("[executeTrajectory] Trajectory is empty.");
     return true;
@@ -173,17 +198,6 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
   for (unsigned int i = 0; i < trajectories.size(); i++) {
     combined_trajectory.append(trajectories[i], 0.000000001);
   }
-
-  if (move_to_start_state) {
-    // *** Drive to starting pose ***
-    ROS_INFO_STREAM("Moving to starting pose");
-    if (!planAndMoveToState(trajectories[0].getFirstWayPoint(), combined_trajectory.getGroup())) {
-      ROS_WARN_STREAM("Moving to initial state failed.");
-      return false;
-    }
-  }
-
-  // *** Execute whole body trajectory ***
 
   // Assemble arm motion goal
   moveit_msgs::ExecuteTrajectoryGoal execute_trajectory_goal;
@@ -235,10 +249,6 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
     ROS_ERROR_STREAM("Follow path action failed with error code: " << follow_path_result->result.val);
     return false;
   }
-
-
-  ROS_INFO_STREAM("Trajectory execution successful!");
-  return true;
 }
 
 void WholeBodyPlanningServer::followPathClientFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr &feedback_ptr)
@@ -257,10 +267,11 @@ void WholeBodyPlanningServer::followPathServerExecuteCb(const move_base_lite_msg
   follow_path_as_->setSucceeded(result);
 }
 
-bool WholeBodyPlanningServer::planAndMoveToState(const moveit::core::RobotState &goal_state, const robot_model::JointModelGroup* jmg)
+bool WholeBodyPlanningServer::planAndMoveToState(const moveit::core::RobotState &goal_state, std::string group_name)
 {
+  const robot_model::JointModelGroup* jmg = moveit_cpp_ptr_->getRobotModel()->getJointModelGroup(group_name);
   if (jmg == nullptr) {
-    ROS_ERROR_STREAM("JointModelGroup is null.");
+    ROS_ERROR_STREAM("Could not find group '" << group_name << "'");
     return false;
   }
   // First, drive to pose in goal state
@@ -420,11 +431,15 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
     consecutive_planning_failures = 0;
 
     // Send plan
-    executeTrajectory(trajectory_, next_start_time, first_cycle); // TODO Has to be non blocking
-
     if (first_cycle) {
+      ROS_INFO_STREAM("Moving to starting pose");
+      if (!planAndMoveToState(trajectory_[0].getFirstWayPoint(), move_group_)) {
+        ROS_WARN_STREAM("Moving to initial state failed.");
+        continue;
+      }
       first_cycle = false;
     }
+    executeTrajectory(trajectory_, next_start_time, false);
 
     // Sleep until one trajectory is finished
     ros::Time time_of_next_cycle = start_times[current_path_index + 1];
@@ -436,6 +451,7 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
       ros::Duration late = now - time_of_next_cycle;
       ROS_WARN_STREAM("Next cycle is starting late (" << late.toSec() << ")");
     }
+    ros::spinOnce();
 
     ++planning_index;
     ++current_path_index; // We should be at the next path index after sleep time
@@ -494,8 +510,7 @@ void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {
 
 void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
 {
-  ros::Time starting_time = ros::Time::now() + ros::Duration(2);
-  executeTrajectory(trajectory_, starting_time);
+  moveToStartAndExecute(trajectory_);
 }
 
 void WholeBodyPlanningServer::jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg)
