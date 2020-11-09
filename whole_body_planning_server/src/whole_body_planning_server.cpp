@@ -10,10 +10,11 @@
 namespace whole_body_planning_server {
 
 WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, const ros::NodeHandle& pnh)
-  : nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), auto_start_(false)
+  : nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), auto_start_(false), continuous_replanning_(false)
 {
   // Parameters
   pnh_.param("auto_start", auto_start_, false);
+  pnh_.param("continuous_replanning", continuous_replanning_, false);
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
   pnh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
 //  pnh_.param<std::string>("map_frame", map_frame_, "map");
@@ -199,10 +200,7 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
     combined_trajectory.append(trajectories[i], 0.000000001);
   }
 
-  // Assemble arm motion goal
-  moveit_msgs::ExecuteTrajectoryGoal execute_trajectory_goal;
-  combined_trajectory.getRobotTrajectoryMsg(execute_trajectory_goal.trajectory);
-  execute_trajectory_goal.trajectory.joint_trajectory.header.stamp = starting_time;
+
 
   // Assemble driving plan
   nav_msgs::Path path = extractPathFromTrajectories(trajectories, starting_time);
@@ -220,9 +218,10 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
   ROS_INFO_STREAM("Executing planned trajectory");
 
   // Send goals simultaneously
-  execute_trajectory_client_->sendGoal(execute_trajectory_goal);
   driving_client_->sendGoal(follow_path_goal, FollowPathClient::SimpleDoneCallback(), FollowPathClient::SimpleActiveCallback(),
                             boost::bind(&WholeBodyPlanningServer::followPathClientFeedbackCb, this, _1));
+  executeJointTrajectory(combined_trajectory, blocking, starting_time);
+
 
   ros::Duration time_until_start = starting_time - ros::Time::now();
   time_until_start.sleep();
@@ -233,9 +232,12 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
     ROS_INFO_STREAM("FollowPath action failed.");
     return false;
   }
-  if (!execute_trajectory_client_->waitForResult()) {
-    ROS_INFO_STREAM("ExecuteTrajectory action failed");
-    return false;
+
+  if (blocking) {
+    if (!moveit_cpp_ptr_->getTrajectoryExecutionManager()->waitForExecution()) {
+      ROS_INFO_STREAM("ExecuteTrajectory action failed");
+      return false;
+    }
   }
 
   moveit_msgs::ExecuteTrajectoryResultConstPtr execute_trajectory_result = execute_trajectory_client_->getResult();
@@ -249,6 +251,8 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
     ROS_ERROR_STREAM("Follow path action failed with error code: " << follow_path_result->result.val);
     return false;
   }
+
+  return true;
 }
 
 void WholeBodyPlanningServer::followPathClientFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr &feedback_ptr)
@@ -328,6 +332,28 @@ bool WholeBodyPlanningServer::planAndMoveToState(const moveit::core::RobotState 
   }
 
   return true;
+}
+
+bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking, ros::Time start_time)
+{
+  // Check if there are controllers that can handle the execution
+  if (!moveit_cpp_ptr_->getTrajectoryExecutionManager()->ensureActiveControllersForGroup(trajectory.getGroupName()))
+  {
+    ROS_ERROR("Execution failed! No active controllers configured for group '%s'", trajectory.getGroupName().c_str());
+    return false;
+  }
+
+  // Execute trajectory
+  moveit_msgs::RobotTrajectory robot_trajectory_msg;
+  trajectory.getRobotTrajectoryMsg(robot_trajectory_msg);
+  robot_trajectory_msg.joint_trajectory.header.stamp = start_time;
+  if (blocking)
+  {
+    moveit_cpp_ptr_->getTrajectoryExecutionManager()->push(robot_trajectory_msg);
+    moveit_cpp_ptr_->getTrajectoryExecutionManager()->execute();
+    return true;
+  }
+  return moveit_cpp_ptr_->getTrajectoryExecutionManager()->pushAndExecute(robot_trajectory_msg);
 }
 
 bool WholeBodyPlanningServer::updateTsdf()

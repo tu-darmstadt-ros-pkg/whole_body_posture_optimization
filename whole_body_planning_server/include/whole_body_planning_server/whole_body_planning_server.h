@@ -61,6 +61,7 @@ private:
    * @return
    */
   bool planAndMoveToState(const robot_state::RobotState& goal_state, std::string group_name);
+  bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking=true, ros::Time start_time=ros::Time());
   bool updateTsdf();
 
   bool continuousReplanning(const nav_msgs::Path& path_msg);
