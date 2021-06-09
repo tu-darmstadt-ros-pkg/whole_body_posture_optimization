@@ -28,7 +28,8 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   joint_states_ = optimizer_->getDefaultJointPositions();
 
   // Create moveit planner instance
-  moveit_cpp_ptr_ = std::make_shared<moveit::planning_interface::MoveItCpp>(nh);
+  ros::NodeHandle move_group_nh("/move_group");
+  moveit_cpp_ptr_ = std::make_shared<moveit::planning_interface::MoveItCpp>(move_group_nh);
 
   // Connect get tsdf layer service client
   ROS_INFO_STREAM("Waiting for get tsdf client..");
@@ -223,17 +224,16 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
   executeJointTrajectory(combined_trajectory, blocking, starting_time);
 
 
-  ros::Duration time_until_start = starting_time - ros::Time::now();
-  time_until_start.sleep();
-  optimizer_->publishTrajectory(trajectories);
-
-  // Wait for results
-  if (!driving_client_->waitForResult()) {
-    ROS_INFO_STREAM("FollowPath action failed.");
-    return false;
-  }
+//  ros::Duration time_until_start = starting_time - ros::Time::now();
+//  time_until_start.sleep();
+//  optimizer_->publishTrajectory(trajectories);
 
   if (blocking) {
+    // Wait for results
+    if (!driving_client_->waitForResult()) {
+      ROS_INFO_STREAM("FollowPath action failed.");
+      return false;
+    }
     if (!moveit_cpp_ptr_->getTrajectoryExecutionManager()->waitForExecution()) {
       ROS_INFO_STREAM("ExecuteTrajectory action failed");
       return false;
@@ -384,6 +384,7 @@ bool WholeBodyPlanningServer::updateTsdf()
 
 bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_msg)
 {
+  ROS_INFO_STREAM("Input path: " << pathToString(path_msg));
   // Parameters
 //  double min_distance_from_robot = 0.3; // Distance where plan starts
   double planning_horizon = 0.3; // Distance where plan ends
@@ -398,6 +399,8 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
   size_t current_path_index = 0;
   size_t planning_index = 0;
   // Iterate until path finished or planning failure
+  ROS_INFO_STREAM("Starting replanning");
+  ROS_INFO_STREAM("------------------------------");
   while (consecutive_planning_failures < max_consecutive_planning_failures && planning_index < path_msg.poses.size()) {
     // Compute new path slice
     nav_msgs::Path path_slice;
@@ -417,6 +420,8 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
     } else {
       path_slice.poses = std::vector<geometry_msgs::PoseStamped>(1, path_msg.poses[planning_index]);
     }
+    ROS_INFO_STREAM("path index: " << current_path_index << ", planning index: " << planning_index);
+    ROS_INFO_STREAM("Planning for path: " << pathToString(path_slice));
 
     // Update TSDF
     if (!updateTsdf()) {
@@ -472,10 +477,11 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
     ros::Time now = ros::Time::now();
     if (time_of_next_cycle >= now) {
       ros::Duration time_to_sleep = time_of_next_cycle - now;
+      ROS_INFO_STREAM("Next cycle in " << time_to_sleep.toSec() << " s.");
       time_to_sleep.sleep();
     } else {
       ros::Duration late = now - time_of_next_cycle;
-      ROS_WARN_STREAM("Next cycle is starting late (" << late.toSec() << ")");
+      ROS_WARN_STREAM("Next cycle is starting late (" << late.toSec() << " s)");
     }
     ros::spinOnce();
 
@@ -527,7 +533,17 @@ std::vector<double> WholeBodyPlanningServer::computeAccumulatedDistances(const n
 //  vector<double> result(positions.size(), 0);
 //  for(unsigned i = 1; i < positions.size(); i++)
 //    result[i] = result[i - 1] + (positions[i] - positions[i - 1]).norm();
-//  return result;
+  //  return result;
+}
+
+std::string WholeBodyPlanningServer::pathToString(const nav_msgs::Path& path) const
+{
+  std::stringstream ss;
+  for (unsigned int i = 0; i < path.poses.size(); ++i) {
+    const geometry_msgs::Point& point = path.poses[i].pose.position;
+    ss << std::endl << i << ": [" << point.x << ", " << point.y << ", " << point.z << "]";
+  }
+  return ss.str();
 }
 
 void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {

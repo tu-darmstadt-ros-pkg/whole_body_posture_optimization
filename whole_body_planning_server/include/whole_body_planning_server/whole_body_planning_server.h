@@ -70,6 +70,7 @@ private:
   nav_msgs::Path extractPathFromTrajectories(const std::vector<robot_trajectory::RobotTrajectory> &trajectories, const ros::Time& start_time) const;
   Eigen::Vector3d projectOntoPath(const nav_msgs::Path& path, geometry_msgs::Point& point);
   std::vector<double> computeAccumulatedDistances(const nav_msgs::Path& path) const;
+  std::string pathToString(const nav_msgs::Path& path) const;
 
   // Callbacks
   void pathCb(const nav_msgs::PathConstPtr& path_msg);
