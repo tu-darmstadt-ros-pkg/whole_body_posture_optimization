@@ -36,17 +36,17 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   // *** Cost functions ** //
   // Penalize deviation from requested position
   Eigen::Affine3d original_to_estimated = pose_.inverse(Eigen::Isometry) * result.estimated_pose;
-  double diff = original_to_estimated.translation().block<2,1>(0,0).norm();
-  double move_backward_cost = std::max(0.0, diff-0.02); // 2cm leeway
+  double position_difference = original_to_estimated.translation().block<2,1>(0,0).norm();
+  double position_deviation_cost = std::max(0.0, position_difference - 0.02); // 2cm leeway
 
   // Joint movement cost
   double movement_cost = 0.0;
   if (!prev_flipper_param_angles_.empty()) {
     for (unsigned int idx = 0; idx < prev_flipper_param_angles_.size(); idx++) {
-      double diff = prev_flipper_param_angles_[idx] - flipper_angles[0][idx];
-      movement_cost += lorentzian<double>(diff, parameters_.lorentzian_sigma);
+      double angle_difference = prev_flipper_param_angles_[idx] - flipper_angles[0][idx];
+      movement_cost += lorentzian<double>(angle_difference, parameters_.lorentzian_sigma);
     }
-    movement_cost /= prev_flipper_param_angles_.size(); // Normalize by number of joints
+    movement_cost /= static_cast<double>(prev_flipper_param_angles_.size()); // Normalize by number of joints
   }
 
   // Penalize chassis roll angle
@@ -96,15 +96,17 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
       + parameters_.body_contact_weight * body_contact_pct
       + parameters_.movement_cost_weight * movement_cost
       + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
-      + parameters_.position_deviation_weight * move_backward_cost;
+      + parameters_.position_deviation_weight * position_deviation_cost;
 
   if (parameters_.verbose) {
-    ROS_INFO_STREAM("Support area: " << result.support_area << std::endl
-                    << "track contact: " << track_contact_pct << " (" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl
-                    << "body contact: " << body_contact_pct << " (" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl
-                    << "movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl
-                    << "moving backward cost: " << move_backward_cost << " (" << parameters_.position_deviation_weight * move_backward_cost << ")" << std::endl
-                    << "chassis roll angle: " << chassis_roll_angle << " (" << parameters_.roll_cost_weight * chassis_roll_angle << ")");
+    ROS_INFO_STREAM("Flipper cost function (weighted value in brackets): " << std::endl <<
+    "Support area: " << result.support_area << std::endl <<
+    "Track contact: " << track_contact_pct << " (" << parameters_.track_contact_weight * track_contact_pct << ")" << std::endl <<
+    "Body contact: " << body_contact_pct << " (" << parameters_.body_contact_weight * body_contact_pct << ")" << std::endl <<
+    "Movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl <<
+    "Position deviation cost: " << position_deviation_cost << " (" << parameters_.position_deviation_weight * position_deviation_cost << ")" << std::endl <<
+    "Chassis roll angle: " << chassis_roll_angle << " (" << parameters_.roll_cost_weight * chassis_roll_angle << ")" << std::endl <<
+    "Total cost: " << cost[0]);
   }
 
   return true;
@@ -114,8 +116,8 @@ ceres::CostFunction* ConvexHullAreaError::Create(const std::vector<std::string>&
                                                  const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_flipper_angles,
                                                  const std::vector<double> &prev_flipper_angles, const ConvexHullAreaErrorParameters &parameters)
 {
-  ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>* cost_function = new ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>(
-        new ConvexHullAreaError(free_joints, contact_estimation, pose, base_to_com, init_flipper_angles, prev_flipper_angles, parameters));
+  auto* cost_function = new ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>(
+      new ConvexHullAreaError(free_joints, contact_estimation, pose, base_to_com, init_flipper_angles, prev_flipper_angles, parameters));
 
   cost_function->AddParameterBlock(static_cast<int>(free_joints.size()));
   cost_function->SetNumResiduals(1);

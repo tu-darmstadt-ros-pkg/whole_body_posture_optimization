@@ -142,14 +142,14 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
       //  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
     }
   }
-  catch (std::invalid_argument e) {
-    ROS_ERROR_STREAM("Optimization failed: " << e.what());
+  catch (const std::invalid_argument& e) {
+    ROS_ERROR_STREAM("Flipper optimization failed (invalid argument): " << e.what());
   }
-  catch (nlopt::roundoff_limited e) {
-    ROS_ERROR_STREAM("Optimization failed: " << e.what());
+  catch (const nlopt::roundoff_limited& e) {
+    ROS_ERROR_STREAM("Flipper optimization failed (roundoff_limited): " << e.what());
   }
-  catch (std::runtime_error e) {
-    ROS_ERROR_STREAM("Optimization failed: " << e.what());
+  catch (const std::runtime_error& e) {
+    ROS_ERROR_STREAM("Flipper optimization failed (runtime error): " << e.what());
   }
   STOP_TIMING_AVG
 

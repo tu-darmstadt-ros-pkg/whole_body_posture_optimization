@@ -101,7 +101,7 @@ void WholeBodyPostureOptimization::updateWorldModel(const pcl::PointCloud<pcl::P
   saveSdfToFile(sdf_save_folder_);
 }
 
-bool WholeBodyPostureOptimization::loadSdfFromFile(std::string tsdf_file_path, float truncation_distance)
+bool WholeBodyPostureOptimization::loadSdfFromFile(const std::string& tsdf_file_path, float truncation_distance)
 {
   if (contact_estimation_->loadSdfFromFile(tsdf_file_path, truncation_distance, true)) {
     saveSdfToFile(sdf_save_folder_);
@@ -110,10 +110,10 @@ bool WholeBodyPostureOptimization::loadSdfFromFile(std::string tsdf_file_path, f
   return false;
 }
 
-bool WholeBodyPostureOptimization::saveSdfToFile(std::string save_folder)
+bool WholeBodyPostureOptimization::saveSdfToFile(const std::string& save_folder)
 {
   // Save the current tsdf for later debugging
-  if (save_folder != "") {
+  if (!save_folder.empty()) {
     std::string time_stamp = getTimestamp();
     std::string save_path =  save_folder + "/tsdf_map_" + time_stamp + ".tsdf";
     ROS_INFO_STREAM("Saving tsdf to " << save_path);
@@ -124,7 +124,7 @@ bool WholeBodyPostureOptimization::saveSdfToFile(std::string save_folder)
   return true;
 }
 
-const std::shared_ptr<RobotModel> WholeBodyPostureOptimization::getRobotModel() const
+std::shared_ptr<RobotModel> WholeBodyPostureOptimization::getRobotModel() const
 {
   return robot_model_;
 }
@@ -203,10 +203,10 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   } else if (optimization_type_ == COMBINED) {
     ROS_ERROR_STREAM("Combined optimization currently not supported.");
 //    return findOptimalPostureCombined(pose, init_joint_angles, previous_joint_angles, init_contact_result);
-    return PostureOptimizationResult();
+    return {};
   } else {
     ROS_ERROR_STREAM("Unknown optimization type");
-    return PostureOptimizationResult();
+    return {};
   }
 }
 

@@ -15,7 +15,7 @@ namespace whole_body_posture_optimization {
 
 struct ConvexHullAreaErrorParameters {
   static ConvexHullAreaErrorParameters createFromServer(const ros::NodeHandle& nh) {
-    ConvexHullAreaErrorParameters parameters_;
+    ConvexHullAreaErrorParameters parameters_{};
     nh.param("movement_cost_weight", parameters_.movement_cost_weight, 0.2);
     nh.param("lorentzian_sigma", parameters_.lorentzian_sigma, 0.2);
     nh.param("track_contact_weight", parameters_.track_contact_weight, 2.0);
@@ -26,7 +26,7 @@ struct ConvexHullAreaErrorParameters {
     return parameters_;
   }
 
-  std::string toString() {
+  std::string toString() const {
     std::stringstream ss;
     ss << "Heuristic cost parameters:" << std::endl;
     ss << "movement_cost_weight = " << movement_cost_weight << std::endl;

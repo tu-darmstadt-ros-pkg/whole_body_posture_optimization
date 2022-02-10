@@ -45,10 +45,10 @@ public:
   bool loadParameters(const ros::NodeHandle &nh); // set free parameters, etc
   void updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf);
   void updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud);
-  bool loadSdfFromFile(std::string tsdf_file_path, float truncation_distance);
-  bool saveSdfToFile(std::string save_folder);
+  bool loadSdfFromFile(const std::string& tsdf_file_path, float truncation_distance);
+  bool saveSdfToFile(const std::string& save_folder);
 
-  const std::shared_ptr<RobotModel> getRobotModel() const;
+  std::shared_ptr<RobotModel> getRobotModel() const;
 
 
   void setDefaultJointPositions(const std::vector<double>& default_joint_positions);
