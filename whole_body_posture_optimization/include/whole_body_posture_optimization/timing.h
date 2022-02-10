@@ -70,7 +70,7 @@ namespace whole_body_posture_optimization {
     static int id;
 
   public:
-    static int resetId() {id = 0;}
+    static void resetId() {id = 0;}
     static int getId() { return id++; }
   };
 

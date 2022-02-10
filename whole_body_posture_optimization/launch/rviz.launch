@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch> 
+  <node name="$(anon rviz)" pkg="rviz" type="rviz" args="-d $(find whole_body_posture_optimization)/rviz/visualization.rviz" output="screen"/>
+</launch>
