@@ -3,7 +3,7 @@
   <arg name="telemax_config" default="telemax"/>
   
   <!-- Load robot description -->
-  <param name="robot_description" command="$(find xacro)/xacro --inorder $(find drz_telemax_description)/urdf/drz_telemax_complete.urdf.xacro" />
+  <param name="robot_description" command="$(find xacro)/xacro $(find drz_telemax_description)/urdf/drz_telemax_complete.urdf.xacro" />
   <param name="robot_description_semantic" textfile="$(find drz_telemax_moveit_config)/config/drz_telemax.srdf" />
   
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen" clear_params="true">
