@@ -75,7 +75,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   double track_contact_pct = static_cast<double>(track_contact_sum)/result.total_track_count;
   double body_contact_pct = static_cast<double>(result.contact_body_count)/result.total_body_count;
 
-  // Penalyze contact normals that point against the moving direction
+  // Penalize contact normals that point against the moving direction
   // For now, the moving direction is hard-coded to x+
 //  Eigen::Vector3d moving_direction = Eigen::Vector3d::UnitX();
 //  Eigen::Vector3d neg_moving_direction = -moving_direction;
