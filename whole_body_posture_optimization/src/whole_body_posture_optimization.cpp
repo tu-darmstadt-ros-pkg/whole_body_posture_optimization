@@ -292,7 +292,6 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
     prelim_result.result_pose = flipper_result.pose;
     prelim_result.support_polygon = flipper_result.support_polygon;
     prelim_result.result_joint_angles = flipper_result.joint_state;
-    ROS_INFO_STREAM("joint angle size: " << prelim_result.result_joint_angles.size());
     prelim_result.stability_flipper_opt = flipper_result.stability;
     prelim_result.flipper_cost = flipper_result.final_cost;
 
@@ -300,7 +299,6 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
     ArmOptimizationResult arm_result = arm_optimization_->optimize(flipper_result.joint_state, flipper_result.support_polygon.contact_hull_points,
                                                                    flipper_result.pose, *previous_joint_angles);
     prelim_result.result_joint_angles = arm_result.joint_angles;
-    ROS_INFO_STREAM("joint angle size: " << prelim_result.result_joint_angles.size());
     prelim_result.result_com = arm_result.center_of_mass;
     prelim_result.stability_arm_opt = arm_result.stability;
     prelim_result.arm_cost = arm_result.final_cost;
