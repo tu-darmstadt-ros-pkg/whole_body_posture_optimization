@@ -9,6 +9,7 @@ add_compile_options(-std=c++14)
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED COMPONENTS
   nav_msgs
+  hector_pose_prediction_interface
   sdf_contact_estimation
   rbdl
   urdf
@@ -16,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning
   ad_kinematics
   move_base_lite_msgs
+  ceres_nlopt_wrapper
 )
 
 
@@ -25,7 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning ad_kinematics move_base_lite_msgs
+  CATKIN_DEPENDS nav_msgs hector_pose_prediction_interface sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning ad_kinematics move_base_lite_msgs ceres_nlopt_wrapper
 #  DEPENDS system_lib
 )
 
@@ -44,8 +46,8 @@ set(HEADERS
   include/${PROJECT_NAME}/arm/self_contact_constraint.h
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
   include/${PROJECT_NAME}/flipper/convex_hull_area_error.h
-  include/${PROJECT_NAME}/flipper/flipper_stability_cost.h
-  include/${PROJECT_NAME}/flipper/fast_traction_cost.h
+#  include/${PROJECT_NAME}/flipper/flipper_stability_cost.h
+#  include/${PROJECT_NAME}/flipper/fast_traction_cost.h
 #  include/${PROJECT_NAME}/combined/combined_optimization.h
 #  include/${PROJECT_NAME}/combined/combined_stability_cost.h
 #  include/${PROJECT_NAME}/combined/self_contact_constraint_no_gradient.h
@@ -60,8 +62,8 @@ set(SOURCES
   src/arm/arm_optimization.cpp
   src/flipper/flipper_optimization.cpp
   src/flipper/convex_hull_area_error.cpp
-  src/flipper/flipper_stability_cost.cpp
-  src/flipper/fast_traction_cost.cpp
+#  src/flipper/flipper_stability_cost.cpp
+#  src/flipper/fast_traction_cost.cpp
 #  src/combined/combined_optimization.cpp
 #  src/combined/combined_stability_cost.cpp
 )
@@ -82,9 +84,9 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
 
 ## Declare an executable
-add_executable(manual_control_node src/manual_control_node.cpp)
-add_dependencies(manual_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(manual_control_node ${PROJECT_NAME})
+#add_executable(manual_control_node src/manual_control_node.cpp)
+#add_dependencies(manual_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#target_link_libraries(manual_control_node ${PROJECT_NAME})
 
 ## Declare an executable
 add_executable(com_visualisation_node src/com_visualisation_node.cpp)
@@ -92,9 +94,9 @@ add_dependencies(com_visualisation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${ca
 target_link_libraries(com_visualisation_node ${PROJECT_NAME})
 
 ## Declare an executable
-add_executable(stability_benchmark_node src/stability_benchmark_node.cpp)
-add_dependencies(stability_benchmark_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(stability_benchmark_node ${PROJECT_NAME})
+#add_executable(stability_benchmark_node src/stability_benchmark_node.cpp)
+#add_dependencies(stability_benchmark_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#target_link_libraries(stability_benchmark_node ${PROJECT_NAME})
 
 #############
 ## Testing ##

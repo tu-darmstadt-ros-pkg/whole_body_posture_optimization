@@ -6,7 +6,8 @@
 #include <whole_body_posture_optimization/timing.h>
 
 #include <sdf_contact_estimation/test_scenarios.h>
-#include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
+#include <sdf_contact_estimation/robot_model/shape_model.h>
+#include <sdf_contact_estimation/sdf_contact_estimation.h>
 
 nav_msgs::Path createPath(double start_x, double stop_x, double step, const Eigen::Vector3d& offset=Eigen::Vector3d::Zero()) {
   nav_msgs::Path path;
@@ -28,43 +29,46 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "whole_body_posture_optimization_node");
   ros::NodeHandle pnh("~");
 
-  // Create robot shape
-  sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape = std::make_shared<sdf_contact_estimation::RobotShapeFromUrdf>(pnh);
-  whole_body_posture_optimization::WholeBodyPostureOptimization po(pnh, robot_shape);
+  // Load environment
+  ros::NodeHandle sdf_model_nh(pnh, "sdf_map");
+  auto sdf_model = std::make_shared<sdf_contact_estimation::SdfModel>(sdf_model_nh);
+  sdf_model->loadFromServer(sdf_model_nh);
 
-  // Create environment
-  std::string scenario = pnh.param("scenario", std::string("flat"));
-  if (scenario == "sdf") {
-    std::string sdf_file_path;
-    if (!pnh.getParam("sdf_file_path", sdf_file_path)) {
-      ROS_ERROR_STREAM("No sdf file path found in namespace '" + pnh.getNamespace() + "/sdf_file_path.");
-      return 0;
-    }
+  // Create pose predictor
+  // Create robot model
+  ros::NodeHandle pose_predictor_nh(pnh, "pose_predictor");
+  ros::NodeHandle shape_model_nh(pose_predictor_nh, "shape_model");
+  auto shape_model = std::make_shared<sdf_contact_estimation::ShapeModel>(shape_model_nh);
+  auto sdf_pose_predictor = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(pose_predictor_nh, shape_model, sdf_model);
+  sdf_pose_predictor->enableVisualisation(false);
+  auto pose_predictor = std::static_pointer_cast<hector_pose_prediction_interface::PosePredictor<double>>(sdf_pose_predictor);
 
-    if (!po.loadSdfFromFile(sdf_file_path, 0.4f)) {
-      return 0;
-    }
-  } else {
-    pcl::PointCloud<pcl::PointXYZ> cloud = sdf_contact_estimation::createScenarioFromName(scenario);
-    po.updateWorldModel(cloud);
-  }
+  whole_body_posture_optimization::WholeBodyPostureOptimization po(pnh, pose_predictor, sdf_model);
+
 
   // Create path
+//  nav_msgs::Path path;
+//  if (scenario == "step" || scenario == "highstep") {
+//    // step
+//    path = createPath(0.14, 1.7, 0.02, Eigen::Vector3d(0, 0, -1.9));
+////      path = createPath(1.7, 0.14, -0.02, Eigen::Vector3d(0, 0, -1.9));
+//  } else if (scenario == "ramp") {
+//    // ramp
+//    path = createPath(-1, 1, 0.02, Eigen::Vector3d(0, 0, -1));
+//  } else if (scenario == "sdf") {
+//    double path_start, path_stop, path_step;
+//    pnh.param("path_start", path_start, 0.0);
+//    pnh.param("path_stop", path_stop, 1.5);
+//    pnh.param("path_step", path_step, 0.02);
+//    path = createPath(path_start, path_stop, path_step);
+//  }
+
   nav_msgs::Path path;
-  if (scenario == "step" || scenario == "highstep") {
-    // step
-    path = createPath(0.14, 1.7, 0.02, Eigen::Vector3d(0, 0, -1.9));
-//      path = createPath(1.7, 0.14, -0.02, Eigen::Vector3d(0, 0, -1.9));
-  } else if (scenario == "ramp") {
-    // ramp
-    path = createPath(-1, 1, 0.02, Eigen::Vector3d(0, 0, -1));
-  } else if (scenario == "sdf") {
-    double path_start, path_stop, path_step;
-    pnh.param("path_start", path_start, 0.0);
-    pnh.param("path_stop", path_stop, 1.5);
-    pnh.param("path_step", path_step, 0.02);
-    path = createPath(path_start, path_stop, path_step);
-  }
+  double path_start, path_stop, path_step;
+  pnh.param("path_start", path_start, 0.0);
+  pnh.param("path_stop", path_stop, 1.5);
+  pnh.param("path_step", path_step, 0.02);
+  path = createPath(path_start, path_stop, path_step);
 
   // Compute optimal postures
   auto result = po.findOptimalPostures(path);
@@ -73,7 +77,6 @@ int main(int argc, char** argv) {
   // Print and save results
   whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
   whole_body_posture_optimization::Timing::printTimeInfos();
-  po.printContactEstimationStatistics();
   std::string stability_info_save_folder;
   if (pnh.getParam("stability_info_save_folder", stability_info_save_folder)) {
     std::string time_stamp = whole_body_posture_optimization::getTimestamp();

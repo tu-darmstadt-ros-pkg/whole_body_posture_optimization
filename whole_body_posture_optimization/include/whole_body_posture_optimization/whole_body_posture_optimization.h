@@ -3,10 +3,10 @@
 
 #include <nav_msgs/Path.h>
 
-#include <sdf_contact_estimation/sdf_contact_estimation.h>
+#include <hector_pose_prediction_interface/pose_predictor.h>
+#include <sdf_contact_estimation/sdf/sdf_model.h>
 #include <whole_body_posture_optimization/arm/arm_optimization.h>
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
-//#include <whole_body_posture_optimization/combined/combined_optimization.h>
 #include <whole_body_posture_optimization/robot_model.h>
 
 #include <moveit/robot_trajectory/robot_trajectory.h>
@@ -20,11 +20,12 @@ enum OptimizationType {
 
 struct PostureOptimizationResult {
   Eigen::Affine3d requested_pose;
+  Eigen::Affine3d result_pose;
+
   std::vector<double> init_joint_angles;
   std::vector<double> result_joint_angles;
 
-  sdf_contact_estimation::ContactEstimationResult init_contact;
-  sdf_contact_estimation::ContactEstimationResult result_contact;
+  hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
 
   Eigen::Vector3d init_com;
   Eigen::Vector3d result_com;
@@ -41,15 +42,12 @@ struct PostureOptimizationResult {
 
 class WholeBodyPostureOptimization {
 public:
-  WholeBodyPostureOptimization(const ros::NodeHandle &nh, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen);
+  WholeBodyPostureOptimization(const ros::NodeHandle &nh,
+                               const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
+                               const sdf_contact_estimation::SdfModelPtr& sdf_model);
   bool loadParameters(const ros::NodeHandle &nh); // set free parameters, etc
-  void updateWorldModel(const std::shared_ptr<voxblox::TsdfMap>& tsdf);
-  void updateWorldModel(const pcl::PointCloud<pcl::PointXYZ>& cloud);
-  bool loadSdfFromFile(const std::string& tsdf_file_path, float truncation_distance);
-  bool saveSdfToFile(const std::string& save_folder);
 
   std::shared_ptr<RobotModel> getRobotModel() const;
-
 
   void setDefaultJointPositions(const std::vector<double>& default_joint_positions);
   const std::vector<double>& getDefaultJointPositions();
@@ -65,12 +63,12 @@ public:
   std::vector<robot_trajectory::RobotTrajectory> computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
   void publishTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &robot_trajectory);
 
-  void printContactEstimationStatistics();
   static void printResultInfo(const std::vector<PostureOptimizationResult>& results);
   static void saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories, std::string save_path);
 private:
   ros::NodeHandle nh_;
-  std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
+  hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
+  sdf_contact_estimation::SdfModelPtr sdf_model_;
 //  std::shared_ptr<CombinedOptimization> combined_optimization_;
   std::shared_ptr<ArmOptimization> arm_optimization_;
   std::shared_ptr<FlipperOptimization> flipper_optimization_;

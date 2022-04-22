@@ -14,8 +14,8 @@
 namespace whole_body_posture_optimization {
 
 ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model,
-                                 const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation)
-  : nh_(nh), robot_model_(robot_model), contact_estimation_(contact_estimation), enabled_(true), algorithm_("")
+                                 const sdf_contact_estimation::SdfModelPtr& sdf_model)
+  : nh_(nh), robot_model_(robot_model), sdf_model_(sdf_model), enabled_(true), algorithm_("")
 {
   if (!loadParameters(nh)) {
     ROS_ERROR_STREAM("Loading arm parameters failed.");
@@ -23,7 +23,7 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   if (!loadLimits()) {
     ROS_ERROR_STREAM("Loading arm limits failed");
   }
-  param_idx_to_jnt_idx_ = robot_model_->getActuatedJointIndices(free_joints_);
+  param_idx_to_jnt_idx_ = getIndexMap(robot_model->getActuatedJointNames(), free_joints_);
 
   // Load Allowed Collision Matrix (ACM)
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
@@ -174,14 +174,14 @@ void ArmOptimization::setEnabled(bool enabled)
   enabled_ = enabled;
 }
 
-ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d> &contact_points, const Eigen::Affine3d& robot_pose,
+ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d>& contact_hull_points, const Eigen::Affine3d& robot_pose,
                                                 const std::vector<double>& previous_joint_angles)
 {
   ArmOptimizationResult result;
   result.joint_angles = initial_angles;
 
   // immediately return if there are no contact points with the ground (error)
-  if (contact_points.empty()) {
+  if (contact_hull_points.empty()) {
     ROS_ERROR_STREAM("No contact points with the ground, aborting arm optimization.");
     result.stability = -1;
     result.center_of_mass = Eigen::Vector3d::Zero();
@@ -193,10 +193,10 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     ceres_nlopt_wrapper::OptimizationHistory history;
     std::vector<double> previous_parameters;
     if (!previous_joint_angles.empty()) {
-      previous_parameters = jointVectorToParamVector(previous_joint_angles);
+      previous_parameters = mapListToSubset(previous_joint_angles, param_idx_to_jnt_idx_);
     }
     ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost(
-          StabilityError::Create(robot_model_, free_joints_, contact_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0, history.setObjective());
+          StabilityError::Create(robot_model_, free_joints_, contact_hull_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0, history.setObjective());
     stability_cost.setName("stability_cost");
     stability_cost.enableInfCheck(true);
     stability_cost.enableNanCheck(true);
@@ -219,7 +219,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
         CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, ENVIRONMENT));
         ceres::CostFunction* cost_function = SdfContactConstraint::Create(
-              robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, contact_estimation_->getSdf(), collision_object);
+              robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, sdf_model_, collision_object);
         std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
         wrapper->setName("constraint_environment_" + collision_link);
         environment_constraints.push_back(wrapper);
@@ -232,9 +232,9 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     // self-collision tsdf constraints
     START_TIMING("Self-collision tsdf const. creation")
     std::shared_ptr<voxblox::TsdfMap> tsdf = robot_model_->computeTsdfFromRobotModel(semi_static_link_names_, static_cast<float>(self_collision_tsdf_truncation_distance_), partial_robot_tsdf_, initial_angles);
-    sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose, 0.4f);
-    sdf_contact_estimation::SdfWrapper robot_base_tsdf;
-    robot_base_tsdf.setTsdfMap(tsdf, self_collision_tsdf_truncation_distance_);
+//    sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose, 0.4f);
+    auto robot_base_tsdf = std::make_shared<sdf_contact_estimation::SdfModel>();
+    robot_base_tsdf->loadTsdf(tsdf, self_collision_tsdf_truncation_distance_, false, false);
 
     std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_tsdf_constraints;
     for (const std::string& collision_link: collision_group_names) {
@@ -327,13 +327,13 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
         ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
       }
     }
-    catch (std::invalid_argument e) {
+    catch (const std::invalid_argument& e) {
       ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());
     }
-    catch (nlopt::roundoff_limited e) {
+    catch (const nlopt::roundoff_limited& e) {
       ROS_ERROR_STREAM("Optimization failed: " << e.what());
     }
-    catch (std::runtime_error e) {
+    catch (const std::runtime_error& e) {
       ROS_ERROR_STREAM("Optimization failed: " << e.what());
     }
 
@@ -362,13 +362,13 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
         nlopt_result = sub_opt_->optimize(parameters, minf);
         ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
       }
-      catch (std::invalid_argument e) {
+      catch (const std::invalid_argument& e) {
         ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());
       }
-      catch (nlopt::roundoff_limited e) {
+      catch (const nlopt::roundoff_limited& e) {
         ROS_ERROR_STREAM("Optimization failed: " << e.what());
       }
-      catch (std::runtime_error e) {
+      catch (const std::runtime_error& e) {
         ROS_ERROR_STREAM("Optimization failed: " << e.what());
       }
 
@@ -423,15 +423,15 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   Eigen::Affine3d com_pose = Eigen::Affine3d::Identity();
   com_pose.translation() = robot_pose * result.center_of_mass;
   // Compute stability
-  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_points, com_pose.translation());
+  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_hull_points, com_pose.translation());
   result.stability = *std::min_element(stabilities.begin(), stabilities.end());
 
   // Publish result com
-  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
+//  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
   // Publish result stabilities
   visualization_msgs::MarkerArray convex_hull_array_msg;
-  sdf_contact_estimation::createPointMarkerArray(contact_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
-  sdf_contact_estimation::createConvexHullMarkerArrayWithStabilities(contact_points, stabilities, convex_hull_array_msg);
+  sdf_contact_estimation::createPointMarkerArray(contact_hull_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
+  sdf_contact_estimation::createConvexHullMarkerArrayWithStabilities(contact_hull_points, stabilities, convex_hull_array_msg);
   sdf_contact_estimation::deleteAllMarkers(convex_hull_pub_);
   convex_hull_pub_.publish(convex_hull_array_msg);
 

@@ -5,11 +5,7 @@
 #include <ceres/cost_function.h>
 #include <sstream>
 #include <Eigen/Eigen>
-
-//Forward declarations
-namespace sdf_contact_estimation {
-  class SDFContactEstimation;
-}
+#include <hector_pose_prediction_interface/pose_predictor.h>
 
 namespace whole_body_posture_optimization {
 
@@ -48,25 +44,22 @@ struct ConvexHullAreaErrorParameters {
 
 class ConvexHullAreaError {
 public:
-  ConvexHullAreaError(const std::vector<std::string>& free_joints, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
-                      const Eigen::Affine3d& pose, const Eigen::Affine3d& base_to_com, const std::vector<double>& init_flipper_angles,
+  ConvexHullAreaError(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
+                      const Eigen::Affine3d& pose,
                       const std::vector<double>& prev_flipper_angles, const ConvexHullAreaErrorParameters& parameters);
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
-  static ceres::CostFunction* Create(const std::vector<std::string>& free_joints, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
-                                     const Eigen::Affine3d& pose, const Eigen::Affine3d& base_to_com, const std::vector<double>& init_flipper_angles,
+  static ceres::CostFunction* Create(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
+                                     const Eigen::Affine3d& pose,
                                      const std::vector<double>& prev_flipper_angles, const ConvexHullAreaErrorParameters &parameters);
 private:
   const std::vector<std::string>& free_joints_;
-  std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
+  const hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
   Eigen::Affine3d pose_;
-  Eigen::Affine3d base_to_com_;
-  std::vector<double> init_flipper_angles_;
+  hector_math::Pose<double> pose_math_;
   std::vector<double> prev_flipper_param_angles_;
-  std::vector<size_t> param_idx_to_flipper_state_;
-
-
+  std::vector<size_t> param_idx_to_state_idx;
 
   const ConvexHullAreaErrorParameters& parameters_;
 };

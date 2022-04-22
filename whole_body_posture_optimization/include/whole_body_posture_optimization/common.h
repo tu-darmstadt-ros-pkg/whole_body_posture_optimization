@@ -95,6 +95,36 @@ std::string getTimestamp();
 
 bool checkGradient(const ceres::CostFunction* cost_function);
 
+//! Computes an index mapping from subset index to list index
+//! Returns a list with the same size as subset
+template <typename T>
+std::vector<std::size_t> getIndexMap(const std::vector<T>& list, const std::vector<T>& subset)
+{
+  std::vector<std::size_t> indices;
+  for (const auto& s: subset) {
+    auto it = std::find(list.begin(), list.end(), s);
+    std:size_t idx;
+    if (it != list.end()) {
+      idx  = static_cast<std::size_t>(it - list.begin());
+    } else {
+      ROS_ERROR_STREAM("Could not find object " << s << " in list");
+      idx = 0;
+    }
+    indices.push_back(idx);
+  }
+  return indices;
+}
+
+template <typename T>
+std::vector<T> mapListToSubset(const std::vector<T> &list, const std::vector<std::size_t>& subset_idx_to_list_idx)
+{
+  std::vector<T> subset(subset_idx_to_list_idx.size());
+  for (unsigned int i = 0; i < subset.size(); ++i) {
+    subset[i] = list[subset_idx_to_list_idx[i]];
+  }
+  return subset;
+}
+
 }
 
 #endif

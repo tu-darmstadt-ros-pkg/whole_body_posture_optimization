@@ -4,37 +4,35 @@
 #include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
 
 #include <sdf_contact_estimation/visualisation.h>
+#include <hector_pose_prediction_interface/pose_predictor.h>
 
 #include <whole_body_posture_optimization/common.h>
 #include <whole_body_posture_optimization/robot_model.h>
 #include <whole_body_posture_optimization/flipper/convex_hull_area_error.h>
-#include <whole_body_posture_optimization/flipper/flipper_stability_cost.h>
-#include <whole_body_posture_optimization/flipper/fast_traction_cost.h>
+//#include <whole_body_posture_optimization/flipper/flipper_stability_cost.h>
+//#include <whole_body_posture_optimization/flipper/fast_traction_cost.h>
 
 namespace whole_body_posture_optimization {
 
 struct FlipperOptimizationResult {
-  std::vector<double> flipper_angles;
   std::vector<double> joint_state;
-  sdf_contact_estimation::ContactEstimationResult contact_result;
+  double stability;
+  hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
+  Eigen::Affine3d pose;
   double final_cost;
 };
 
 class FlipperOptimization {
 public:
-  FlipperOptimization(ros::NodeHandle& nh, const std::shared_ptr<RobotModel>& robot_model, const sdf_contact_estimation::RobotShapeGeneratorBasePtr &robot_shape_gen,
-                      const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation);
+  FlipperOptimization(ros::NodeHandle& nh, const std::shared_ptr<RobotModel>& robot_model,
+                      const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor);
   FlipperOptimizationResult optimize(const Eigen::Affine3d& robot_pose, const Eigen::Affine3d& base_to_com, const std::vector<double> &init_joint_angles,
                                      const std::vector<double>& previous_joint_angles);
-  sdf_contact_estimation::ContactEstimationResult computeContactEstimation(const std::vector<double>& joint_angles,const Eigen::Affine3d& pose, const Eigen::Affine3d &base_to_com,
-                                                                           const sdf_contact_estimation::ContactEstimationResult& last_result);
-  sdf_contact_estimation::ContactEstimationResult computeContactEstimation(const std::vector<double>& joint_angles,const Eigen::Affine3d& pose, const Eigen::Affine3d &base_to_com);
+
   bool enabled() const;
   void setEnabled(bool enabled);
 
 private:
-  std::vector<double> jointVectorToParamVector(const std::vector<double>& joint_vec);
-  std::vector<double> jointVectorToFlipperVector(const std::vector<double>& joint_vec);
   bool loadParameters(const ros::NodeHandle &nh);
   bool loadLimits();
 
@@ -42,10 +40,7 @@ private:
 
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<std::size_t> param_idx_to_jnt_idx_;
-  std::vector<std::size_t> flippers_idx_to_jnt_idx_;
-  std::vector<std::size_t> param_idx_to_flippers_idx_;
-  std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
-  sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape_gen_;
+  hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
 
   nlopt::opt opt_;
   bool enabled_;
@@ -56,8 +51,8 @@ private:
   std::string objective_;
 
   ConvexHullAreaErrorParameters convex_hull_error_parameters_;
-  FlipperStabilityCostParameters stability_cost_parameters_;
-  FastTractionCost::Parameters fast_traction_cost_parameters_;
+//  FlipperStabilityCostParameters stability_cost_parameters_;
+//  FastTractionCost::Parameters fast_traction_cost_parameters_;
 
   ros::Publisher start_state_pub_;
   ros::Publisher result_state_pub_;

@@ -149,5 +149,5 @@ flipper_optimization:
   
 ## Debug
 posture_optimization_debug: false
-contact_estimation/debug: false    
+pose_predictor/debug: false
 

@@ -9,7 +9,7 @@
 #include <moveit/collision_detection/collision_matrix.h>
 #include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
 
-#include <sdf_contact_estimation/sdf_contact_estimation.h>
+#include <sdf_contact_estimation/sdf/sdf_model.h>
 #include <whole_body_posture_optimization/arm/stability_error.h>
 
 namespace whole_body_posture_optimization {
@@ -23,8 +23,8 @@ struct ArmOptimizationResult {
 
 class ArmOptimization {
 public:
-  ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation);
-  ArmOptimizationResult optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d>& contact_points, const Eigen::Affine3d &robot_pose,
+  ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model, const sdf_contact_estimation::SdfModelPtr& sdf_model);
+  ArmOptimizationResult optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d>&contact_hull_points, const Eigen::Affine3d &robot_pose,
                                  const std::vector<double> &previous_joint_angles);
   bool getEnabled() const;
   void setEnabled(bool enabled);
@@ -42,7 +42,7 @@ private:
 
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<std::size_t> param_idx_to_jnt_idx_;
-  std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
+  sdf_contact_estimation::SdfModelPtr sdf_model_;
 
   std::vector<std::string> free_joints_;
   std::vector<double> lower_bounds_;

@@ -14,6 +14,7 @@
 
   <buildtool_depend>catkin</buildtool_depend>
   <depend>nav_msgs</depend>
+  <depend>hector_pose_prediction_interface</depend>
   <depend>sdf_contact_estimation</depend>
   <depend>rbdl</depend>
   <depend>urdf</depend>
@@ -21,5 +22,6 @@
   <depend>moveit_ros_planning</depend>
   <depend>ad_kinematics</depend>
   <depend>move_base_lite_msgs</depend>
+  <depend>ceres_nlopt_wrapper</depend>
 
 </package>
