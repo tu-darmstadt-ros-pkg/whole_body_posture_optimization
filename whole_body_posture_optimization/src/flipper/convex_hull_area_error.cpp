@@ -104,19 +104,11 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 //  }
 
   // Compute support area TODO move to hector math
-  std::vector<Eigen::Vector3d> vertices;
-  vertices.reserve(support_polygon.contact_hull_points.size());
-  for (unsigned int i = 0; i < support_polygon.contact_hull_points.size(); ++i) {
-    unsigned int ip1 = (i + 1) % support_polygon.contact_hull_points.size();
-    Eigen::Vector3d vertex = support_polygon.contact_hull_points[ip1] - support_polygon.contact_hull_points[i];
-    vertices.push_back(vertex);
-  }
-
   double support_area = 0;
-  for (unsigned int i = 0; i < vertices.size(); ++i) {
-    unsigned int j = (i+1) % vertices.size();
-    support_area += vertices[i].x() - vertices[j].y();
-    support_area -= vertices[i].y() - vertices[j].x();
+  for (unsigned int i = 0; i < support_polygon.contact_hull_points.size(); ++i) {
+    unsigned int j = (i+1) % support_polygon.contact_hull_points.size();
+    support_area += support_polygon.contact_hull_points[i].y() * support_polygon.contact_hull_points[j].x()
+        - support_polygon.contact_hull_points[i].x() * support_polygon.contact_hull_points[j].y();
   }
 
   // Sum up cost terms
@@ -128,7 +120,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 
   if (parameters_.verbose) {
     ROS_INFO_STREAM("Flipper cost function (weighted value in brackets): " << std::endl <<
-    "Support support_area: " << support_area << std::endl <<
+    "Support area: " << support_area << std::endl <<
     "Track contact: " << track_contact_area << " (" << parameters_.track_contact_weight * track_contact_area << ")" << std::endl <<
     "Body contact: " << body_contact_area << " (" << parameters_.body_contact_weight * body_contact_area << ")" << std::endl <<
     "Movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl <<
