@@ -112,15 +112,16 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   }
 
   // Sum up cost terms
-  cost[0] = -support_area - parameters_.track_contact_weight * track_contact_area
-      + parameters_.body_contact_weight * body_contact_area
-      + parameters_.movement_cost_weight * movement_cost
-      + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
-      + parameters_.position_deviation_weight * position_deviation_cost;
+  cost[0] = - parameters_.support_area_weight * support_area
+            - parameters_.track_contact_weight * track_contact_area
+            + parameters_.body_contact_weight * body_contact_area
+            + parameters_.movement_cost_weight * movement_cost
+            + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
+            + parameters_.position_deviation_weight * position_deviation_cost;
 
   if (parameters_.verbose) {
     ROS_INFO_STREAM("Flipper cost function (weighted value in brackets): " << std::endl <<
-    "Support area: " << support_area << std::endl <<
+    "Support area: " << support_area << " (" << parameters_.support_area_weight * support_area << ")" << std::endl <<
     "Track contact: " << track_contact_area << " (" << parameters_.track_contact_weight * track_contact_area << ")" << std::endl <<
     "Body contact: " << body_contact_area << " (" << parameters_.body_contact_weight * body_contact_area << ")" << std::endl <<
     "Movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl <<
