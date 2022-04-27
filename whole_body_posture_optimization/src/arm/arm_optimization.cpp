@@ -429,11 +429,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 //  hector_stability_metrics::computeNormalizedEnergyStabilityMargin<double>(contact_hull_points, stabilities, com_pose.translation());
   result.stability = *std::min_element(stabilities.begin(), stabilities.end());
 
-
-
-
   // Publish result com
-//  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
+  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
   // Publish result stabilities
   visualization_msgs::MarkerArray convex_hull_array_msg;
   sdf_contact_estimation::createPointMarkerArray(contact_hull_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
