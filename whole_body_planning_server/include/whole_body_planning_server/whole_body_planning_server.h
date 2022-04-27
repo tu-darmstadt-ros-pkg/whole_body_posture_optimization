@@ -21,16 +21,18 @@
 #include <voxblox/core/common.h>
 #include <voxblox_msgs/Layer.h>
 #include <voxblox_ros/conversions.h>
-#include <voxblox_msgs/GetLayer.h>
 #include <voxblox/core/tsdf_map.h>
 
-#include <sdf_contact_estimation/body_shapes/robot_shape_generator_base.h>
 
 #include <moveit/moveit_cpp/moveit_cpp.h>
 
 // Forward declarations
 namespace whole_body_posture_optimization {
   class WholeBodyPostureOptimization;
+}
+
+namespace sdf_contact_estimation {
+  class SdfModel;
 }
 
 typedef actionlib::SimpleActionClient<move_base_lite_msgs::FollowPathAction> FollowPathClient;
@@ -82,7 +84,7 @@ private:
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
 
-  sdf_contact_estimation::RobotShapeGeneratorBasePtr robot_shape_;
+  std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
   std::vector<std::string> joint_names_;
   std::vector<double> joint_states_;

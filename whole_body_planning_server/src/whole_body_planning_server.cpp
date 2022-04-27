@@ -2,8 +2,9 @@
 
 #include <vehicle_controller/ps3d.h>
 
-#include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
 #include <sdf_contact_estimation/util/utils.h>
+#include <sdf_contact_estimation/robot_model/shape_model.h>
+#include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
 
@@ -15,15 +16,26 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   // Parameters
   pnh_.param("auto_start", auto_start_, false);
   pnh_.param("continuous_replanning", continuous_replanning_, false);
+
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
   pnh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
 //  pnh_.param<std::string>("map_frame", map_frame_, "map");
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
   pnh_.param<double>("path_sampling_resolution", path_sampling_resolution_, 0.02);
 
-  // Create whole body path planner
-  robot_shape_ = std::make_shared<sdf_contact_estimation::RobotShapeFromUrdf>(pnh_);
-  optimizer_= std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(pnh_, robot_shape_);
+  // Create SDF Model
+  auto sdf_model = std::make_shared<sdf_contact_estimation::SdfModel>(pnh);
+
+  // Create pose predictor
+  // Create robot model
+  ros::NodeHandle pose_predictor_nh(pnh, "pose_predictor");
+  ros::NodeHandle shape_model_nh(pose_predictor_nh, "shape_model");
+  auto shape_model = std::make_shared<sdf_contact_estimation::ShapeModel>(shape_model_nh);
+  auto sdf_pose_predictor = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(pose_predictor_nh, shape_model, sdf_model);
+  sdf_pose_predictor->enableVisualisation(false);
+  auto pose_predictor = std::static_pointer_cast<hector_pose_prediction_interface::PosePredictor<double>>(sdf_pose_predictor);
+
+  optimizer_ = std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(pnh, pose_predictor, sdf_model);
   joint_names_ = optimizer_->getRobotModel()->getActuatedJointNames();
   joint_states_ = optimizer_->getDefaultJointPositions();
 
@@ -32,11 +44,11 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   moveit_cpp_ptr_ = std::make_shared<moveit::planning_interface::MoveItCpp>(move_group_nh);
 
   // Connect get tsdf layer service client
-  ROS_INFO_STREAM("Waiting for get tsdf client..");
-  get_tsdf_client_ = nh_.serviceClient<voxblox_msgs::GetLayer>("get_tsdf");
-  if (!get_tsdf_client_.waitForExistence(ros::Duration(5))) {
-    ROS_ERROR_STREAM("Timed out waiting for tsdf server.");
-  }
+//  ROS_INFO_STREAM("Waiting for get tsdf client..");
+//  get_tsdf_client_ = nh_.serviceClient<voxblox_msgs::GetLayer>("get_tsdf");
+//  if (!get_tsdf_client_.waitForExistence(ros::Duration(5))) {
+//    ROS_ERROR_STREAM("Timed out waiting for tsdf server.");
+//  }
 
   // Connect trajectory execution service client
   ROS_INFO_STREAM("Waiting for trajectory execution client..");
@@ -137,7 +149,7 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
 
 bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out)
 {
-  if (path_msg.poses.size() == 0) {
+  if (path_msg.poses.empty()) {
     ROS_WARN_STREAM("Path is empty. Can't plan.");
     return true; // Executing an empty plan is always successful
   }
@@ -151,13 +163,12 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::
   // *** Compute plan ***
   auto result = optimizer_->findOptimalPostures(path_msg);
   trajectory_out = optimizer_->computeTimedTrajectory(result);
-  if (trajectory_out.size() < 1) {
+  if (trajectory_out.empty()) {
     return false;
   }
   // Statistics
   whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
-  optimizer_->printContactEstimationStatistics();
-  if (stability_info_save_folder_ != "") {
+  if (stability_info_save_folder_.empty()) {
     std::string time_stamp = whole_body_posture_optimization::getTimestamp();
     std::string save_path = stability_info_save_folder_ + "/stability_" + time_stamp + ".dat";
     whole_body_posture_optimization::WholeBodyPostureOptimization::saveResultInfo(result, trajectory_out, save_path);
@@ -360,24 +371,24 @@ bool WholeBodyPlanningServer::updateTsdf()
 {
   if (loaded_tsdf_) {
     // Use tsdf loaded from disc
-    optimizer_->updateWorldModel(loaded_tsdf_);
+    sdf_model_->loadTsdf(loaded_tsdf_, 0.4, true, true);
     return true;
   }
 
-  // Request tsdf from server
-  voxblox_msgs::GetLayer get_layer;
-//  get_layer.request.action = voxblox_msgs::Layer::ACTION_FULL_MAP;
-  if (!get_tsdf_client_.call(get_layer)) {
-    ROS_ERROR_STREAM("Failed to retrieve the latest tsdf map.");
-    return false;
-  }
-  if (!tsdf_) {
-    voxblox::TsdfMap::Config tsdf_config;
-    tsdf_config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(get_layer.response.layer.voxel_size);
-    tsdf_.reset(new voxblox::TsdfMap(tsdf_config));
-  }
-  voxblox::deserializeMsgToLayer<voxblox::TsdfVoxel>(get_layer.response.layer, tsdf_->getTsdfLayerPtr());
-  optimizer_->updateWorldModel(tsdf_);
+//  // Request tsdf from server
+//  voxblox_msgs::GetLayer get_layer;
+////  get_layer.request.action = voxblox_msgs::Layer::ACTION_FULL_MAP;
+//  if (!get_tsdf_client_.call(get_layer)) {
+//    ROS_ERROR_STREAM("Failed to retrieve the latest tsdf map.");
+//    return false;
+//  }
+//  if (!tsdf_) {
+//    voxblox::TsdfMap::Config tsdf_config;
+//    tsdf_config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(get_layer.response.layer.voxel_size);
+//    tsdf_.reset(new voxblox::TsdfMap(tsdf_config));
+//  }
+//  voxblox::deserializeMsgToLayer<voxblox::TsdfVoxel>(get_layer.response.layer, tsdf_->getTsdfLayerPtr());
+//  optimizer_->updateWorldModel(tsdf_);
 
   return true;
 }
@@ -438,7 +449,7 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
       result.insert(result.begin(), last_opt_result);
     }
     trajectory_ = optimizer_->computeTimedTrajectory(result); // trajectory.size() == result.size() - 1
-    if (trajectory_.size() < 1) {
+    if (trajectory_.empty()) {
       ROS_ERROR_STREAM("Trajectory generation failed. Skipping planning.");
       ++consecutive_planning_failures;
       continue;
@@ -559,7 +570,7 @@ void WholeBodyPlanningServer::jointStateCb(const sensor_msgs::JointStateConstPtr
 {
   bool state_changed = false;
   for (unsigned int joint_idx = 0; joint_idx < joint_names_.size(); ++joint_idx) {
-    std::vector<std::string>::const_iterator it = std::find(joint_state_msg->name.begin(), joint_state_msg->name.end(), joint_names_[joint_idx]);
+    auto it = std::find(joint_state_msg->name.begin(), joint_state_msg->name.end(), joint_names_[joint_idx]);
     if (it != joint_state_msg->name.end()) {
       size_t index = static_cast<size_t>(it - joint_state_msg->name.begin());
       joint_states_[joint_idx] = joint_state_msg->position[index];

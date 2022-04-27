@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
 
   std::string tsdf_load_path;
   pnh.param<std::string>("tsdf_load_path", tsdf_load_path, "");
-  if (tsdf_load_path != "") {
+  if (tsdf_load_path.empty()) {
     driving_controller.loadTsdfFromPath(tsdf_load_path);
   }
 
