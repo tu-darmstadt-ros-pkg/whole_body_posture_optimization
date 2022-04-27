@@ -5,7 +5,6 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 #include <whole_body_posture_optimization/timing.h>
 
-#include <sdf_contact_estimation/test_scenarios.h>
 #include <sdf_contact_estimation/robot_model/shape_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 

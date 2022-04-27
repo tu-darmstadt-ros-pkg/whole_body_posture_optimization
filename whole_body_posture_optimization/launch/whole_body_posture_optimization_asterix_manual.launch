@@ -45,24 +45,27 @@
 <!--       robot_pose: [1.015649, 0.000000, 0.475015, 0.000000, -0.000000, 0.000000] # real robot cinder block ->  why is the back flipper not used to climb up the step? -->
     </rosparam>
     
-    <param name="scenario" value="sdf"/>
-    <!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/real_robot1.esdf"/> -->
-    <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_step.esdf"/>
-<!--         <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/real_robot_cinder_block.tsdf"/> -->
-<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_highstep.esdf"/> -->
-<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf"/> -->
-<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf"/> -->
-<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_asym.esdf"/> -->
-<!--     <param name="sdf_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_mob4.esdf"/> -->
+    <!-- load scenario -->
+    <rosparam subst_value="true" ns="sdf_map">
+      #scenario: step
+      #voxel_size: 0.05
+      use_esdf: true
+      sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_step.esdf
+      <!--sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf-->
+<!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf -->
+      truncation_distance: 0.4
+    </rosparam>
+
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
-    
+
     <!-- posture optimization lib parameters -->
-<!--     <param name="sdf_save_folder" value="$(find sdf_contact_estimation)/sdf"/> -->
-    <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />  
-    
-    <!-- contact estimation lib parameters -->
-    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="contact_estimation"/>
-    <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" />  
+    <param name="stepping" value="false"/>
+    <param name="stepping_start" value="0"/>
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
+
+    <!-- sdf contact estimation lib parameters -->
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="pose_predictor"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" ns="pose_predictor/shape_model" />
     
     <remap from="~set_robot_pose" to="/whole_body_posture_optimization_node/interactive_marker/set_robot_pose"/>
   </node>
