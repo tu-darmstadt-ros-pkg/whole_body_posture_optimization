@@ -95,8 +95,7 @@ int main(int argc, char** argv) {
 //          last_result = po_->findOptimalPosture(robot_pose_, state_, &last_result);
         // Always initialize optimization from default joint position
         // No movement penalty (do not use previous solution)
-          last_result = po.findOptimalPosture(robot_pose_, state_);
-
+        last_result = po.findOptimalPosture(robot_pose_, state_);
       }
       std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
       ROS_INFO_STREAM("Complete optimization took " << elapsed.count()*1000.0 << " ms.");
