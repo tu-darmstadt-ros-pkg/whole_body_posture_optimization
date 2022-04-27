@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   ad_kinematics
   move_base_lite_msgs
   ceres_nlopt_wrapper
+  hector_stability_metrics
 )
 
 
@@ -27,7 +28,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs hector_pose_prediction_interface sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning ad_kinematics move_base_lite_msgs ceres_nlopt_wrapper
+  CATKIN_DEPENDS nav_msgs hector_pose_prediction_interface sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning ad_kinematics move_base_lite_msgs ceres_nlopt_wrapper hector_stability_metrics
 #  DEPENDS system_lib
 )
 

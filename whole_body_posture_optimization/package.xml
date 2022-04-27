@@ -23,5 +23,6 @@
   <depend>ad_kinematics</depend>
   <depend>move_base_lite_msgs</depend>
   <depend>ceres_nlopt_wrapper</depend>
+  <depend>hector_stability_metrics</depend>
 
 </package>

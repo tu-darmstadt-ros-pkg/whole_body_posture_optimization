@@ -10,6 +10,7 @@
 #include <chrono>
 #include <ceres_nlopt_wrapper/optimization_history.h>
 #include <eigen_conversions/eigen_msg.h>
+#include <hector_stability_metrics/metrics/normalized_energy_stability_margin.h>
 
 namespace whole_body_posture_optimization {
 
@@ -424,14 +425,19 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   com_pose.translation() = robot_pose * result.center_of_mass;
   // Compute stability
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_hull_points, com_pose.translation());
+//  std::vector<double> stabilities;
+//  hector_stability_metrics::computeNormalizedEnergyStabilityMargin<double>(contact_hull_points, stabilities, com_pose.translation());
   result.stability = *std::min_element(stabilities.begin(), stabilities.end());
+
+
+
 
   // Publish result com
 //  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
   // Publish result stabilities
   visualization_msgs::MarkerArray convex_hull_array_msg;
   sdf_contact_estimation::createPointMarkerArray(contact_hull_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
-  sdf_contact_estimation::createConvexHullMarkerArrayWithStabilities(contact_hull_points, stabilities, convex_hull_array_msg);
+  sdf_contact_estimation::createConvexHullMarkerArrayWithStabilities(contact_hull_points, stabilities, convex_hull_array_msg, 6.0);
   sdf_contact_estimation::deleteAllMarkers(convex_hull_pub_);
   convex_hull_pub_.publish(convex_hull_array_msg);
 
