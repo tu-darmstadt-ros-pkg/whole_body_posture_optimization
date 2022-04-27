@@ -10,7 +10,9 @@
       #scenario: step
       #voxel_size: 0.05
       use_esdf: true
-      sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_step.esdf
+      <!--sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_step.esdf-->
+      <!--sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf-->
+      sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf
       truncation_distance: 0.4
     </rosparam>
 
