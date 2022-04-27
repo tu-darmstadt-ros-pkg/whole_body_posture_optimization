@@ -6,7 +6,7 @@
 #include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
 
 static bool pose_updated_;
-static Eigen::Affine3d robot_pose_;
+static Eigen::Isometry3d robot_pose_;
 
 static bool state_updated_;
 static std::vector<double> previous_state_;

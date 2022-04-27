@@ -7,7 +7,7 @@
 namespace whole_body_posture_optimization {
 
 ConvexHullAreaError::ConvexHullAreaError(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
-                                         const Eigen::Affine3d &pose,
+                                         const Eigen::Isometry3d &pose,
                                          const std::vector<double> &prev_flipper_angles,
                                          const ConvexHullAreaErrorParameters &parameters)
   : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose),
@@ -40,7 +40,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 
   // *** Cost functions ** //
   // Penalize deviation from requested position
-  Eigen::Affine3d original_to_estimated = pose_.inverse(Eigen::Isometry) * result_pose_eigen;
+  Eigen::Isometry3d original_to_estimated = pose_.inverse() * result_pose_eigen;
   double position_difference = original_to_estimated.translation().block<2,1>(0,0).norm();
   double position_deviation_cost = std::max(0.0, position_difference - 0.02); // 2cm leeway
 
@@ -134,7 +134,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
 }
 
 ceres::CostFunction* ConvexHullAreaError::Create(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
-                                                 const Eigen::Affine3d &pose,
+                                                 const Eigen::Isometry3d &pose,
                                                  const std::vector<double> &prev_flipper_angles, const ConvexHullAreaErrorParameters &parameters)
 {
   auto* cost_function = new ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>(

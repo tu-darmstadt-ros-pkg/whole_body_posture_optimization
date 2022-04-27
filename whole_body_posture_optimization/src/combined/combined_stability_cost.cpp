@@ -7,7 +7,7 @@ namespace whole_body_posture_optimization {
 
 CombinedStabilityCost::CombinedStabilityCost(const std::shared_ptr<RobotModel>& robot_model, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                                              const std::vector<std::string>& free_joints_, const std::vector<std::string>& free_flipper_joints,
-                                             const CombinedStabilityCostParameters& parameters, Eigen::Affine3d* result_robot_pose)
+                                             const CombinedStabilityCostParameters& parameters, Eigen::Isometry3d* result_robot_pose)
  : robot_model_(robot_model), contact_estimation_(contact_estimation), free_flipper_joints_(free_flipper_joints), free_joints_(free_joints_),
    parameters_(parameters), result_robot_pose_(result_robot_pose)
 {
@@ -20,7 +20,7 @@ CombinedStabilityCost::CombinedStabilityCost(const std::shared_ptr<RobotModel>& 
   }
 }
 
-CombinedStabilityCost* CombinedStabilityCost::updateData(const std::vector<double>& full_joint_state, const std::vector<double>& previous_solution, const Eigen::Affine3d& robot_pose,
+CombinedStabilityCost* CombinedStabilityCost::updateData(const std::vector<double>& full_joint_state, const std::vector<double>& previous_solution, const Eigen::Isometry3d& robot_pose,
                                        const sdf_contact_estimation::ContactEstimationResult& init_contact)
 {
   full_joint_state_ = full_joint_state;
@@ -49,7 +49,7 @@ bool CombinedStabilityCost::operator()(double const* const* parameters, double* 
   // Compute contact
   std::vector<double> flipper_angles(parameters[0], parameters[0] + free_flipper_joints_.size());
   contact_estimation_->updateJointStates(flipper_angles);
-  Eigen::Affine3d base_to_com; base_to_com = Eigen::Translation3d(com_base);
+  Eigen::Isometry3d base_to_com; base_to_com = Eigen::Translation3d(com_base);
   sdf_contact_estimation::ContactEstimationResult result = contact_estimation_->estimateSupportPolygon(robot_pose_, base_to_com, init_contact_);
   *result_robot_pose_ = result.estimated_pose;
 //  ROS_INFO_STREAM("Setting robot pose to " << result.estimated_pose.affine());
@@ -97,8 +97,8 @@ bool CombinedStabilityCost::operator()(double const* const* parameters, double* 
 ceres::CostFunction* CombinedStabilityCost::Create(const std::shared_ptr<RobotModel>& robot_model, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                                                    const std::vector<std::string>& free_joints_, const std::vector<std::string>& free_flipper_joints,
                                                    const CombinedStabilityCostParameters& parameters, const std::vector<double>& initial_full_state,
-                                                   const std::vector<double>& previous_solution, const Eigen::Affine3d& robot_pose,
-                                                   const sdf_contact_estimation::ContactEstimationResult& init_contact, Eigen::Affine3d* result_robot_pose)
+                                                   const std::vector<double>& previous_solution, const Eigen::Isometry3d& robot_pose,
+                                                   const sdf_contact_estimation::ContactEstimationResult& init_contact, Eigen::Isometry3d* result_robot_pose)
 {
   CombinedStabilityCost* stability_cost = new CombinedStabilityCost(robot_model, contact_estimation, free_joints_, free_flipper_joints, parameters, result_robot_pose);
   ceres::DynamicNumericDiffCostFunction<CombinedStabilityCost>* cost_function = new ceres::DynamicNumericDiffCostFunction<CombinedStabilityCost>(

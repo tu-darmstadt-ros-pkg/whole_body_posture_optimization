@@ -16,7 +16,7 @@ nav_msgs::Path createPath(double start_x, double stop_x, double step, const Eige
     geometry_msgs::PoseStamped pose_msg;
     pose_msg.header.frame_id = "world";
 
-    Eigen::Affine3d pose = Eigen::Affine3d::Identity();
+    Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
     pose.translation() = Eigen::Vector3d(x, 0, 0) + offset;
     tf::poseEigenToMsg(pose, pose_msg.pose);
 

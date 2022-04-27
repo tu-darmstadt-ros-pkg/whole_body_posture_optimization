@@ -199,7 +199,7 @@ void recordStability(bool use_path) {
     ROS_WARN_STREAM("Failed to get world pose: " << ex.what());
     return;
   }
-  Eigen::Affine3d world_to_base;
+  Eigen::Isometry3d world_to_base;
   tf::transformMsgToEigen(transform.transform, world_to_base);
 
   // Save position
@@ -229,7 +229,7 @@ void recordStability(bool use_path) {
   }
   // Update flipper angles
   contact_estimation_->updateJointStates(stateFromList(flipper_joint_names_));
-  Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity();
+  Eigen::Isometry3d base_to_com = Eigen::Isometry3d::Identity();
   base_to_com.translation() = com_base;
   sdf_contact_estimation::ContactEstimationResult result;
   contact_estimation_->estimateContactPoints(world_to_base, base_to_com, 0.05, result);

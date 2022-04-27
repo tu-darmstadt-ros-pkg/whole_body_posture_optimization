@@ -17,9 +17,9 @@ class CombinedStabilityCost {
 public:
   CombinedStabilityCost(const std::shared_ptr<RobotModel>& robot_model, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                         const std::vector<std::string>& free_joints_, const std::vector<std::string>& free_flipper_joints, const CombinedStabilityCostParameters& parameters,
-                        Eigen::Affine3d* result_robot_pose);
+                        Eigen::Isometry3d* result_robot_pose);
 
-  CombinedStabilityCost* updateData(const std::vector<double>& initial_full_state, const std::vector<double>& previous_solution, const Eigen::Affine3d& robot_pose,
+  CombinedStabilityCost* updateData(const std::vector<double>& initial_full_state, const std::vector<double>& previous_solution, const Eigen::Isometry3d& robot_pose,
                                     const sdf_contact_estimation::ContactEstimationResult &init_contact);
 
   bool operator()(double const* const* parameters, double* cost) const;
@@ -27,8 +27,8 @@ public:
   static ceres::CostFunction* Create(const std::shared_ptr<RobotModel>& robot_model, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
                                      const std::vector<std::string>& free_joints_, const std::vector<std::string>& free_flipper_joints,
                                      const CombinedStabilityCostParameters& parameters, const std::vector<double>& initial_full_state,
-                                     const std::vector<double>& previous_solution, const Eigen::Affine3d& robot_pose,
-                                     const sdf_contact_estimation::ContactEstimationResult &init_contact, Eigen::Affine3d* result_robot_pose);
+                                     const std::vector<double>& previous_solution, const Eigen::Isometry3d& robot_pose,
+                                     const sdf_contact_estimation::ContactEstimationResult &init_contact, Eigen::Isometry3d* result_robot_pose);
 private:
   std::shared_ptr<RobotModel> robot_model_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
@@ -40,8 +40,8 @@ private:
 
   sdf_contact_estimation::ContactEstimationResult init_contact_;
 
-  Eigen::Affine3d robot_pose_;
-  Eigen::Affine3d* result_robot_pose_;
+  Eigen::Isometry3d robot_pose_;
+  Eigen::Isometry3d* result_robot_pose_;
   std::vector<std::size_t> param_idx_to_joint_idx_;
 
   CombinedStabilityCostParameters parameters_;

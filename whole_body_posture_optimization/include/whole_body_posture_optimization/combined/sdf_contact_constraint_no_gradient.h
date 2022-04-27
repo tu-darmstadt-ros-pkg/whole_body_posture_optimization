@@ -16,7 +16,7 @@ namespace  whole_body_posture_optimization {
 class SdfContactConstraintNoGradient {
 public:
   SdfContactConstraintNoGradient(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::size_t>& param_idx_to_joint_idx, const std::vector<double>& initial_full_state,
-                                 const Eigen::Affine3d* robot_pose, const sdf_contact_estimation::SdfWrapper& sdf, const CollisionObject& obj)
+                                 const Eigen::Isometry3d* robot_pose, const sdf_contact_estimation::SdfWrapper& sdf, const CollisionObject& obj)
     : robot_model_(robot_model), param_idx_to_joint_idx_(param_idx_to_joint_idx), initial_full_state_(initial_full_state), robot_pose_(robot_pose), sdf_(&sdf), obj_(obj) {
     if (!robot_model_) {
       ROS_ERROR_STREAM("Robot model is null!");
@@ -35,7 +35,7 @@ public:
 
     // Compute sphere position in world
     const Eigen::Vector3d& sphere_center = obj_.collision_sphere.relative_vec_;
-    const Eigen::Affine3d& world_to_link = robot_model_->getMoveitRobotState().getGlobalLinkTransform(obj_.link_name);
+    const Eigen::Isometry3d& world_to_link = robot_model_->getMoveitRobotState().getGlobalLinkTransform(obj_.link_name);
     Eigen::Vector3d sphere_center_world = world_to_link * sphere_center;
 
     // Evaluate sdf at sphere position
@@ -47,7 +47,7 @@ public:
   }
 
   static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::size_t>& param_idx_to_joint_idx,
-                                     const std::vector<double>& initial_full_state, const Eigen::Affine3d* robot_pose, const sdf_contact_estimation::SdfWrapper& sdf,
+                                     const std::vector<double>& initial_full_state, const Eigen::Isometry3d* robot_pose, const sdf_contact_estimation::SdfWrapper& sdf,
                                      const CollisionObject& obj) {
     ceres::DynamicNumericDiffCostFunction<SdfContactConstraintNoGradient>* cost_function = new ceres::DynamicNumericDiffCostFunction<SdfContactConstraintNoGradient>(
           new SdfContactConstraintNoGradient(robot_model, param_idx_to_joint_idx, initial_full_state, robot_pose, sdf, obj));
@@ -62,7 +62,7 @@ private:
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<std::size_t> param_idx_to_joint_idx_; // Map parameter index to joint index
   std::vector<double> initial_full_state_; // default values for all joints
-  const Eigen::Affine3d* robot_pose_; // current robot pose in world
+  const Eigen::Isometry3d* robot_pose_; // current robot pose in world
   const sdf_contact_estimation::SdfWrapper* sdf_;
 
   CollisionObject obj_;

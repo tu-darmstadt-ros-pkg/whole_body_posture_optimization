@@ -228,19 +228,19 @@ void RobotModel::updateJointAngles(const std::vector<double> joint_angles)
   moveit::core::jointStateToRobotState(joint_state_msg, *moveit_robot_state_);
 }
 
-void RobotModel::updatePose(const Eigen::Affine3d& robot_pose)
+void RobotModel::updatePose(const Eigen::Isometry3d& robot_pose)
 {
   robot_pose_ = robot_pose;
   updateMoveitRobotState(*moveit_robot_state_, robot_pose);
 }
 
-void RobotModel::updateRobotState(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
+void RobotModel::updateRobotState(const Eigen::Isometry3d &robot_pose, const std::vector<double> joint_angles)
 {
   updateJointAngles(joint_angles);
   updatePose(robot_pose);
 }
 
-void RobotModel::publishRobotState(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
+void RobotModel::publishRobotState(const Eigen::Isometry3d &robot_pose, const std::vector<double> joint_angles)
 {
   updateRobotState(robot_pose, joint_angles);
   publishRobotState();
@@ -253,7 +253,7 @@ void RobotModel::publishRobotState()
   robot_state_pub_.publish(robot_state_msg);
 }
 
-void RobotModel::publishCollisionSpheres(const Eigen::Affine3d &robot_pose, const std::vector<double> joint_angles)
+void RobotModel::publishCollisionSpheres(const Eigen::Isometry3d &robot_pose, const std::vector<double> joint_angles)
 {
   updateRobotState(robot_pose, joint_angles);
   publishCollisionSpheres();

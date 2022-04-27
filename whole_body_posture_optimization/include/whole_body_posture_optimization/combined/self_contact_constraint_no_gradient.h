@@ -34,12 +34,12 @@ public:
 
     // Compute sphere position in world
     const Eigen::Vector3d& sphere_center1 = obj1_.collision_sphere.relative_vec_;
-    const Eigen::Affine3d& base_to_link1 = robot_model_->getMoveitRobotState().getGlobalLinkTransform(obj1_.link_name);
+    const Eigen::Isometry3d& base_to_link1 = robot_model_->getMoveitRobotState().getGlobalLinkTransform(obj1_.link_name);
     Eigen::Vector3d sphere_center_base1 = base_to_link1 * sphere_center1;
 
     // Compute sphere position in world
     const Eigen::Vector3d& sphere_center2 = obj2_.collision_sphere.relative_vec_;
-    const Eigen::Affine3d& base_to_link2 = robot_model_->getMoveitRobotState().getGlobalLinkTransform(obj2_.link_name);
+    const Eigen::Isometry3d& base_to_link2 = robot_model_->getMoveitRobotState().getGlobalLinkTransform(obj2_.link_name);
     Eigen::Vector3d sphere_center_base2 =  base_to_link2 * sphere_center2;
 
 

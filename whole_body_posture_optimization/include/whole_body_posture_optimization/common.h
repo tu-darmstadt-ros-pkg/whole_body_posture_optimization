@@ -39,7 +39,7 @@ std::string vecToString(const std::vector<T>& vec) {
   return ss.str();
 }
 
-std::string poseToString(const Eigen::Affine3d& pose);
+std::string poseToString(const Eigen::Isometry3d& pose);
 
 template <typename T> T lorentzian(const T& x, const T& sigma) {
   return log(T(1) + (x*x)/(T(2) * sigma * sigma));
@@ -85,7 +85,7 @@ template <typename T> std::vector<T> computeForceAngleStabilitiesWithGravity(con
   return computeForceAngleStabilities(contact_points, Vector3<T>(T(0), T(0), T(-9.81)), com);
 }
 
-void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Affine3d& pose);
+void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Isometry3d& pose);
 
 std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& trajectory);
 

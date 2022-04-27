@@ -175,7 +175,7 @@ void ArmOptimization::setEnabled(bool enabled)
   enabled_ = enabled;
 }
 
-ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d>& contact_hull_points, const Eigen::Affine3d& robot_pose,
+ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d>& contact_hull_points, const Eigen::Isometry3d& robot_pose,
                                                 const std::vector<double>& previous_joint_angles)
 {
   ArmOptimizationResult result;
@@ -245,7 +245,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
         CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, SELF_COLLISION_TSDF));
         ceres::CostFunction* cost_function = SdfContactConstraint::Create(
-              robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, Eigen::Affine3d::Identity(), robot_base_tsdf, collision_object);
+              robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, Eigen::Isometry3d::Identity(), robot_base_tsdf, collision_object);
         std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
         wrapper->setName("constraint_self_collision_tsdf_" + collision_link);
         self_collision_tsdf_constraints.push_back(wrapper);
@@ -421,7 +421,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // Compute COM
   robot_model_->computeCenterOfMass(result.joint_angles, result.center_of_mass);
-  Eigen::Affine3d com_pose = Eigen::Affine3d::Identity();
+  Eigen::Isometry3d com_pose = Eigen::Isometry3d::Identity();
   com_pose.translation() = robot_pose * result.center_of_mass;
   // Compute stability
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_hull_points, com_pose.translation());

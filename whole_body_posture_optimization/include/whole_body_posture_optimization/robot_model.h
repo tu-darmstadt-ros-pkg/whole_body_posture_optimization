@@ -41,11 +41,11 @@ public:
                                                               const std::shared_ptr<voxblox::TsdfMap>& init_tsdf, const std::vector<double>& joint_state=std::vector<double>());
 
   void updateJointAngles(const std::vector<double> joint_angles);
-  void updatePose(const Eigen::Affine3d& robot_pose);
-  void updateRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
-  void publishRobotState(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
+  void updatePose(const Eigen::Isometry3d& robot_pose);
+  void updateRobotState(const Eigen::Isometry3d& robot_pose, const std::vector<double> joint_angles);
+  void publishRobotState(const Eigen::Isometry3d& robot_pose, const std::vector<double> joint_angles);
   void publishRobotState();
-  void publishCollisionSpheres(const Eigen::Affine3d& robot_pose, const std::vector<double> joint_angles);
+  void publishCollisionSpheres(const Eigen::Isometry3d& robot_pose, const std::vector<double> joint_angles);
   void publishCollisionSpheres();
 
   std::vector<unsigned int> getBodyIndices(const std::vector<std::string>& bodies);
@@ -103,7 +103,7 @@ private:
   std::vector<std::vector<JointMimic>> actuated_joint_mimics_;
 
   robot_state::RobotStatePtr moveit_robot_state_;
-  Eigen::Affine3d robot_pose_;
+  Eigen::Isometry3d robot_pose_;
   std::vector<double> joint_angles_;
 
   std::shared_ptr<ad_kinematics::Chain> ad_chain_;

@@ -4,7 +4,7 @@
 
 namespace whole_body_posture_optimization {
 
-FastTractionCost::FastTractionCost(const Eigen::Affine3d& pose, const std::vector<std::string>& free_joints, const std::vector<double>& initial_flipper_position, const std::vector<double>& previous_parameter_result,
+FastTractionCost::FastTractionCost(const Eigen::Isometry3d& pose, const std::vector<std::string>& free_joints, const std::vector<double>& initial_flipper_position, const std::vector<double>& previous_parameter_result,
                                    const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation, const Parameters& parameters)
   : pose_(pose), free_joints_(free_joints), initial_flipper_position_(initial_flipper_position), previous_parameter_result_(previous_parameter_result), contact_estimation_(contact_estimation), parameters_(parameters)
 {
@@ -25,7 +25,7 @@ bool FastTractionCost::operator()(const double* const * parameters, double* cost
   // Assemble world -> base_link transform
   Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(pose_.linear());
   // Parameters N-N+3: Z offset, Roll, Pitch coordinates of robot base in world
-  Eigen::Affine3d pose(Eigen::AngleAxisd(pose_rpy(2), Eigen::Vector3d::UnitZ())
+  Eigen::Isometry3d pose(Eigen::AngleAxisd(pose_rpy(2), Eigen::Vector3d::UnitZ())
       * Eigen::AngleAxisd(parameters[0][free_joints_.size() + 2], Eigen::Vector3d::UnitY())
       * Eigen::AngleAxisd(parameters[0][free_joints_.size() + 1], Eigen::Vector3d::UnitX()));
   pose.translation().x() = pose_.translation().x();
@@ -68,7 +68,7 @@ bool FastTractionCost::operator()(const double* const * parameters, double* cost
   return true;
 }
 
-ceres::CostFunction* FastTractionCost::Create(const Eigen::Affine3d& pose, const std::vector<std::string>& free_joints, const std::vector<double>& initial_flipper_position, const std::vector<double>& previous_parameter_result,
+ceres::CostFunction* FastTractionCost::Create(const Eigen::Isometry3d& pose, const std::vector<std::string>& free_joints, const std::vector<double>& initial_flipper_position, const std::vector<double>& previous_parameter_result,
                                               const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation, const Parameters& parameters)
 {
   ceres::DynamicNumericDiffCostFunction<FastTractionCost>* cost_function = new ceres::DynamicNumericDiffCostFunction<FastTractionCost>(

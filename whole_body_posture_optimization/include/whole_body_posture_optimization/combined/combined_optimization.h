@@ -29,9 +29,9 @@ class CombinedOptimization {
 public:
   CombinedOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation);
 
-  CombinedOptimizationResult optimize(const std::vector<double>& initial_state, const Eigen::Affine3d &robot_pose, const std::vector<double>& previous_state,
+  CombinedOptimizationResult optimize(const std::vector<double>& initial_state, const Eigen::Isometry3d &robot_pose, const std::vector<double>& previous_state,
                                       const sdf_contact_estimation::ContactEstimationResult &init_contact);
-  sdf_contact_estimation::ContactEstimationResult computeContactEstimation(const std::vector<double>& joint_angles,const Eigen::Affine3d& pose, const Eigen::Affine3d &base_to_com);
+  sdf_contact_estimation::ContactEstimationResult computeContactEstimation(const std::vector<double>& joint_angles,const Eigen::Isometry3d& pose, const Eigen::Isometry3d &base_to_com);
 private:
   bool loadParameters(const ros::NodeHandle &nh);
   double getJointPadding(std::string joint_name, CollisionType collision_type);

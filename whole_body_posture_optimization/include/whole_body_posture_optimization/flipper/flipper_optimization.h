@@ -18,7 +18,7 @@ struct FlipperOptimizationResult {
   std::vector<double> joint_state;
   double stability;
   hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
-  Eigen::Affine3d pose;
+  Eigen::Isometry3d pose;
   double final_cost;
 };
 
@@ -26,7 +26,7 @@ class FlipperOptimization {
 public:
   FlipperOptimization(ros::NodeHandle& nh, const std::shared_ptr<RobotModel>& robot_model,
                       const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor);
-  FlipperOptimizationResult optimize(const Eigen::Affine3d& robot_pose, const Eigen::Affine3d& base_to_com, const std::vector<double> &init_joint_angles,
+  FlipperOptimizationResult optimize(const Eigen::Isometry3d& robot_pose, const Eigen::Isometry3d& base_to_com, const std::vector<double> &init_joint_angles,
                                      const std::vector<double>& previous_joint_angles);
 
   bool enabled() const;

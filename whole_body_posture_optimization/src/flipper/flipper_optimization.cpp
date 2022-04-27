@@ -77,7 +77,7 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
   return true;
 }
 
-FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &robot_pose, const Eigen::Affine3d &base_to_com, const std::vector<double>& init_joint_angles,
+FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d &robot_pose, const Eigen::Isometry3d &base_to_com, const std::vector<double>& init_joint_angles,
                                                         const std::vector<double> &previous_joint_angles)
 {
   Eigen::Vector3d com_pos = base_to_com.translation();
@@ -198,7 +198,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
 
   if (objective_ == "fast") {
     Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(robot_pose.linear());
-    result.pose = Eigen::Affine3d(Eigen::AngleAxisd(pose_rpy(2), Eigen::Vector3d::UnitZ())
+    result.pose = Eigen::Isometry3d(Eigen::AngleAxisd(pose_rpy(2), Eigen::Vector3d::UnitZ())
         * Eigen::AngleAxisd(parameters[free_joints_.size() + 2], Eigen::Vector3d::UnitY())
         * Eigen::AngleAxisd(parameters[free_joints_.size() + 1], Eigen::Vector3d::UnitX()));
     result.pose.translation() = Eigen::Vector3d(robot_pose.translation()(0), robot_pose.translation()(1), robot_pose.translation()(2) + parameters[free_joints_.size() + 0]);
@@ -209,7 +209,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Affine3d &r
   // Final robot shape
 //  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), result_state_pub_, result_pose, "world", Eigen::Vector3d(1, 1, 0));
   // COM pose
-//  Eigen::Affine3d result_com_pose = result.pose * base_to_com;
+//  Eigen::Isometry3d result_com_pose = result.pose * base_to_com;
 //  sdf_contact_estimation::publishPose(result_com_pub_, result_com_pose, "world");
   // Contact points and support polygon
 //  visualization_msgs::MarkerArray contact_points_array_msg;

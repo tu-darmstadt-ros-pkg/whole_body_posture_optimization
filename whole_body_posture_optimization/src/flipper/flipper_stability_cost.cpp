@@ -7,7 +7,7 @@
 namespace whole_body_posture_optimization {
 
 FlipperStabilityCost::FlipperStabilityCost(unsigned int parameter_size, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
-                                           const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com, const std::vector<double> &prev_flipper_angles,
+                                           const Eigen::Isometry3d &pose, const Eigen::Isometry3d &base_to_com, const std::vector<double> &prev_flipper_angles,
                                            const FlipperStabilityCostParameters &parameters)
   : parameter_size_(parameter_size), contact_estimation_(contact_estimation), prev_flipper_angles_(prev_flipper_angles), pose_(pose), base_to_com_(base_to_com),
     parameters_(parameters)
@@ -32,7 +32,7 @@ bool FlipperStabilityCost::operator()(double const* const* flipper_angles, doubl
     movement_cost /= prev_flipper_angles_.size(); // Normalize by number of joints
   }
 
-  Eigen::Affine3d com_pose = result.estimated_pose * base_to_com_;
+  Eigen::Isometry3d com_pose = result.estimated_pose * base_to_com_;
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.convex_hull_points, com_pose.translation());
 //  for (unsigned int i = 0; i < stabilities.size(); i++) {
 //    ROS_INFO_STREAM("Stability " << i << ": " << stabilities[i]);
@@ -54,7 +54,7 @@ bool FlipperStabilityCost::operator()(double const* const* flipper_angles, doubl
 }
 
 ceres::CostFunction* FlipperStabilityCost::Create(unsigned int parameter_size, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> &contact_estimation,
-                                                 const Eigen::Affine3d &pose, const Eigen::Affine3d &base_to_com, const std::vector<double> &prev_flipper_angles, const FlipperStabilityCostParameters &parameters)
+                                                 const Eigen::Isometry3d &pose, const Eigen::Isometry3d &base_to_com, const std::vector<double> &prev_flipper_angles, const FlipperStabilityCostParameters &parameters)
 {
   ceres::DynamicNumericDiffCostFunction<FlipperStabilityCost>* cost_function = new ceres::DynamicNumericDiffCostFunction<FlipperStabilityCost>(
         new FlipperStabilityCost(parameter_size, contact_estimation, pose, base_to_com, prev_flipper_angles, parameters));

@@ -48,18 +48,18 @@ struct ConvexHullAreaErrorParameters {
 class ConvexHullAreaError {
 public:
   ConvexHullAreaError(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
-                      const Eigen::Affine3d& pose,
+                      const Eigen::Isometry3d& pose,
                       const std::vector<double>& prev_flipper_angles, const ConvexHullAreaErrorParameters& parameters);
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
   static ceres::CostFunction* Create(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
-                                     const Eigen::Affine3d& pose,
+                                     const Eigen::Isometry3d& pose,
                                      const std::vector<double>& prev_flipper_angles, const ConvexHullAreaErrorParameters &parameters);
 private:
   const std::vector<std::string>& free_joints_;
   const hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
-  Eigen::Affine3d pose_;
+  Eigen::Isometry3d pose_;
   hector_math::Pose<double> pose_math_;
   std::vector<double> prev_flipper_param_angles_;
   std::vector<size_t> param_idx_to_state_idx;

@@ -64,7 +64,7 @@ struct StabilityErrorParameters {
 class StabilityError {
 public:
   StabilityError(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<Eigen::Vector3d>& contact_points,
-                 const std::vector<double>& initial_joint_angles, const std::vector<double>& previous_param_angles, const Eigen::Affine3d& robot_pose,
+                 const std::vector<double>& initial_joint_angles, const std::vector<double>& previous_param_angles, const Eigen::Isometry3d& robot_pose,
                  const StabilityErrorParameters& parameters);
 
   template <typename T> bool operator()(T const* const* parameters, T* cost) const {
@@ -121,7 +121,7 @@ public:
   }
 
   static ceres::CostFunction* Create(const std::shared_ptr<RobotModel>& robot_model, const std::vector<std::string> &free_joints, const std::vector<Eigen::Vector3d> &contact_points,
-                                     const std::vector<double>& initial_joint_angles, const std::vector<double> &previous_param_angles, const Eigen::Affine3d &robot_pose, const StabilityErrorParameters &parameters);
+                                     const std::vector<double>& initial_joint_angles, const std::vector<double> &previous_param_angles, const Eigen::Isometry3d &robot_pose, const StabilityErrorParameters &parameters);
 
 private:
   std::shared_ptr<ceres::DynamicCostFunctionToFunctor> compute_com_;
@@ -129,7 +129,7 @@ private:
 
   std::vector<std::size_t> param_idx_to_joint_idx_;
   std::vector<Eigen::Vector3d> contact_points_;
-  Eigen::Affine3d robot_pose_;
+  Eigen::Isometry3d robot_pose_;
   std::vector<double> initial_joint_angles_;
   std::vector<double> previous_param_angles_;
 

@@ -24,7 +24,7 @@ struct ArmOptimizationResult {
 class ArmOptimization {
 public:
   ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model, const sdf_contact_estimation::SdfModelPtr& sdf_model);
-  ArmOptimizationResult optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d>&contact_hull_points, const Eigen::Affine3d &robot_pose,
+  ArmOptimizationResult optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d>& contact_hull_points, const Eigen::Isometry3d &robot_pose,
                                  const std::vector<double> &previous_joint_angles);
   bool getEnabled() const;
   void setEnabled(bool enabled);

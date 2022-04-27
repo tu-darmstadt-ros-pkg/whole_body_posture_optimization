@@ -16,14 +16,14 @@ public:
       return parameters;
     }
   };
-  FastTractionCost(const Eigen::Affine3d& pose, const std::vector<std::string>& free_joints, const std::vector<double>& initial_flipper_position, const std::vector<double>& previous_parameter_result,
+  FastTractionCost(const Eigen::Isometry3d& pose, const std::vector<std::string>& free_joints, const std::vector<double>& initial_flipper_position, const std::vector<double>& previous_parameter_result,
                    const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation, const Parameters& parameters);
   bool operator()(double const* const* parameters, double* cost) const;
 
-  static ceres::CostFunction* Create(const Eigen::Affine3d& pose, const std::vector<std::string>& free_joints, const std::vector<double>& initial_flipper_position, const std::vector<double>& previous_parameter_result,
+  static ceres::CostFunction* Create(const Eigen::Isometry3d& pose, const std::vector<std::string>& free_joints, const std::vector<double>& initial_flipper_position, const std::vector<double>& previous_parameter_result,
                                      const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation, const Parameters& parameters);
 private:
-  Eigen::Affine3d pose_;
+  Eigen::Isometry3d pose_;
 
   std::vector<std::string> free_joints_;
   std::vector<size_t> parameter_idx_to_flipper_idx_;

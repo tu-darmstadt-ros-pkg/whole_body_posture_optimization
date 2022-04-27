@@ -136,7 +136,7 @@ std::vector<double> CombinedOptimization::jointVectorToParamVector(const std::ve
   return parameters;
 }
 
-CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<double>& initial_state, const Eigen::Affine3d &robot_pose, const std::vector<double>& previous_state,
+CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<double>& initial_state, const Eigen::Isometry3d &robot_pose, const std::vector<double>& previous_state,
                                                           const sdf_contact_estimation::ContactEstimationResult& init_contact)
 {
   nlopt::opt opt(ceres_nlopt_wrapper::stringToAlgorithm(algorithm_), free_joints_.size());
@@ -158,8 +158,8 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
 //  ROS_INFO_STREAM("upper bounds: " << ceres_nlopt_wrapper::vecToString(upper_bounds_));
 
   // Add objective function
-  Eigen::Affine3d* result_robot_pose = new Eigen::Affine3d();
-  *result_robot_pose = Eigen::Affine3d::Identity();
+  Eigen::Isometry3d* result_robot_pose = new Eigen::Isometry3d();
+  *result_robot_pose = Eigen::Isometry3d::Identity();
   std::vector<double> previous_parameters;
   if (!previous_state.empty()) {
     previous_parameters = jointVectorToParamVector(previous_state);
@@ -200,7 +200,7 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
   robot_base_tsdf.setTsdfMap(robot_tsdf_, self_collision_tsdf_truncation_distance_);
 
   std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_tsdf_constraints;
-  Eigen::Affine3d identity = Eigen::Affine3d::Identity();
+  Eigen::Isometry3d identity = Eigen::Isometry3d::Identity();
   for (const std::string& collision_link: collision_group_names) {
     if (collision_link == "arm_link_0" || collision_link == "arm_link_1") { // arm_link_0 is always in collision, TODO remove hardcoded links
       continue;
@@ -294,7 +294,7 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
   // Compute and publish result stabilities
   std::vector<double> flipper_angles(parameters.begin(), parameters.begin() + free_flipper_joints_.size());
   contact_estimation_->updateJointStates(flipper_angles);
-  Eigen::Affine3d base_to_com; base_to_com = Eigen::Translation3d(result.center_of_mass);
+  Eigen::Isometry3d base_to_com; base_to_com = Eigen::Translation3d(result.center_of_mass);
   result.contact_result = contact_estimation_->estimateSupportPolygon(robot_pose, base_to_com, init_contact);
   visualization_msgs::MarkerArray convex_hull_array_msg;
   sdf_contact_estimation::createPointMarkerArray(result.contact_result.convex_hull_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
@@ -303,7 +303,7 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
   convex_hull_pub_.publish(convex_hull_array_msg);
 
   // Publish com
-  Eigen::Affine3d com_pose = Eigen::Affine3d::Identity();
+  Eigen::Isometry3d com_pose = Eigen::Isometry3d::Identity();
   com_pose.translation() = result.contact_result.estimated_pose * result.center_of_mass;
   sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
 
@@ -347,8 +347,8 @@ CombinedOptimizationResult CombinedOptimization::optimize(const std::vector<doub
   return result;
 }
 
-sdf_contact_estimation::ContactEstimationResult CombinedOptimization::computeContactEstimation(const std::vector<double>& joint_angles, const Eigen::Affine3d& pose,
-                                                                                               const Eigen::Affine3d& base_to_com)
+sdf_contact_estimation::ContactEstimationResult CombinedOptimization::computeContactEstimation(const std::vector<double>& joint_angles, const Eigen::Isometry3d& pose,
+                                                                                               const Eigen::Isometry3d& base_to_com)
 {
   std::vector<double> parameters = jointVectorToParamVector(joint_angles);
   ROS_INFO_STREAM("parameter size: " << parameters.size());

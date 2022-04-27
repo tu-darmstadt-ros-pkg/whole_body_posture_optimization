@@ -44,21 +44,21 @@ struct FlipperStabilityCostParameters {
 class FlipperStabilityCost {
 public:
   FlipperStabilityCost(unsigned int parameter_size, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
-                      const Eigen::Affine3d& pose, const Eigen::Affine3d& base_to_com, const std::vector<double>& prev_flipper_angles,
+                      const Eigen::Isometry3d& pose, const Eigen::Isometry3d& base_to_com, const std::vector<double>& prev_flipper_angles,
                        const FlipperStabilityCostParameters& parameters);
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
   static ceres::CostFunction* Create(unsigned int parameter_size, const std::shared_ptr<sdf_contact_estimation::SDFContactEstimation>& contact_estimation,
-                                     const Eigen::Affine3d& pose, const Eigen::Affine3d& base_to_com, const std::vector<double>& prev_flipper_angles,
+                                     const Eigen::Isometry3d& pose, const Eigen::Isometry3d& base_to_com, const std::vector<double>& prev_flipper_angles,
                                      const FlipperStabilityCostParameters &parameters);
 private:
   unsigned int parameter_size_;
   std::shared_ptr<sdf_contact_estimation::SDFContactEstimation> contact_estimation_;
   std::vector<double> prev_flipper_angles_;
 
-  Eigen::Affine3d pose_;
-  Eigen::Affine3d base_to_com_;
+  Eigen::Isometry3d pose_;
+  Eigen::Isometry3d base_to_com_;
 
   FlipperStabilityCostParameters parameters_;
 };

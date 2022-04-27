@@ -113,7 +113,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
   for (const geometry_msgs::PoseStamped& pose_msg: path.poses) {
     ROS_INFO_STREAM("Pose: " << counter);
     counter++;
-    Eigen::Affine3d pose;
+    Eigen::Isometry3d pose;
     tf::poseMsgToEigen(pose_msg.pose, pose);
 
     if (first) {
@@ -154,7 +154,7 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
   return results;
 }
 
-PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
+PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Isometry3d& pose, const std::vector<double>& init_joint_angles,
                                                                            const PostureOptimizationResult* previous_result)
 {
   if (optimization_type_ == SPLIT) {
@@ -169,7 +169,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   }
 }
 
-PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
+PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(const Eigen::Isometry3d& pose, const std::vector<double>& init_joint_angles,
                                                                                 const PostureOptimizationResult* previous_result)
 {
   START_TIMING("findOptimalPostureSplit")
@@ -193,11 +193,11 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   // Compute center of mass
   // TODO we should be able to just take this from the previous time step. com shouldn't have changed
   robot_model_->computeCenterOfMass(*previous_joint_angles, result.init_com);
-  Eigen::Affine3d base_to_com = Eigen::Affine3d::Identity();
+  Eigen::Isometry3d base_to_com = Eigen::Isometry3d::Identity();
   base_to_com.translation() = result.init_com;
 
   // Estimate our new position  
-  Eigen::Affine3d estimated_pose = pose; // Estimated pose of the robot at the requested position
+  Eigen::Isometry3d estimated_pose = pose; // Estimated pose of the robot at the requested position
   // Use last estimated pose to update estimate, if available
   if (previous_result) {
 //    result.init_contact = previous_result->result_contact;
@@ -208,8 +208,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 //  updated_contact false= flipper_optimization_->computeContactEstimation(*previous_joint_angles, estimated_pose, base_to_com);
 
   // Collect requests to optimization
-  std::vector<Eigen::Affine3d> request_com;
-  std::vector<Eigen::Affine3d> request_pose;
+  std::vector<Eigen::Isometry3d> request_com;
+  std::vector<Eigen::Isometry3d> request_pose;
 
   // Check if updating contact was successful
 //  if (!updated_contact.stable) {
@@ -231,8 +231,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 //        const Eigen::Vector3d& p1 = updated_contact.convex_hull_points[(i+1) % updated_contact.convex_hull_points.size()];
 //
 //        // Transform points to base link
-//        Eigen::Vector3d p0_base = updated_contact.estimated_pose.inverse(Eigen::Isometry) * p0;
-//        Eigen::Vector3d p1_base = updated_contact.estimated_pose.inverse(Eigen::Isometry) * p1;
+//        Eigen::Vector3d p0_base = updated_contact.estimated_pose.inverse() * p0;
+//        Eigen::Vector3d p1_base = updated_contact.estimated_pose.inverse() * p1;
 //
 //        // Check if forward edge
 //        Eigen::Vector3d a = p1_base - p0_base;
@@ -267,7 +267,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 //      // Move com across axis
 //      Eigen::Vector3d com_world_new = com_xy + axis_normal + 0.05 * axis_normal_norm;
 //      com_world_new.z() = com_world.z();
-//      Eigen::Affine3d new_base_to_com(Eigen::Translation3d(updated_contact.estimated_pose.inverse(Eigen::Isometry) * com_world_new));
+//      Eigen::Isometry3d new_base_to_com(Eigen::Translation3d(updated_contact.estimated_pose.inverse() * com_world_new));
 //
 //      // rerun contact estimation
 //      sdf_contact_estimation::ContactEstimationResult front_tip_contact = flipper_optimization_->computeContactEstimation(
@@ -339,7 +339,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   return result;
 }
 
-//PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombined(const Eigen::Affine3d& pose, const std::vector<double>& init_joint_angles,
+//PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureCombined(const Eigen::Isometry3d& pose, const std::vector<double>& init_joint_angles,
 //                                                                                   const std::vector<double>& previous_joint_angles,
 //                                                                                   const sdf_contact_estimation::ContactEstimationResult* init_contact_result)
 //{
@@ -359,7 +359,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 //  } else {
 //    robot_model_->computeCenterOfMass(init_joint_angles, result.init_com);
 //  }
-//  Eigen::Affine3d base_to_com(Eigen::Translation3d(result.init_com));
+//  Eigen::Isometry3d base_to_com(Eigen::Translation3d(result.init_com));
 
 //  sdf_contact_estimation::ContactEstimationResult updated_init_contact;
 //  if (init_contact_result != nullptr) {
@@ -473,7 +473,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     for (unsigned int j = 0; j < res.trajectory_->getWayPointCount()-1; j++) {
       double t = static_cast<double>(j) / (res.trajectory_->getWayPointCount()-1);
       Eigen::Quaterniond interpolated_orientation = start_orientation.slerp(t, end_orientation);
-      Eigen::Affine3d interpolated_pose(interpolated_orientation);
+      Eigen::Isometry3d interpolated_pose(interpolated_orientation);
       Eigen::Vector3d interpolated_position = start_position + t * position_diff;
       interpolated_pose.translation() = interpolated_position;
       robot_state::RobotStatePtr state = res.trajectory_->getWayPointPtr(j);

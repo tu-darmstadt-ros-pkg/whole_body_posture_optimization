@@ -14,7 +14,7 @@ namespace  whole_body_posture_optimization {
 class SdfContactConstraint {
 public:
   SdfContactConstraint(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<int>& param_idx_to_chain_idx,
-                    const std::vector<double>& default_chain_angles, const Eigen::Affine3d& robot_pose, const sdf_contact_estimation::SdfModelPtr& sdf_model,
+                    const std::vector<double>& default_chain_angles, const Eigen::Isometry3d& robot_pose, const sdf_contact_estimation::SdfModelPtr& sdf_model,
                     const CollisionObject& obj)
     : robot_model_(robot_model), free_joints_(free_joints), param_idx_to_chain_idx_(param_idx_to_chain_idx), default_chain_angles_(default_chain_angles), robot_pose_(robot_pose),
   sdf_model_(sdf_model), obj_(obj) {
@@ -48,7 +48,7 @@ public:
   }
 
   static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<int>& param_idx_to_chain_idx,
-                                     const std::vector<double>& default_chain_angles, const Eigen::Affine3d& robot_pose, const sdf_contact_estimation::SdfModelPtr& sdf_model,
+                                     const std::vector<double>& default_chain_angles, const Eigen::Isometry3d& robot_pose, const sdf_contact_estimation::SdfModelPtr& sdf_model,
                                      const CollisionObject& obj) {
     auto* cost_function = new ceres::DynamicAutoDiffCostFunction<SdfContactConstraint, 4>(
           new SdfContactConstraint(robot_model, free_joints, param_idx_to_chain_idx, default_chain_angles, robot_pose, sdf_model, obj));
@@ -64,7 +64,7 @@ private:
   std::vector<int> param_idx_to_chain_idx_; // Transforms parameter index to chain index
   std::vector<std::string> free_joints_; // name of joint associated with parameter of same idx
   std::vector<double> default_chain_angles_; // default values for all chain joints
-  Eigen::Affine3d robot_pose_; // current robot pose in world
+  Eigen::Isometry3d robot_pose_; // current robot pose in world
   sdf_contact_estimation::SdfModelPtr sdf_model_;
 
   CollisionObject obj_;

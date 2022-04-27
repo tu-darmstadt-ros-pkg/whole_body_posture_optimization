@@ -8,7 +8,7 @@
 
 namespace whole_body_posture_optimization {
 
-void updateMoveitRobotState(moveit::core::RobotState &state, const Eigen::Affine3d &pose)
+void updateMoveitRobotState(moveit::core::RobotState &state, const Eigen::Isometry3d &pose)
 {
   sensor_msgs::JointState virtual_link_joint_states;
   virtual_link_joint_states.name.push_back("world_virtual_joint/trans_x");
@@ -65,7 +65,7 @@ bool checkGradient(const ceres::CostFunction* cost_function)
   return true;
 }
 
-std::string poseToString(const Eigen::Affine3d& pose)
+std::string poseToString(const Eigen::Isometry3d& pose)
 {
   Eigen::Vector3d rpy = sdf_contact_estimation::rotToNormalizedRpy(pose.linear());
   Eigen::Vector3d xyz = pose.translation();
