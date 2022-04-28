@@ -22,8 +22,7 @@
 #include <voxblox_msgs/Layer.h>
 #include <voxblox_ros/conversions.h>
 #include <voxblox/core/tsdf_map.h>
-
-
+#include <voxblox_ros/esdf_server.h>
 #include <moveit/moveit_cpp/moveit_cpp.h>
 
 // Forward declarations
@@ -64,7 +63,6 @@ private:
    */
   bool planAndMoveToState(const robot_state::RobotState& goal_state, std::string group_name);
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking=true, ros::Time start_time=ros::Time());
-  bool updateTsdf();
 
   bool continuousReplanning(const nav_msgs::Path& path_msg);
 
@@ -88,8 +86,6 @@ private:
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
   std::vector<std::string> joint_names_;
   std::vector<double> joint_states_;
-  std::shared_ptr<voxblox::TsdfMap> tsdf_;
-  std::shared_ptr<voxblox::TsdfMap> loaded_tsdf_;
   std::vector<robot_trajectory::RobotTrajectory> trajectory_;
 
   tf2_ros::Buffer tf_buffer_;
@@ -97,6 +93,7 @@ private:
 
   // MoveIt
   std::shared_ptr<moveit::planning_interface::MoveItCpp> moveit_cpp_ptr_;
+  voxblox::EsdfServer esdf_server_;
 
   // Parameters
   std::string map_frame_;
@@ -110,7 +107,6 @@ private:
   // Input
   ros::Subscriber path_sub_;
   ros::Subscriber execute_sub_;
-  ros::ServiceClient get_tsdf_client_;
   std::shared_ptr<FollowPathServer> follow_path_as_;
   ros::Subscriber joint_state_sub_;
 
@@ -118,8 +114,6 @@ private:
   std::shared_ptr<FollowPathClient> driving_client_;
   std::shared_ptr<MoveGroupClient> move_group_client_;
   std::shared_ptr<ExecuteTrajectoryClient> execute_trajectory_client_;
-
-
 };
 
 }

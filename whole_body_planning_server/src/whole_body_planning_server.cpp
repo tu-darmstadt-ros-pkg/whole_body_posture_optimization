@@ -11,7 +11,7 @@
 namespace whole_body_planning_server {
 
 WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, const ros::NodeHandle& pnh)
-  : nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), auto_start_(false), continuous_replanning_(false)
+  : nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), esdf_server_(nh, ros::NodeHandle(pnh, "esdf_server")), auto_start_(false), continuous_replanning_(false), path_sampling_resolution_(0.02)
 {
   // Parameters
   pnh_.param("auto_start", auto_start_, false);
@@ -24,31 +24,25 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   pnh_.param<double>("path_sampling_resolution", path_sampling_resolution_, 0.02);
 
   // Create SDF Model
-  auto sdf_model = std::make_shared<sdf_contact_estimation::SdfModel>(pnh);
+  sdf_model_ = std::make_shared<sdf_contact_estimation::SdfModel>(pnh);
+  sdf_model_->loadEsdf(esdf_server_.getEsdfMapPtr(), esdf_server_.getEsdfMaxDistance(), true);
 
   // Create pose predictor
   // Create robot model
   ros::NodeHandle pose_predictor_nh(pnh, "pose_predictor");
   ros::NodeHandle shape_model_nh(pose_predictor_nh, "shape_model");
   auto shape_model = std::make_shared<sdf_contact_estimation::ShapeModel>(shape_model_nh);
-  auto sdf_pose_predictor = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(pose_predictor_nh, shape_model, sdf_model);
+  auto sdf_pose_predictor = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(pose_predictor_nh, shape_model, sdf_model_);
   sdf_pose_predictor->enableVisualisation(false);
   auto pose_predictor = std::static_pointer_cast<hector_pose_prediction_interface::PosePredictor<double>>(sdf_pose_predictor);
 
-  optimizer_ = std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(pnh, pose_predictor, sdf_model);
+  optimizer_ = std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(pnh, pose_predictor, sdf_model_);
   joint_names_ = optimizer_->getRobotModel()->getActuatedJointNames();
   joint_states_ = optimizer_->getDefaultJointPositions();
 
   // Create moveit planner instance
-  ros::NodeHandle move_group_nh("/move_group");
-  moveit_cpp_ptr_ = std::make_shared<moveit::planning_interface::MoveItCpp>(move_group_nh);
-
-  // Connect get tsdf layer service client
-//  ROS_INFO_STREAM("Waiting for get tsdf client..");
-//  get_tsdf_client_ = nh_.serviceClient<voxblox_msgs::GetLayer>("get_tsdf");
-//  if (!get_tsdf_client_.waitForExistence(ros::Duration(5))) {
-//    ROS_ERROR_STREAM("Timed out waiting for tsdf server.");
-//  }
+//  ros::NodeHandle move_group_nh("/move_group");
+//  moveit_cpp_ptr_ = std::make_shared<moveit_cpp::MoveItCpp>(move_group_nh);
 
   // Connect trajectory execution service client
   ROS_INFO_STREAM("Waiting for trajectory execution client..");
@@ -84,15 +78,12 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
 
 bool WholeBodyPlanningServer::loadTsdfFromPath(std::string tsdf_path)
 {
-  ROS_INFO_STREAM("Loading tsdf from path '" << tsdf_path << "'.");
-  voxblox::Layer<voxblox::TsdfVoxel>::Ptr layer_ptr;
-  if (voxblox::io::LoadLayer<voxblox::TsdfVoxel>(tsdf_path, &layer_ptr)) {
-    loaded_tsdf_ = std::make_shared<voxblox::TsdfMap>(layer_ptr);
-    return true;
-  } else {
+  ROS_INFO_STREAM("Loading sdf from path '" << tsdf_path << "'.");
+  if (!esdf_server_.loadMap(tsdf_path)) {
     ROS_ERROR_STREAM("Failed to load tsdf from file.");
     return false;
   }
+  return true;
 }
 
 bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start)
@@ -154,11 +145,7 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::
     return true; // Executing an empty plan is always successful
   }
 
-  // *** Update worldmodel ***
-  if (!updateTsdf()) {
-    ROS_ERROR_STREAM("Failed to update world model.");
-    return false;
-  }
+  sdf_model_->publishSdfMesh();
 
   // *** Compute plan ***
   auto result = optimizer_->findOptimalPostures(path_msg);
@@ -367,32 +354,6 @@ bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::Rob
   return moveit_cpp_ptr_->getTrajectoryExecutionManager()->pushAndExecute(robot_trajectory_msg);
 }
 
-bool WholeBodyPlanningServer::updateTsdf()
-{
-  if (loaded_tsdf_) {
-    // Use tsdf loaded from disc
-    sdf_model_->loadTsdf(loaded_tsdf_, 0.4, true, true);
-    return true;
-  }
-
-//  // Request tsdf from server
-//  voxblox_msgs::GetLayer get_layer;
-////  get_layer.request.action = voxblox_msgs::Layer::ACTION_FULL_MAP;
-//  if (!get_tsdf_client_.call(get_layer)) {
-//    ROS_ERROR_STREAM("Failed to retrieve the latest tsdf map.");
-//    return false;
-//  }
-//  if (!tsdf_) {
-//    voxblox::TsdfMap::Config tsdf_config;
-//    tsdf_config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(get_layer.response.layer.voxel_size);
-//    tsdf_.reset(new voxblox::TsdfMap(tsdf_config));
-//  }
-//  voxblox::deserializeMsgToLayer<voxblox::TsdfVoxel>(get_layer.response.layer, tsdf_->getTsdfLayerPtr());
-//  optimizer_->updateWorldModel(tsdf_);
-
-  return true;
-}
-
 bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_msg)
 {
   ROS_INFO_STREAM("Input path: " << pathToString(path_msg));
@@ -433,13 +394,6 @@ bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_ms
     }
     ROS_INFO_STREAM("path index: " << current_path_index << ", planning index: " << planning_index);
     ROS_INFO_STREAM("Planning for path: " << pathToString(path_slice));
-
-    // Update TSDF
-    if (!updateTsdf()) {
-      ROS_ERROR_STREAM("Failed to update TSDF. Skipping planning.");
-      ++consecutive_planning_failures;
-      continue;
-    }
 
     // Compute plan for path slice
     auto result = optimizer_->findOptimalPostures(path_slice); // TODO give previous solution
@@ -545,6 +499,7 @@ std::vector<double> WholeBodyPlanningServer::computeAccumulatedDistances(const n
 //  for(unsigned i = 1; i < positions.size(); i++)
 //    result[i] = result[i - 1] + (positions[i] - positions[i - 1]).norm();
   //  return result;
+  return {};
 }
 
 std::string WholeBodyPlanningServer::pathToString(const nav_msgs::Path& path) const
