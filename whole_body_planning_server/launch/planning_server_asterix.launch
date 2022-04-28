@@ -20,6 +20,7 @@
 
     <!-- esdf server parameters -->
     <rosparam file="$(find whole_body_planning_server)/config/esdf_server_common.yaml" command="load" ns="esdf_server"/>
+    <param name="update_mesh_every_n_sec" value="0.0" ns="esdf_server"/>
   </node>
 
   <!-- Debug -->
