@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   vehicle_controller
   eigen_conversions
+  dynamic_reconfigure
 )
 
 ## System dependencies are found with CMake's conventions
@@ -29,21 +30,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## Declare ROS dynamic reconfigure parameters ##
 ################################################
 
-## To declare and build dynamic reconfigure parameters within this
-## package, follow these steps:
-## * In the file package.xml:
-##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"
-## * In this file (CMakeLists.txt):
-##   * add "dynamic_reconfigure" to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * uncomment the "generate_dynamic_reconfigure_options" section below
-##     and list every .cfg file to be processed
-
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
+generate_dynamic_reconfigure_options(
+ cfg/PlanningServer.cfg
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -57,7 +47,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_planning_server
-  CATKIN_DEPENDS whole_body_posture_optimization tf2_ros voxblox_msgs actionlib nav_msgs move_base_lite_msgs moveit_msgs moveit_ros_planning_interface sensor_msgs vehicle_controller eigen_conversions
+  CATKIN_DEPENDS whole_body_posture_optimization tf2_ros voxblox_msgs actionlib nav_msgs move_base_lite_msgs moveit_msgs moveit_ros_planning_interface sensor_msgs vehicle_controller eigen_conversions dynamic_reconfigure
 #  DEPENDS system_lib
 )
 
@@ -84,12 +74,12 @@ target_link_libraries(${PROJECT_NAME}
 
 ## Declare a C++ executable
 add_executable(${PROJECT_NAME}_node src/whole_body_planning_server_node.cpp)
-add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
 
 ## Declare a C++ executable
 add_executable(driving_controller_node src/driving_controller_node.cpp)
-add_dependencies(driving_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(driving_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 target_link_libraries(driving_controller_node ${PROJECT_NAME})
 
 #############

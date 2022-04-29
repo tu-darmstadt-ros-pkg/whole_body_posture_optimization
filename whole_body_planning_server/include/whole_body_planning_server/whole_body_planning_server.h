@@ -11,10 +11,13 @@
 #include <actionlib/server/action_server.h>
 #include <move_base_lite_msgs/FollowPathAction.h>
 
+#include <moveit/moveit_cpp/moveit_cpp.h>
 #include <moveit/robot_trajectory/robot_trajectory.h>
 
 #include <voxblox_ros/esdf_server.h>
-#include <moveit/moveit_cpp/moveit_cpp.h>
+
+#include <dynamic_reconfigure/server.h>
+#include <whole_body_planning_server/PlanningServerConfig.h>
 
 // Forward declarations
 namespace whole_body_posture_optimization {
@@ -77,6 +80,8 @@ private:
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
+
+  bool enabled_;
 
   std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;

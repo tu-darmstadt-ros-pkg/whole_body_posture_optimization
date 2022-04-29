@@ -16,6 +16,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   : nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), esdf_server_(nh, ros::NodeHandle(pnh, "esdf_server")), auto_start_(false), path_sampling_resolution_(0.02)
 {
   // Parameters
+  pnh_.param("enabled", enabled_, false);
   pnh_.param("auto_start", auto_start_, false);
 
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
@@ -313,7 +314,14 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
   follow_path_goal_ = goal;
 
   // Plan and execute
-  planAndExecutePath(goal.getGoal()->target_path, auto_start_);
+  if (enabled_) {
+    planAndExecutePath(goal.getGoal()->target_path, auto_start_);
+  } else {
+    driving_client_->sendGoal(*goal.getGoal(),
+                              std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
+                              FollowPathClient::SimpleActiveCallback(),
+                              FollowPathClient::SimpleFeedbackCallback());
+  }
 }
 void WholeBodyPlanningServer::followPathPreemptCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle preempt)
 {
