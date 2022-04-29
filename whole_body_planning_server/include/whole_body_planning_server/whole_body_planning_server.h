@@ -113,7 +113,6 @@ private:
   // Output
   std::shared_ptr<FollowPathClient> driving_client_;
   std::shared_ptr<MoveGroupClient> move_group_client_;
-  std::shared_ptr<ExecuteTrajectoryClient> execute_trajectory_client_;
 };
 
 }

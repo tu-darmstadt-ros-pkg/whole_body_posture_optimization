@@ -43,13 +43,6 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   // Create moveit planner instance
   moveit_cpp_ptr_ = std::make_shared<moveit_cpp::MoveItCpp>(pnh);
 
-  // Connect trajectory execution service client
-  ROS_INFO_STREAM("Waiting for trajectory execution client..");
-  execute_trajectory_client_ = std::make_shared<ExecuteTrajectoryClient>(nh_, "/execute_trajectory", true);
-  if (!execute_trajectory_client_->waitForServer(ros::Duration(5))) {
-    ROS_ERROR_STREAM("Timed out waiting for execute_trajectory action server.");
-  }
-
   // Connect vehicle controller action client
   ROS_INFO_STREAM("Waiting for vehicle controller client..");
   driving_client_ = std::make_shared<FollowPathClient>(nh_, "/controller/follow_path", true);
@@ -237,11 +230,11 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
     }
   }
 
-  moveit_msgs::ExecuteTrajectoryResultConstPtr execute_trajectory_result = execute_trajectory_client_->getResult();
-  if (execute_trajectory_result->error_code.val != moveit_msgs::MoveItErrorCodes::SUCCESS) {
-    ROS_ERROR_STREAM("Trajectory execution failed with error code: " << execute_trajectory_result->error_code.val);
-    return false;
-  }
+//  moveit_msgs::ExecuteTrajectoryResultConstPtr execute_trajectory_result = execute_trajectory_client_->getResult();
+//  if (execute_trajectory_result->error_code.val != moveit_msgs::MoveItErrorCodes::SUCCESS) {
+//    ROS_ERROR_STREAM("Trajectory execution failed with error code: " << execute_trajectory_result->error_code.val);
+//    return false;
+//  }
 
   move_base_lite_msgs::FollowPathResultConstPtr follow_path_result = driving_client_->getResult();
   if (follow_path_result->result.val != move_base_lite_msgs::ErrorCodes::SUCCESS) {
