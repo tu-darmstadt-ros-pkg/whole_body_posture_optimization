@@ -8,20 +8,11 @@
 #include <tf2_ros/transform_listener.h>
 
 #include <actionlib/client/simple_action_client.h>
-#include <actionlib/server/simple_action_server.h>
+#include <actionlib/server/action_server.h>
 #include <move_base_lite_msgs/FollowPathAction.h>
 
-#include <eigen_conversions/eigen_msg.h>
-
-#include <moveit_msgs/ExecuteTrajectoryAction.h>
-#include <moveit_msgs/MoveGroupAction.h>
-#include <moveit/kinematic_constraints/utils.h>
 #include <moveit/robot_trajectory/robot_trajectory.h>
 
-#include <voxblox/core/common.h>
-#include <voxblox_msgs/Layer.h>
-#include <voxblox_ros/conversions.h>
-#include <voxblox/core/tsdf_map.h>
 #include <voxblox_ros/esdf_server.h>
 #include <moveit/moveit_cpp/moveit_cpp.h>
 
@@ -35,9 +26,6 @@ namespace sdf_contact_estimation {
 }
 
 typedef actionlib::SimpleActionClient<move_base_lite_msgs::FollowPathAction> FollowPathClient;
-typedef actionlib::SimpleActionServer<move_base_lite_msgs::FollowPathAction> FollowPathServer;
-typedef actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> ExecuteTrajectoryClient;
-typedef actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction> MoveGroupClient;
 
 namespace whole_body_planning_server {
 
@@ -52,32 +40,40 @@ public:
   bool planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start=true);
 private:
   nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
+  nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance) const;
   bool generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out);
-  bool moveToStartAndExecute(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
-  bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectories, ros::Time starting_time, bool blocking=false);
+//  bool moveToStartAndExecute(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
+  bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectories, ros::Time starting_time);
   /**
    * @brief planAndMoveToState Move to goal joint state and robot base position
    * @param goal_state
    * @param jmg
    * @return
    */
-  bool planAndMoveToState(const robot_state::RobotState& goal_state, std::string group_name);
+//  bool planAndMoveToState(const robot_state::RobotState& goal_state, std::string group_name);
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking=true, ros::Time start_time=ros::Time());
 
-  bool continuousReplanning(const nav_msgs::Path& path_msg);
+//  bool continuousReplanning(const nav_msgs::Path& path_msg);
 
-  // Util
+  /// Util
   nav_msgs::Path extractPathFromTrajectories(const std::vector<robot_trajectory::RobotTrajectory> &trajectories, const ros::Time& start_time) const;
-  Eigen::Vector3d projectOntoPath(const nav_msgs::Path& path, geometry_msgs::Point& point);
-  std::vector<double> computeAccumulatedDistances(const nav_msgs::Path& path) const;
   std::string pathToString(const nav_msgs::Path& path) const;
+  bool followPathServerIsActive() const;
 
-  // Callbacks
+  /// Callbacks
+  ///! Path following action server interface
+  void followPathGoalCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle goal);
+  void followPathPreemptCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle preempt);
+  void setFollowPathGoalSuccessful();
+
+  ///! Simple path goal via topic
   void pathCb(const nav_msgs::PathConstPtr& path_msg);
   void confirmExecutionCb(const std_msgs::EmptyConstPtr&);
   void jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg);
-  void followPathClientFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr& feedback_ptr);
-  void followPathServerExecuteCb(const move_base_lite_msgs::FollowPathGoalConstPtr& goal_ptr);
+
+  ///! Follow path client
+  void followPathClientDoneCallback(const actionlib::SimpleClientGoalState& state,
+                                    const move_base_lite_msgs::FollowPathResultConstPtr& result);
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
@@ -91,8 +87,6 @@ private:
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
 
-  // MoveIt
-  std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
   voxblox::EsdfServer esdf_server_;
 
   // Parameters
@@ -100,19 +94,22 @@ private:
   std::string base_frame_;
   std::string move_group_;
   bool auto_start_;
-  bool continuous_replanning_;
+  double path_slice_length_;
   std::string stability_info_save_folder_;
   double path_sampling_resolution_;
 
-  // Input
+  // Subscribers
   ros::Subscriber path_sub_;
   ros::Subscriber execute_sub_;
-  std::shared_ptr<FollowPathServer> follow_path_as_;
   ros::Subscriber joint_state_sub_;
 
-  // Output
+  // action interface
+  std::shared_ptr<actionlib::ActionServer<move_base_lite_msgs::FollowPathAction> > follow_path_server_;
+  actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle follow_path_goal_;
+
+  // Clients
   std::shared_ptr<FollowPathClient> driving_client_;
-  std::shared_ptr<MoveGroupClient> move_group_client_;
+  std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
 };
 
 }
