@@ -16,11 +16,10 @@
     
     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
 
-    <remap from="~/esdf_server/esdf_map_in" to="/esdf_server/esdf_map_out" />
-
     <!-- esdf server parameters -->
     <rosparam file="$(find whole_body_planning_server)/config/esdf_server_common.yaml" command="load" ns="esdf_server"/>
-    <param name="update_mesh_every_n_sec" value="0.0" ns="esdf_server"/>
+    <param name="esdf_server/update_mesh_every_n_sec" value="0.0"/>
+    <remap from="~/esdf_server/esdf_map_in" to="/esdf_server/esdf_map_out" />
   </node>
 
   <!-- Debug -->
