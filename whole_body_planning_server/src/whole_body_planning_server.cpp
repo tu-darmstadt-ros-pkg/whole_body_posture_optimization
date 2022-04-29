@@ -85,8 +85,8 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
 
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
-  nav_msgs::Path path_slice = slicePath(path_smoothed, -1); // TODO slice path
-  if(!generatePlan(path_smoothed, trajectory_)) {
+  nav_msgs::Path path_slice = slicePath(path_smoothed, path_slice_length_);
+  if(!generatePlan(path_slice, trajectory_)) {
     ROS_ERROR_STREAM("Planning failed.");
     return false;
   }

@@ -5,7 +5,7 @@
     <param name="auto_start" value="true"/>
     <param name="base_frame" value="base_link"/>
     <param name="path_sampling_resolution" value="0.05"/>
-    <param name="path_slice_length" value="0.1"/>
+    <param name="path_slice_length" value="1.0"/>
     
     <!-- posture optimization lib parameters -->
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
@@ -30,8 +30,4 @@
 
   <!-- Trajectory execution  -->
   <include ns="whole_body_planning_server" file="$(find asterix_moveit_config)/launch/trajectory_execution.launch.xml"/>
-
-
-  <!-- Debug -->
-<!--   <node pkg="rosservice" type="rosservice" name="set_ceres_nlopt_wrapper_log_level" args="call wait /whole_body_planning_server/set_logger_level 'ros.ceres_nlopt_wrapper' 'debug'" /> -->
 </launch>
