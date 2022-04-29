@@ -460,15 +460,15 @@ nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const std::v
   path.header.frame_id = map_frame_;
   path.header.stamp = ros::Time::now();
   ros::Time next_start_time = start_time;
-  for (unsigned int i = 0; i < trajectories.size(); i++) {
+  for (const auto & trajectory : trajectories) {
     geometry_msgs::PoseStamped pose_msg;
     pose_msg.header.frame_id = map_frame_;
     pose_msg.header.stamp = next_start_time;
-    Eigen::Affine3d goal_pose = trajectories[i].getFirstWayPoint().getJointTransform("world_virtual_joint");
+    Eigen::Affine3d goal_pose = trajectory.getFirstWayPoint().getJointTransform("world_virtual_joint");
     tf::poseEigenToMsg(goal_pose, pose_msg.pose);
     path.poses.push_back(pose_msg);
 
-    next_start_time += ros::Duration(trajectories[i].getWayPointDurationFromStart(trajectories[i].getWayPointCount()-1));
+    next_start_time += ros::Duration(trajectory.getWayPointDurationFromStart(trajectory.getWayPointCount()-1));
   }
   // add last pose
   geometry_msgs::PoseStamped end_pose_msg;
