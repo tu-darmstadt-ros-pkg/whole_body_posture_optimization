@@ -92,7 +92,7 @@ private:
   tf2_ros::TransformListener tf_listener_;
 
   // MoveIt
-  std::shared_ptr<moveit::planning_interface::MoveItCpp> moveit_cpp_ptr_;
+  std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
   voxblox::EsdfServer esdf_server_;
 
   // Parameters
