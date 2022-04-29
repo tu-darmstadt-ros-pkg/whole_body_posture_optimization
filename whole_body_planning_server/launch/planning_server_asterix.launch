@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>  
-  <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen">
+  <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" clear_params="true">
 <!--  <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" launch-prefix="gdb-args">-->
     <param name="auto_start" value="false"/>
     <param name="continuous_replanning" value="false"/>
@@ -21,6 +21,16 @@
     <param name="esdf_server/update_mesh_every_n_sec" value="0.0"/>
     <remap from="~/esdf_server/esdf_map_in" to="/esdf_server/esdf_map_out" />
   </node>
+
+  <!-- moveit_cpp parameters -->
+  <rosparam ns="whole_body_planning_server" file="$(find whole_body_planning_server)/config/moveit_cpp.yaml" command="load"/>
+
+  <!-- Planning Pipeline -->
+  <include ns="whole_body_planning_server/ompl" file="$(find asterix_moveit_config)/launch/ompl_planning_pipeline.launch.xml"/>
+
+  <!-- Trajectory execution  -->
+  <include ns="whole_body_planning_server" file="$(find asterix_moveit_config)/launch/trajectory_execution.launch.xml"/>
+
 
   <!-- Debug -->
 <!--   <node pkg="rosservice" type="rosservice" name="set_ceres_nlopt_wrapper_log_level" args="call wait /whole_body_planning_server/set_logger_level 'ros.ceres_nlopt_wrapper' 'debug'" /> -->

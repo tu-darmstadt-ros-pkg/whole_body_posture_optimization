@@ -41,8 +41,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   joint_states_ = optimizer_->getDefaultJointPositions();
 
   // Create moveit planner instance
-//  ros::NodeHandle move_group_nh("/move_group");
-//  moveit_cpp_ptr_ = std::make_shared<moveit_cpp::MoveItCpp>(move_group_nh);
+  moveit_cpp_ptr_ = std::make_shared<moveit_cpp::MoveItCpp>(pnh);
 
   // Connect trajectory execution service client
   ROS_INFO_STREAM("Waiting for trajectory execution client..");
