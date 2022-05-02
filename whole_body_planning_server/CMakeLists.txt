@@ -67,19 +67,19 @@ add_library(${PROJECT_NAME}
   include/${PROJECT_NAME}/whole_body_planning_server.h
   src/whole_body_planning_server.cpp
 )
-add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
 
 ## Declare a C++ executable
 add_executable(${PROJECT_NAME}_node src/whole_body_planning_server_node.cpp)
-add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
+add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} )
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
 
 ## Declare a C++ executable
 add_executable(driving_controller_node src/driving_controller_node.cpp)
-add_dependencies(driving_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
+add_dependencies(driving_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} )
 target_link_libraries(driving_controller_node ${PROJECT_NAME})
 
 #############

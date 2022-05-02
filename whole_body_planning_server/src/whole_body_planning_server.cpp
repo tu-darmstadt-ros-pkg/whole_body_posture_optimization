@@ -16,15 +16,19 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   : nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), esdf_server_(nh, ros::NodeHandle(pnh, "esdf_server")), auto_start_(false), path_sampling_resolution_(0.02)
 {
   // Parameters
-  pnh_.param("enabled", enabled_, false);
-  pnh_.param("auto_start", auto_start_, false);
+//  pnh_.param("enabled", enabled_, false);
+//  pnh_.param("auto_start", auto_start_, false);
 
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
   pnh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
 //  pnh_.param<std::string>("map_frame", map_frame_, "map");
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
-  pnh_.param<double>("path_sampling_resolution", path_sampling_resolution_, 0.02);
-  pnh_.param<double>("path_slice_length", path_slice_length_, -1);
+//  pnh_.param<double>("path_sampling_resolution", path_sampling_resolution_, 0.02);
+//  pnh_.param<double>("path_slice_length", path_slice_length_, -1);
+
+  // Dynamic reconfigure
+  reconfigure_server_.setCallback(std::bind(&WholeBodyPlanningServer::dynamicReconfigureCallback,
+                                            this, std::placeholders::_1, std::placeholders::_2));
 
   // Create SDF Model
   sdf_model_ = std::make_shared<sdf_contact_estimation::SdfModel>(pnh);
@@ -629,6 +633,15 @@ void WholeBodyPlanningServer::setFollowPathGoalSuccessful()
     result_server.result.val = move_base_lite_msgs::ErrorCodes::SUCCESS;
     follow_path_goal_.setSucceeded(result_server, "successful");
   }
+}
+
+void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planning_server::PlanningServerConfig &config, uint32_t level)
+{
+  ROS_INFO_STREAM("Reconfigure request received.");
+  enabled_ = config.enabled;
+  path_sampling_resolution_ = config.path_sampling_resolution;
+  path_slice_length_ = config.path_slice_length;
+  auto_start_ = config.auto_start;
 }
 
 }

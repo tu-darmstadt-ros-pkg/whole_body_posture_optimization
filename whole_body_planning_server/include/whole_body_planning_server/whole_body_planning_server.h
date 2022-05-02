@@ -78,6 +78,8 @@ private:
   void followPathClientDoneCallback(const actionlib::SimpleClientGoalState& state,
                                     const move_base_lite_msgs::FollowPathResultConstPtr& result);
 
+  void dynamicReconfigureCallback(const whole_body_planning_server::PlanningServerConfig &config, uint32_t level);
+
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
 
@@ -115,6 +117,9 @@ private:
   // Clients
   std::shared_ptr<FollowPathClient> driving_client_;
   std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
+
+  // Dynamic reconfigure
+  dynamic_reconfigure::Server<whole_body_planning_server::PlanningServerConfig> reconfigure_server_;
 };
 
 }
