@@ -43,7 +43,7 @@ public:
   bool planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start=true);
 private:
   nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
-  nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance) const;
+  static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance) ;
   bool generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out);
 //  bool moveToStartAndExecute(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
   bool executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectories, ros::Time starting_time);

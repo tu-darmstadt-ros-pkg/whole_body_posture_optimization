@@ -16,15 +16,10 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   : nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), esdf_server_(nh, ros::NodeHandle(pnh, "esdf_server")), auto_start_(false), path_sampling_resolution_(0.02)
 {
   // Parameters
-//  pnh_.param("enabled", enabled_, false);
-//  pnh_.param("auto_start", auto_start_, false);
-
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
   pnh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
 //  pnh_.param<std::string>("map_frame", map_frame_, "map");
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
-//  pnh_.param<double>("path_sampling_resolution", path_sampling_resolution_, 0.02);
-//  pnh_.param<double>("path_slice_length", path_slice_length_, -1);
 
   // Dynamic reconfigure
   reconfigure_server_.setCallback(std::bind(&WholeBodyPlanningServer::dynamicReconfigureCallback,
@@ -121,11 +116,6 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
     base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path.header.stamp);
     path_copy.poses.front().pose.orientation = base_transform.transform.rotation; // TODO only YAW
     path_copy.poses.front().pose.position.z = base_transform.transform.translation.z;
-
-//    Eigen::Affine3d first_pose;
-//    tf::poseMsgToEigen(path_copy.poses[0].pose, first_pose);
-//    first_pose = sdf_contact_estimation::updatePoseFromLastResult(first_pose, map_to_base_tf, true, false); // Z only
-//    tf::poseEigenToMsg(first_pose, path_copy.poses[0].pose);
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("%s",ex.what());
@@ -133,7 +123,7 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
   return path_copy;
 }
 
-nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, double distance) const
+nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, double distance)
 {
   // Special case: always return original path if distance is <0
   if (distance < 0) {
