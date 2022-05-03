@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<launch> 
+  <node name="esdf_server" pkg="voxblox_ros" type="esdf_server" output="screen" clear_params="true" respawn="true">
+    <rosparam file="$(find whole_body_planning_server)/config/esdf_server_common.yaml" command="load" />
+
+    <param name="publish_esdf_map" value="true" />
+    <param name="update_mesh_every_n_sec" value="1.0" />
+    <param name="update_esdf_every_n_sec" value="1.0" />
+
+    <param name="min_time_between_msgs_sec" value="0.0" />
+    <param name="verbose" value="false" />
+    <param name="color_mode" value="normals" /> <!-- normals, color -->
+    <param name="method" value="fast" /> <!-- simple, fast, merged -->
+    <param name="use_const_weight" value="false" />
+
+    <param name="voxel_carving_enabled" value="false" />
+    <param name="truncation_distance" value="0.4" />
+
+    <param name="min_ray_length_m" value="0.9" /> <!-- filter out flippers -->
+
+
+<!--     <param name="publish_pointclouds_on_update" value="true"/> -->
+<!--     <param name="publish_pointclouds" value="true"/> -->
+    <param name="publish_slices" value="false" />
+
+    <remap from="pointcloud" to="/front_rgbd_cam/depth/color/points_throttle"/>
+<!--     <remap from="pointcloud" to="/depth_combined"/> -->
+  </node>
+
+  <!-- Relay RGBD cams to common topic -->
+<!--  <node name="front_depth_relay" pkg="topic_tools" type="relay" args="/front_rgbd_cam/depth/color/points_throttle /depth_combined">
+    <param name="lazy" value="true"/>
+  </node>
+
+  <node name="back_depth_relay" pkg="topic_tools" type="relay" args="/back_rgbd_cam/depth/color/points_throttle /depth_combined">
+    <param name="lazy" value="true"/>
+  </node>-->
+</launch>
