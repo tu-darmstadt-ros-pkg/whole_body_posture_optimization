@@ -78,10 +78,11 @@ bool WholeBodyPlanningServer::loadTsdfFromPath(std::string tsdf_path)
   return true;
 }
 
-bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start)
+bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start, bool replanning)
 {
   ROS_INFO_STREAM("Received new path, planning..");
   map_frame_ = path_msg.header.frame_id;
+
 
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
@@ -91,8 +92,17 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
     return false;
   }
 
+
+  ros::Time starting_time;
+  if (replanning) {
+    // Trajectory has to start here in time, because planning takes time and robot might not be at the start state anymore
+    starting_time = path_msg.header.stamp;
+  } else {
+    // If this is the first trajectory, future-date the starting time, so we do not miss the first waypoint
+    starting_time = ros::Time::now() + ros::Duration(0.1);
+  }
+
   if (auto_start) {
-    ros::Time starting_time = ros::Time::now() /*+ ros::Duration(2)*/;
     if (!executeTrajectory(trajectory_, starting_time)) {
       ROS_ERROR_STREAM("Trajectory execution failed");
       return false;
@@ -288,14 +298,17 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
 {
   ROS_INFO_STREAM("New goal received.");
   // Check if another goal exists
+  bool goal_preempted = false;
   if (followPathServerIsActive()) {
-    // Check if new one is newer
+    // Check if incoming one is newer
     if (goal.getGoalID().stamp >= follow_path_goal_.getGoalID().stamp) {
-      // Abort previous goal
+      // Cancel previous goal
       move_base_lite_msgs::FollowPathResult result;
       result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
       follow_path_goal_.setCanceled(result, "This goal has been preempted by a newer goal.");
+      goal_preempted = true;
     } else {
+      // Cancel incoming goal
       move_base_lite_msgs::FollowPathResult result;
       result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
       goal.setCanceled(result, "This goal has been preempted by a newer goal.");
@@ -309,7 +322,7 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
 
   // Plan and execute
   if (enabled_) {
-    planAndExecutePath(goal.getGoal()->target_path, auto_start_);
+    planAndExecutePath(goal.getGoal()->target_path, auto_start_, goal_preempted);
   } else {
     driving_client_->sendGoal(*goal.getGoal(),
                               std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),

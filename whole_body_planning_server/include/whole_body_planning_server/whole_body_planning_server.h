@@ -40,7 +40,7 @@ public:
    * @brief planAndExecutePath Plan and execute a whole-body plan along the given path
    * @param path_msg Path to drive
    */
-  bool planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start=true);
+  bool planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start=true, bool replanning=false);
 private:
   nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance) ;
@@ -83,8 +83,6 @@ private:
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
 
-  bool enabled_;
-
   std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
   std::vector<std::string> joint_names_;
@@ -97,6 +95,7 @@ private:
   voxblox::EsdfServer esdf_server_;
 
   // Parameters
+  bool enabled_;
   std::string map_frame_;
   std::string base_frame_;
   std::string move_group_;
