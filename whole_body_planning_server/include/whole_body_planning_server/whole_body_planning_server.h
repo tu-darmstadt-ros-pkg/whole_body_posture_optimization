@@ -103,6 +103,7 @@ private:
   double path_slice_length_;
   std::string stability_info_save_folder_;
   double path_sampling_resolution_;
+  bool override_path_time_;
 
   // Subscribers
   ros::Subscriber path_sub_;

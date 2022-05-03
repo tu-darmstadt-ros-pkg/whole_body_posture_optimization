@@ -20,6 +20,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   pnh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
 //  pnh_.param<std::string>("map_frame", map_frame_, "map");
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
+  pnh_.param("override_path_time", override_path_time_, true);
 
   // Dynamic reconfigure
   reconfigure_server_.setCallback(std::bind(&WholeBodyPlanningServer::dynamicReconfigureCallback,
@@ -320,9 +321,15 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
   goal.setAccepted();
   follow_path_goal_ = goal;
 
+  // Override path time with receive time
+  nav_msgs::Path target_path = goal.getGoal()->target_path;
+  if (override_path_time_)
+    target_path.header.stamp = ros::Time::now();
+
+
   // Plan and execute
   if (enabled_) {
-    planAndExecutePath(goal.getGoal()->target_path, auto_start_, goal_preempted);
+    planAndExecutePath(target_path, auto_start_, goal_preempted);
   } else {
     driving_client_->sendGoal(*goal.getGoal(),
                               std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
