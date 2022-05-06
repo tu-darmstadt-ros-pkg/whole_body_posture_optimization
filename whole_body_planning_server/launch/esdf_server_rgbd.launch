@@ -35,4 +35,7 @@
   <node name="back_depth_relay" pkg="topic_tools" type="relay" args="/back_rgbd_cam/depth/color/points_throttle /depth_combined">
     <param name="lazy" value="true"/>
   </node>-->
+
+  <!-- Load map -->
+  <node name="esdf_server_load_map" pkg="rosservice" type="rosservice" output="screen" args="call /esdf_server/load_map --wait '{file_path: '$(find sdf_contact_estimation)/sdf/gazebo_man6.esdf'}'" />
 </launch>
