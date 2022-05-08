@@ -395,16 +395,18 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 //  return result;
 //}
 
-std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
+robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result,
+                                                                                       std::vector<size_t>& trajectory_start_indices)
 {
-  std::vector<robot_trajectory::RobotTrajectory> trajectories;
+  START_TIMING("Trajectory planning")
+  std::string group_with_world = complete_robot_with_world_group_;
+  robot_trajectory::RobotTrajectory full_trajectory(robot_model_->getMoveitRobotModel(), group_with_world);
   if (opt_result.size() < 2) {
     ROS_WARN_STREAM("Can't compute timed trajectory, path is empty.");
-    return trajectories;
+    return full_trajectory;
   }
-  START_TIMING("Trajectory planning")
+
   std::string group = complete_robot_group_;
-  std::string group_with_world = complete_robot_with_world_group_;
   const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(group);
 
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
@@ -419,7 +421,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
   planning_interface::PlannerManagerPtr planner_instance(planner_plugin_loader.createUnmanagedInstance(default_planner_name));
   if (!planner_instance->initialize(robot_model_->getMoveitRobotModel(), nh_.getNamespace())) {
     ROS_FATAL_STREAM("Could not initialize planner instance");
-    return trajectories;
+    return full_trajectory;
   }
   ROS_INFO_STREAM("Using planning interface '" << planner_instance->getDescription() << "'");
 
@@ -428,8 +430,6 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
   req.group_name = group;
   req.allowed_planning_time = 2.0;
 
-  robot_trajectory::RobotTrajectory full_trajectory(robot_model_->getMoveitRobotModel(), group_with_world);
-  std::vector<size_t> trajectory_start_index;
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     // set start state
     robot_model_->updateJointAngles(opt_result[i].result_joint_angles);
@@ -449,7 +449,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
     if (!context) {
       ROS_ERROR_STREAM("Failed to construct planning context. Error: " << res.error_code_);
-      return trajectories;
+      return full_trajectory;
     }
     context->solve(res);
     if (res.error_code_.val != res.error_code_.SUCCESS)
@@ -462,10 +462,10 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     // So we do it ourselves and override the respective states
     Eigen::Vector3d start_position = opt_result[i].result_pose.translation();
     Eigen::Vector3d end_position = opt_result[i+1].result_pose.translation();
-//    Eigen::Vector3d start_position = opt_result[i].requested_pose.translation();
-//    start_position.z() = opt_result[i].result_contact.estimated_pose.translation().z();
-//    Eigen::Vector3d end_position = opt_result[i+1].requested_pose.translation();
-//    end_position.z() = opt_result[i+1].result_contact.estimated_pose.translation().z();
+    //    Eigen::Vector3d start_position = opt_result[i].requested_pose.translation();
+    //    start_position.z() = opt_result[i].result_contact.estimated_pose.translation().z();
+    //    Eigen::Vector3d end_position = opt_result[i+1].requested_pose.translation();
+    //    end_position.z() = opt_result[i+1].result_contact.estimated_pose.translation().z();
 
     Eigen::Vector3d position_diff = end_position - start_position;
     Eigen::Quaterniond start_orientation(opt_result[i].result_pose.linear());
@@ -481,8 +481,8 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     }
 
     // Save start index in full trajectory of this trajectory part
-    trajectory_start_index.push_back(full_trajectory.getWayPointCount());
-
+    trajectory_start_indices.push_back(full_trajectory.getWayPointCount());
+    // Append trajectory parts to full trajectory
     if (i != opt_result.size()-2) {
       // Append to full trajectory (minus the end point, which would be a duplicate of the next start)
       full_trajectory.append(*res.trajectory_, 0, 0, res.trajectory_->getWayPointCount()-1);
@@ -492,56 +492,44 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
       full_trajectory.append(*res.trajectory_, 0);
     }
   }
-  trajectory_start_index.push_back(full_trajectory.getWayPointCount());
   // Debug: print out trajectories
-//  ROS_INFO_STREAM(vecToString(trajectory_start_index));
-//  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(full_trajectory));
+  //  ROS_INFO_STREAM(vecToString(trajectory_start_index));
+  //  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(full_trajectory));
 
   trajectory_processing::IterativeSplineParameterization time_parameterization;
   time_parameterization.computeTimeStamps(full_trajectory);
-  // Split up trajectory into original parts
-  for (unsigned int i = 0; i < trajectory_start_index.size()-1; ++i) {
-    robot_trajectory::RobotTrajectory trajectory_tmp(robot_model_->getMoveitRobotModel(), group_with_world);
-    trajectory_tmp.append(full_trajectory, 0, trajectory_start_index[i], trajectory_start_index[i+1]);
-    trajectories.push_back(trajectory_tmp);
-  }
 
-  publishTrajectory(trajectories);
+  publishTrajectory(full_trajectory);
 
   STOP_TIMING_AVG
 
-  double duration = 0.0;
-  for (const robot_trajectory::RobotTrajectory& trajectory: trajectories) {
-    duration += trajectory.getDuration();
-  }
-  ROS_INFO_STREAM("Trajectory duration: " << duration << " s.");
-  return trajectories;
+  ROS_INFO_STREAM("Trajectory duration: " << full_trajectory.getDuration() << " s.");
+  return full_trajectory;
 }
 
-void WholeBodyPostureOptimization::publishTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &robot_trajectory)
+robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
 {
-  if (robot_trajectory.empty()) {
-    return;
-  }
+  std::vector<size_t> trajectory_start_indices;
+  return computeTimedTrajectory(opt_result, trajectory_start_indices);
+}
+
+void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory)
+{
   moveit_msgs::DisplayTrajectory display_msg;
 //  display_msg.model_id = "";
 
-  moveit_msgs::RobotState start_state_msg;
-  moveit::core::robotStateToRobotStateMsg(robot_trajectory[0].getFirstWayPoint(), start_state_msg);
-  display_msg.trajectory_start = start_state_msg;
+  moveit::core::robotStateToRobotStateMsg(robot_trajectory.getFirstWayPoint(), display_msg.trajectory_start);
 
-  for (const robot_trajectory::RobotTrajectory& t: robot_trajectory) {
-    moveit_msgs::RobotTrajectory trajectory_msg;
-    t.getRobotTrajectoryMsg(trajectory_msg);
-    display_msg.trajectory.push_back(trajectory_msg);
-  }
+  moveit_msgs::RobotTrajectory trajectory_msg;
+  robot_trajectory.getRobotTrajectoryMsg(trajectory_msg);
+  display_msg.trajectory.push_back(trajectory_msg);
 
   trajectory_pub_.publish(display_msg);
 }
 
 void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOptimizationResult> &results)
 {
-  if (results.size() < 1) {
+  if (results.empty()) {
     return;
   }
   std::vector<std::string> names = {"initial_stability", "flipper_opt", "arm_opt"};
@@ -569,29 +557,29 @@ void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOpti
   ROS_INFO_STREAM(ss.str());
 }
 
-void WholeBodyPostureOptimization::saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories,
-                                                  std::string save_path)
-{
-  std::ofstream file;
-  file.open(save_path);
-
-  file << "time pos_x pos_y flipper_cost arm_cost flipper_stability stability" << std::endl;
-  double time_from_start = 0.0;
-  for (unsigned int i = 0; i < results.size(); i++) {
-    const PostureOptimizationResult& result = results[i];
-    file << time_from_start << " ";
-    file << result.requested_pose.translation().x() << " ";
-    file << result.requested_pose.translation().y() << " ";
-    file << result.flipper_cost << " ";
-    file << result.arm_cost << " ";
-    file << result.stability_flipper_opt << " ";
-    file << result.stability_arm_opt << std::endl;
-    if (i < trajectories.size()) {
-      time_from_start += trajectories[i].getDuration();
-    }
-  }
-
-  file.close();
-}
+//void WholeBodyPostureOptimization::saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories,
+//                                                  std::string save_path)
+//{
+//  std::ofstream file;
+//  file.open(save_path);
+//
+//  file << "time pos_x pos_y flipper_cost arm_cost flipper_stability stability" << std::endl;
+//  double time_from_start = 0.0;
+//  for (unsigned int i = 0; i < results.size(); i++) {
+//    const PostureOptimizationResult& result = results[i];
+//    file << time_from_start << " ";
+//    file << result.requested_pose.translation().x() << " ";
+//    file << result.requested_pose.translation().y() << " ";
+//    file << result.flipper_cost << " ";
+//    file << result.arm_cost << " ";
+//    file << result.stability_flipper_opt << " ";
+//    file << result.stability_arm_opt << std::endl;
+//    if (i < trajectories.size()) {
+//      time_from_start += trajectories[i].getDuration();
+//    }
+//  }
+//
+//  file.close();
+//}
 
 }

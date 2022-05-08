@@ -59,12 +59,13 @@ public:
 
 
 
-
-  std::vector<robot_trajectory::RobotTrajectory> computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
-  void publishTrajectory(const std::vector<robot_trajectory::RobotTrajectory> &robot_trajectory);
+  robot_trajectory::RobotTrajectory computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
+  robot_trajectory::RobotTrajectory computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result,
+                                                           std::vector<size_t>& trajectory_start_indices);
+  void publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory);
 
   static void printResultInfo(const std::vector<PostureOptimizationResult>& results);
-  static void saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories, std::string save_path);
+//  static void saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories, std::string save_path);
 private:
   ros::NodeHandle nh_;
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
