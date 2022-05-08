@@ -124,7 +124,7 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
   geometry_msgs::TransformStamped base_transform;
   try {
     // Get world transform
-    base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path.header.stamp);
+    base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path.header.stamp, ros::Duration(0.1));
     path_copy.poses.front().pose.orientation = base_transform.transform.rotation; // TODO only YAW
     path_copy.poses.front().pose.position.z = base_transform.transform.translation.z;
   }
