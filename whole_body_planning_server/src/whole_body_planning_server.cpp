@@ -1,5 +1,6 @@
 #include <whole_body_planning_server/whole_body_planning_server.h>
 
+#include <chrono>
 #include <vehicle_controller/ps3d.h>
 
 #include <sdf_contact_estimation/util/utils.h>
@@ -84,14 +85,16 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   ROS_INFO_STREAM("Received new path, planning..");
   map_frame_ = path_msg.header.frame_id;
 
-
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
   nav_msgs::Path path_slice = slicePath(path_smoothed, path_slice_length_);
+  auto start = std::chrono::steady_clock::now();
   if(!generatePlan(path_slice, trajectory_)) {
     ROS_ERROR_STREAM("Planning failed.");
     return false;
   }
+  auto end = std::chrono::steady_clock::now();
+  ROS_INFO_STREAM("Planning took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms.");
 
 
   ros::Time starting_time;
@@ -101,6 +104,15 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   } else {
     // If this is the first trajectory, future-date the starting time, so we do not miss the first waypoint
     starting_time = ros::Time::now() + ros::Duration(0.1);
+  }
+
+  ros::Duration trajectory_duration(whole_body_posture_optimization::computeTrajectoryDuration(trajectory_));
+  ros::Time trajectory_end = starting_time + trajectory_duration;
+
+  ros::Time now = ros::Time::now();
+  if (now > trajectory_end) {
+    ROS_WARN_STREAM("Trajectory end time is in the past by " << (now - trajectory_end).toSec() <<
+                    " s. Planning time takes too long.");
   }
 
   if (auto_start) {
@@ -325,7 +337,6 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
   nav_msgs::Path target_path = goal.getGoal()->target_path;
   if (override_path_time_)
     target_path.header.stamp = ros::Time::now();
-
 
   // Plan and execute
   if (enabled_) {

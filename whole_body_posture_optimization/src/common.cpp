@@ -88,4 +88,12 @@ std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& tra
   return ss.str();
 }
 
+double computeTrajectoryDuration(const std::vector<robot_trajectory::RobotTrajectory>& trajectories) {
+  double trajectory_duration = 0.0;
+  for (const auto& trajectory: trajectories) {
+    trajectory_duration += trajectory.getDuration();
+  }
+  return trajectory_duration;
+}
+
 }

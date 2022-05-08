@@ -89,6 +89,8 @@ void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Isometr
 
 std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& trajectory);
 
+double computeTrajectoryDuration(const std::vector<robot_trajectory::RobotTrajectory>& trajectories);
+
 std::string line(int length);
 
 std::string getTimestamp();
