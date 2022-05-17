@@ -197,56 +197,28 @@ std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(cons
 {
   std::vector<Eigen::Quaterniond> smoothed_orientations;
   smoothed_orientations.reserve(smoothed_positions.size());
-  if (!reverse)
-  {
-    for (unsigned i = 0; i < smoothed_positions.size(); i++)
-    {
-      // Requires smoothed positions
-      // Computes the related orientations with forward difference approximation based on
-      // stepwidth of the smoothed path discretization over "virtual time variable"
-      if (0 < i && i < smoothed_positions.size() - 1)
-      {
-        Eigen::Quaterniond q;
-        q.setFromTwoVectors(local_robot_direction, smoothed_positions[i + 1] - smoothed_positions[i]);
-        smoothed_orientations.push_back(q);
-      }
-      else if (i == smoothed_positions.size() - 1) {
-        if (!ignore_goal_orientation) {
-          smoothed_orientations.push_back(end_orientation);
-        }
-        else {
-          smoothed_orientations.push_back(smoothed_orientations.back()); // Repeat last orientation
-        }
-      }
-      else // i == 0
-        smoothed_orientations.push_back(start_orientation);
-    }
-  }
-  else
+  double reverse_factor = reverse ? -1.0 : 1.0;
+  for (unsigned i = 0; i < smoothed_positions.size(); i++)
   {
     // Requires smoothed positions
-    // Computes the related orientations with negative reverse difference approximation based on
-    // stepwidth of the smoothed path discretization over "virtual time variable"
-    for (unsigned i = 0; i < smoothed_positions.size(); i++)
+    // robot_direction points to next position
+    if (0 < i && i < smoothed_positions.size() - 1)
     {
-      if (0 < i && i < smoothed_positions.size() - 1)
-      {
-        Eigen::Quaterniond q;
-        q.setFromTwoVectors(local_robot_direction, smoothed_positions[i] - smoothed_positions[i + 1]);
-        smoothed_orientations.push_back(q);
+      Eigen::Quaterniond q;
+      Eigen::Vector3d delta_vector = smoothed_positions[i + 1] - smoothed_positions[i];
+      q.setFromTwoVectors(reverse_factor * local_robot_direction, delta_vector);
+      smoothed_orientations.push_back(q);
+    }
+    else if (i == smoothed_positions.size() - 1) {
+      if (!ignore_goal_orientation) {
+        smoothed_orientations.push_back(end_orientation);
       }
-      else if (i == smoothed_positions.size() - 1) {
-          if (!ignore_goal_orientation) {
-            smoothed_orientations.push_back(end_orientation);
-          }
-          else {
-            smoothed_orientations.push_back(smoothed_orientations.back()); // Repeat last orientation
-          }
-      }
-      else { // i == 0
-        smoothed_orientations.push_back(start_orientation);
+      else {
+        smoothed_orientations.push_back(smoothed_orientations.back()); // Repeat last orientation
       }
     }
+    else // i == 0
+      smoothed_orientations.push_back(start_orientation);
   }
   return smoothed_orientations;
 }
