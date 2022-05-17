@@ -17,7 +17,6 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_msgs
   moveit_ros_planning_interface
   sensor_msgs
-  vehicle_controller
   eigen_conversions
   dynamic_reconfigure
 )
@@ -47,7 +46,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_planning_server
-  CATKIN_DEPENDS whole_body_posture_optimization tf2_ros voxblox_msgs actionlib nav_msgs move_base_lite_msgs moveit_msgs moveit_ros_planning_interface sensor_msgs vehicle_controller eigen_conversions dynamic_reconfigure
+  CATKIN_DEPENDS whole_body_posture_optimization tf2_ros voxblox_msgs actionlib nav_msgs move_base_lite_msgs moveit_msgs moveit_ros_planning_interface sensor_msgs eigen_conversions dynamic_reconfigure
 #  DEPENDS system_lib
 )
 
@@ -58,14 +57,16 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-include
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
   include/${PROJECT_NAME}/whole_body_planning_server.h
+  include/${PROJECT_NAME}/path_smoother.h
   src/whole_body_planning_server.cpp
+  src/path_smoother.cpp
 )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 target_link_libraries(${PROJECT_NAME}

@@ -1,11 +1,11 @@
 #include <whole_body_planning_server/whole_body_planning_server.h>
 
 #include <chrono>
-#include <vehicle_controller/ps3d.h>
 
 #include <sdf_contact_estimation/util/utils.h>
 #include <sdf_contact_estimation/robot_model/shape_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
+#include <whole_body_planning_server/path_smoother.h>
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
 #include <eigen_conversions/eigen_msg.h>

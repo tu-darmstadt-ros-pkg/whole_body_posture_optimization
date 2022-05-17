@@ -27,7 +27,6 @@
   <depend>moveit_msgs</depend>
   <depend>moveit_ros_planning_interface</depend>
   <depend>sensor_msgs</depend>
-  <depend>vehicle_controller</depend>
   <depend>eigen_conversions</depend>
   <depend>dynamic_reconfigure</depend>
 
