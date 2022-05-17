@@ -210,8 +210,14 @@ std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(cons
         q.setFromTwoVectors(local_robot_direction, smoothed_positions[i + 1] - smoothed_positions[i]);
         smoothed_orientations.push_back(q);
       }
-      else if (i == smoothed_positions.size() - 1)
-        smoothed_orientations.push_back(end_orientation);
+      else if (i == smoothed_positions.size() - 1) {
+        if (!ignore_goal_orientation) {
+          smoothed_orientations.push_back(end_orientation);
+        }
+        else {
+          smoothed_orientations.push_back(smoothed_orientations.back()); // Repeat last orientation
+        }
+      }
       else // i == 0
         smoothed_orientations.push_back(start_orientation);
     }
@@ -230,13 +236,16 @@ std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(cons
         smoothed_orientations.push_back(q);
       }
       else if (i == smoothed_positions.size() - 1) {
-          if (!ignore_goal_orientation)
+          if (!ignore_goal_orientation) {
             smoothed_orientations.push_back(end_orientation);
-          else
+          }
+          else {
             smoothed_orientations.push_back(smoothed_orientations.back()); // Repeat last orientation
+          }
       }
-      else // i == 0
+      else { // i == 0
         smoothed_orientations.push_back(start_orientation);
+      }
     }
   }
   return smoothed_orientations;
