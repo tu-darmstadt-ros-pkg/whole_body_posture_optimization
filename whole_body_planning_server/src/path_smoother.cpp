@@ -62,7 +62,7 @@ void Pathsmoother3D::smooth(const std::deque<Eigen::Vector3d>& in_path, const Ei
         Eigen::Vector2d start_path_delta = (smoothed_positions[1] - smoothed_positions[0]).block<2, 1>(0, 0).normalized();
         Eigen::Vector2d robot_direction_world = (in_start_orientation * local_robot_direction).block<2, 1>(0, 0).normalized();
         double start_projection = start_path_delta.dot(robot_direction_world); // cos angle between robot and path
-        reverse = start_projection > 0.0; // Angle > 90° -> robot is pointing away from the path
+        reverse = start_projection < 0.0; // Angle > 90° -> robot is pointing away from the path
 
         if(reverse)
           ROS_INFO("[Pathsmoother3D] REVERSE! start_projection = %f", start_projection);
