@@ -127,7 +127,15 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
 nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& path) const
 {
   // Re-sample and smooth path
-  Pathsmoother3D path_smoother(true);
+  bool allow_reverse_paths = true;
+  bool ignore_goal_orientation = false;
+
+  if (followPathServerIsActive()) {
+    allow_reverse_paths = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
+    ignore_goal_orientation = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance > 3.1415; // TODO ugly
+  }
+
+  Pathsmoother3D path_smoother(allow_reverse_paths, ignore_goal_orientation);
   path_smoother.setSmoothedPathDiscretization(path_sampling_resolution_);
   nav_msgs::Path path_copy = path_smoother.smooth(path, true);
 
