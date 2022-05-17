@@ -21,12 +21,13 @@ private:
   double SMOOTHED_PATH_DISCRETIZATION;
   double PATH_SMOOTHNESS;             // Temperature / smoothness parameter. Current value is manually tuned.
                              // The smaller the smoother. <-> The bigger the smaller the error to the original path.
-  bool        allow_reverse_paths;          // Flag indicating if reverse paths are allowed
+  bool allow_reverse_paths;  // Flag indicating if reverse paths are allowed
                              // Switch on for tracked vehicles
-  Eigen::Vector3d const  local_robot_direction;
+  bool ignore_goal_orientation;
+  Eigen::Vector3d local_robot_direction;
 
 public:
-  explicit Pathsmoother3D(bool allow_reverse_paths);
+  explicit Pathsmoother3D(bool allow_reverse_paths, bool ignore_goal_orientation);
 
   /**
      * @brief smooth is the core function of the path smoother, it computes a smoothed path from a given path

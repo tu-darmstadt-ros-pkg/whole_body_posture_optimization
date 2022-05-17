@@ -18,10 +18,11 @@ void Pathsmoother3D::setPathSmoothness(double value)
   PATH_SMOOTHNESS = value;
 }
 
-Pathsmoother3D::Pathsmoother3D(bool allow_reverse_paths)
+Pathsmoother3D::Pathsmoother3D(bool allow_reverse_paths, bool ignore_goal_orientation)
   : SMOOTHED_PATH_DISCRETIZATION(0.05),// Hector best practice values
   PATH_SMOOTHNESS(0.125),            // Hector best practice values
   allow_reverse_paths(allow_reverse_paths),
+  ignore_goal_orientation(ignore_goal_orientation),
   local_robot_direction(Eigen::Vector3d::UnitX()) // X points to the front
 {
 
@@ -196,20 +197,20 @@ std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(cons
 {
   std::vector<Eigen::Quaterniond> smoothed_orientations;
   smoothed_orientations.reserve(smoothed_positions.size());
-  if(!reverse)
+  if (!reverse)
   {
-    for(unsigned i = 0; i < smoothed_positions.size(); i++)
+    for (unsigned i = 0; i < smoothed_positions.size(); i++)
     {
       // Requires smoothed positions
       // Computes the related orientations with forward difference approximation based on
       // stepwidth of the smoothed path discretization over "virtual time variable"
-      if(0 < i && i < smoothed_positions.size() - 1)
+      if (0 < i && i < smoothed_positions.size() - 1)
       {
         Eigen::Quaterniond q;
         q.setFromTwoVectors(local_robot_direction, smoothed_positions[i + 1] - smoothed_positions[i]);
         smoothed_orientations.push_back(q);
       }
-      else if(i == smoothed_positions.size() - 1)
+      else if (i == smoothed_positions.size() - 1)
         smoothed_orientations.push_back(end_orientation);
       else // i == 0
         smoothed_orientations.push_back(start_orientation);
@@ -220,16 +221,20 @@ std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(cons
     // Requires smoothed positions
     // Computes the related orientations with negative reverse difference approximation based on
     // stepwidth of the smoothed path discretization over "virtual time variable"
-    for(unsigned i = 0; i < smoothed_positions.size(); i++)
+    for (unsigned i = 0; i < smoothed_positions.size(); i++)
     {
-      if(0 < i && i < smoothed_positions.size() - 1)
+      if (0 < i && i < smoothed_positions.size() - 1)
       {
         Eigen::Quaterniond q;
         q.setFromTwoVectors(local_robot_direction, smoothed_positions[i] - smoothed_positions[i + 1]);
         smoothed_orientations.push_back(q);
       }
-      else if(i == smoothed_positions.size() - 1)
-        smoothed_orientations.push_back(end_orientation);
+      else if (i == smoothed_positions.size() - 1) {
+          if (!ignore_goal_orientation)
+            smoothed_orientations.push_back(end_orientation);
+          else
+            smoothed_orientations.push_back(smoothed_orientations.back()); // Repeat last orientation
+      }
       else // i == 0
         smoothed_orientations.push_back(start_orientation);
     }
