@@ -2,7 +2,6 @@
 
 #include <chrono>
 
-#include <sdf_contact_estimation/util/utils.h>
 #include <sdf_contact_estimation/robot_model/shape_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <whole_body_planning_server/path_smoother.h>
@@ -247,7 +246,6 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
   follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = follow_path_goal_.getGoal()->follow_path_options.rotate_front_to_goal_pose_orientation;
   follow_path_goal.follow_path_options.reverse_allowed = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
   follow_path_goal.follow_path_options.is_fixed = true; // No smoothing
-//  follow_path_goal.follow_path_options.reset_stuck_history = true; // Mandatory, robot will not drive otherwise
   follow_path_goal.follow_path_options.reset_stuck_history = follow_path_goal_.getGoal()->follow_path_options.reset_stuck_history;
   follow_path_goal.follow_path_options.goal_pose_position_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_position_tolerance;
   follow_path_goal.follow_path_options.goal_pose_angle_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance;
@@ -263,49 +261,8 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
     return false;
   }
 
-
-//  ros::Duration time_until_start = starting_time - ros::Time::now();
-//  time_until_start.sleep();
-//  optimizer_->publishTrajectory(trajectories);
-
-//  if (blocking) {
-//    // Wait for results
-//    if (!driving_client_->waitForResult()) {
-//      ROS_INFO_STREAM("FollowPath action failed.");
-//      return false;
-//    }
-//    if (!moveit_cpp_ptr_->getTrajectoryExecutionManager()->waitForExecution()) {
-//      ROS_INFO_STREAM("ExecuteTrajectory action failed");
-//      return false;
-//    }
-//  }
-
-//  moveit_msgs::ExecuteTrajectoryResultConstPtr execute_trajectory_result = execute_trajectory_client_->getResult();
-//  if (execute_trajectory_result->error_code.val != moveit_msgs::MoveItErrorCodes::SUCCESS) {
-//    ROS_ERROR_STREAM("Trajectory execution failed with error code: " << execute_trajectory_result->error_code.val);
-//    return false;
-//  }
-
-//  move_base_lite_msgs::FollowPathResultConstPtr follow_path_result = driving_client_->getResult();
-//  if (follow_path_result->result.val != move_base_lite_msgs::ErrorCodes::SUCCESS) {
-//    ROS_ERROR_STREAM("Follow path action failed with error code: " << follow_path_result->result.val);
-//    return false;
-//  }
-
   return true;
 }
-
-//void WholeBodyPlanningServer::followPathServerExecuteCb(const move_base_lite_msgs::FollowPathGoalConstPtr& goal_ptr)
-//{
-//  bool success = planAndExecutePath(goal_ptr->target_path, auto_start_);
-//  move_base_lite_msgs::FollowPathResult result;
-//  if (success) {
-//    result.result.val = move_base_lite_msgs::ErrorCodes::SUCCESS;
-//  } else {
-//    result.result.val = move_base_lite_msgs::ErrorCodes::FAILURE;
-//  }
-//  follow_path_as_->setSucceeded(result);
-//}
 
 void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle goal)
 {
