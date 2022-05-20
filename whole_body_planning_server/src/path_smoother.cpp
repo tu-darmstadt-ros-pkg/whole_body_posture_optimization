@@ -206,6 +206,7 @@ std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(cons
     {
       Eigen::Quaterniond q;
       Eigen::Vector3d delta_vector = smoothed_positions[i + 1] - smoothed_positions[i];
+      delta_vector.z() = 0; // If this is != 0, it leads to solutions rotated around X (local_robot_direction)
       q.setFromTwoVectors(reverse_factor * local_robot_direction, delta_vector);
       smoothed_orientations.push_back(q);
     }
