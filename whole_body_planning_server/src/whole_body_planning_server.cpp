@@ -258,7 +258,7 @@ bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajecto
   // Merge trajectory-parts
   robot_trajectory::RobotTrajectory combined_trajectory(trajectories[0].getRobotModel(), move_group_);
   for (const auto & trajectory : trajectories) {
-    combined_trajectory.append(trajectory, 0.000000001);
+    combined_trajectory.append(trajectory, 0);
   }
 
   // Assemble driving plan
