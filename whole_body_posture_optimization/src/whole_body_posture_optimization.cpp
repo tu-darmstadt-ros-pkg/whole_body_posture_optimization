@@ -459,14 +459,13 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     }
 
     // The moveit trajectory planner can't handle/interpolate the virtual world joint
-    // So we do it ourselves and override the respective states
+    // So we do it ourselves and add the world virtual joint to all states
     Eigen::Vector3d start_position = opt_result[i].result_pose.translation();
     Eigen::Vector3d end_position = opt_result[i+1].result_pose.translation();
 //    Eigen::Vector3d start_position = opt_result[i].requested_pose.translation();
 //    start_position.z() = opt_result[i].result_contact.estimated_pose.translation().z();
 //    Eigen::Vector3d end_position = opt_result[i+1].requested_pose.translation();
 //    end_position.z() = opt_result[i+1].result_contact.estimated_pose.translation().z();
-
     Eigen::Vector3d position_diff = end_position - start_position;
     Eigen::Quaterniond start_orientation(opt_result[i].result_pose.linear());
     Eigen::Quaterniond end_orientation(opt_result[i+1].result_pose.linear());
