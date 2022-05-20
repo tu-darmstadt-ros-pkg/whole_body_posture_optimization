@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(whole_body_planning_server)
 
-## Compile as C++11, supported in ROS Kinetic and newer
+# set(CMAKE_BUILD_TYPE "Debug")
+
 add_compile_options(-std=c++14)
 
 ## Find catkin macros and libraries
