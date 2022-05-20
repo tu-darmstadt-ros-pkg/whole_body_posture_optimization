@@ -90,6 +90,12 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   auto start = std::chrono::steady_clock::now();
   if(!generatePlan(path_slice, trajectory_)) {
     ROS_ERROR_STREAM("Planning failed.");
+    if (followPathServerIsActive()) {
+      move_base_lite_msgs::FollowPathResult result;
+      result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
+      follow_path_goal_.setAborted(result, "Planning failed.");
+    }
+
     return false;
   }
   auto end = std::chrono::steady_clock::now();
@@ -117,6 +123,11 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   if (auto_start) {
     if (!executeTrajectory(trajectory_, starting_time)) {
       ROS_ERROR_STREAM("Trajectory execution failed");
+      if (followPathServerIsActive()) {
+        move_base_lite_msgs::FollowPathResult result;
+        result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
+        follow_path_goal_.setAborted(result, "Trajectory execution failed.");
+      }
       return false;
     }
   }
