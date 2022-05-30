@@ -1,5 +1,5 @@
 # default
-default_joint_state: [1.01, -1.57, 1.48, -1.57, 1.66, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0] # (12) default for all joints
+default_joint_state: [1.15, -1.48, 1.47, -1.51, -1.65, -3.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0] # (12) default for all joints
 #default_joint_state: [0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0.0, 0] # (12) default for all joints
 
 optimization_type: split
