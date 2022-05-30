@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>  
   <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" clear_params="true">
-<!--  <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" launch-prefix="gdb-args">-->
+<!--  <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" launch-prefix="gdb -args">-->
     <param name="auto_start" value="true"/>
     <param name="base_frame" value="base_link"/>
     <param name="path_sampling_resolution" value="0.05"/>
