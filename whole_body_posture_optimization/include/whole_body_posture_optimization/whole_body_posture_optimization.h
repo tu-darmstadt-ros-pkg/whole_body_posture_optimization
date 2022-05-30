@@ -81,6 +81,7 @@ private:
   double front_tip_support_area_limit_;
   std::string complete_robot_group_;
   std::string complete_robot_with_world_group_;
+  std::string trajectory_planner_name_;
 
   bool stepping_;
   int stepping_start_;

@@ -79,6 +79,7 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
 
   nh.param<std::string>("complete_robot_group", complete_robot_group_, "complete_robot_group");
   nh.param<std::string>("complete_robot_with_world_group", complete_robot_with_world_group_, "complete_robot_group_with_world");
+  nh.param<std::string>("trajectory_planner", trajectory_planner_name_, "ompl_interface/OMPLPlanner");
 
   return true;
 }
@@ -409,14 +410,21 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
 
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
 
+  // Load the trajectory planner
   pluginlib::ClassLoader<planning_interface::PlannerManager> planner_plugin_loader("moveit_core", "planning_interface::PlannerManager");
-  std::vector<std::string> planner_names = planner_plugin_loader.getDeclaredClasses();
-  ROS_INFO_STREAM("Available planners:");
-  for (const std::string& planner: planner_names) {
-    ROS_INFO_STREAM("-- " << planner);
+  std::vector<std::string> available_planners = planner_plugin_loader.getDeclaredClasses();
+  if (std::find(available_planners.begin(), available_planners.end(), trajectory_planner_name_) == available_planners.end()) {
+    std::stringstream ss;
+    ROS_ERROR_STREAM("Can't find moveit trajectory planner with the name '" << trajectory_planner_name_ << "'. Available planners are: " << sdf_contact_estimation::vectorToString(available_planners));
+    if (!available_planners.empty()) {
+      trajectory_planner_name_ = available_planners[0];
+      ROS_ERROR_STREAM("Using planner '" << trajectory_planner_name_ << "' instead.");
+    } else {
+      ROS_ERROR_STREAM("No planners found.");
+      return {};
+    }
   }
-  std::string default_planner_name = planner_names[1];
-  planning_interface::PlannerManagerPtr planner_instance(planner_plugin_loader.createUnmanagedInstance(default_planner_name));
+  planning_interface::PlannerManagerPtr planner_instance(planner_plugin_loader.createUnmanagedInstance(trajectory_planner_name_));
   if (!planner_instance->initialize(robot_model_->getMoveitRobotModel(), nh_.getNamespace())) {
     ROS_FATAL_STREAM("Could not initialize planner instance");
     return trajectories;
