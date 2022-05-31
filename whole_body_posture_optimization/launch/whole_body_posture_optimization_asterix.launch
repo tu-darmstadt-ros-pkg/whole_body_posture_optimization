@@ -32,4 +32,9 @@
     <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="pose_predictor"/>
     <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" ns="pose_predictor/shape_model" />
   </node>
+
+  <!-- moveit parameters -->
+  <include file="$(find asterix_moveit_config)/launch/planning_context.launch">
+    <arg name="load_robot_description" value="false" />
+  </include>
 </launch>

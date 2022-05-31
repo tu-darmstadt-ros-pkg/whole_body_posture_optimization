@@ -79,7 +79,9 @@ std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& tra
   std::stringstream ss;
   for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
     const robot_state::RobotState& state = trajectory.getWayPoint(i);
-    ss << i << ": [";
+    ss << i << ": ";
+    ss << "t = " << trajectory.getWayPointDurationFromStart(i);
+    ss << " [";
     for (size_t j = 0; j < state.getVariableCount(); ++j) {
       ss << state.getVariablePosition(static_cast<int>(j)) << ", ";
     }

@@ -431,18 +431,18 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
   }
   ROS_INFO_STREAM("Using planning interface '" << planner_instance->getDescription() << "'");
 
-  planning_interface::MotionPlanRequest req;
-  planning_interface::MotionPlanResponse res;
-  req.group_name = group;
-  req.allowed_planning_time = 2.0;
-
   robot_trajectory::RobotTrajectory full_trajectory(robot_model_->getMoveitRobotModel(), group_with_world);
+  std::vector<Eigen::Isometry3d> full_world_poses;
   std::vector<size_t> trajectory_start_index;
+  double total_distance = 0;
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     // set start state
     robot_model_->updateJointAngles(opt_result[i].result_joint_angles);
     robot_state::RobotState start_state = robot_model_->getMoveitRobotState();
     planning_scene->setCurrentState(start_state);
+    planning_interface::MotionPlanRequest req;
+    req.group_name = group;
+    req.allowed_planning_time = 2.0;
     moveit::core::robotStateToRobotStateMsg(start_state, req.start_state);
 
     // set goal state
@@ -454,6 +454,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
 
 
     // compute trajectory from start to goal
+    planning_interface::MotionPlanResponse res;
     planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
     if (!context) {
       ROS_ERROR_STREAM("Failed to construct planning context. Error: " << res.error_code_);
@@ -477,15 +478,23 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
     Eigen::Vector3d position_diff = end_position - start_position;
     Eigen::Quaterniond start_orientation(opt_result[i].result_pose.linear());
     Eigen::Quaterniond end_orientation(opt_result[i+1].result_pose.linear());
+
+    std::vector<Eigen::Isometry3d> world_poses;
+    world_poses.reserve(res.trajectory_->getWayPointCount());
     for (unsigned int j = 0; j < res.trajectory_->getWayPointCount()-1; j++) {
       double t = static_cast<double>(j) / (res.trajectory_->getWayPointCount()-1);
       Eigen::Quaterniond interpolated_orientation = start_orientation.slerp(t, end_orientation);
       Eigen::Isometry3d interpolated_pose(interpolated_orientation);
       Eigen::Vector3d interpolated_position = start_position + t * position_diff;
       interpolated_pose.translation() = interpolated_position;
-      robot_state::RobotStatePtr state = res.trajectory_->getWayPointPtr(j);
-      updateMoveitRobotState(*state, interpolated_pose);
+      world_poses.push_back(interpolated_pose);
+
+      double distance = (t * position_diff).norm();
+      Eigen::Isometry3d odom_fake_pose(interpolated_orientation);
+      odom_fake_pose.translation().x() = total_distance + distance;
+      updateMoveitRobotState(*res.trajectory_->getWayPointPtr(j), odom_fake_pose);
     }
+    total_distance += position_diff.norm();
 
     // Save start index in full trajectory of this trajectory part
     trajectory_start_index.push_back(full_trajectory.getWayPointCount());
@@ -495,17 +504,30 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
       full_trajectory.append(*res.trajectory_, 0, 0, res.trajectory_->getWayPointCount()-1);
     } else {
       // Keep end point on last trajectory
-      updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), opt_result[i+1].result_pose);
+//      updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), opt_result[i+1].result_pose);
+      Eigen::Isometry3d odom_fake_pose;
+      odom_fake_pose.translation().x() = total_distance;
+      updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), odom_fake_pose);
+      world_poses.push_back(opt_result[i+1].result_pose);
       full_trajectory.append(*res.trajectory_, 0);
     }
+    full_world_poses.insert(full_world_poses.end(), world_poses.begin(), world_poses.end());
   }
   trajectory_start_index.push_back(full_trajectory.getWayPointCount());
   // Debug: print out trajectories
 //  ROS_INFO_STREAM(vecToString(trajectory_start_index));
 //  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(full_trajectory));
 
-  trajectory_processing::IterativeSplineParameterization time_parameterization;
+  // Perform time parameterization
+  trajectory_processing::IterativeSplineParameterization time_parameterization(false);
   time_parameterization.computeTimeStamps(full_trajectory);
+
+
+  // Write back world poses
+  for (unsigned int i = 0; i < full_trajectory.getWayPointCount(); ++i) {
+    robot_state::RobotStatePtr state = full_trajectory.getWayPointPtr(i);
+    updateMoveitRobotState(*state, full_world_poses[i]);
+  }
   // Split up trajectory into original parts
   for (unsigned int i = 0; i < trajectory_start_index.size()-1; ++i) {
     robot_trajectory::RobotTrajectory trajectory_tmp(robot_model_->getMoveitRobotModel(), group_with_world);
@@ -517,11 +539,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPostureOptimization::com
 
   STOP_TIMING_AVG
 
-  double duration = 0.0;
-  for (const robot_trajectory::RobotTrajectory& trajectory: trajectories) {
-    duration += trajectory.getDuration();
-  }
-  ROS_INFO_STREAM("Trajectory duration: " << duration << " s.");
+  ROS_INFO_STREAM("Trajectory duration: " << computeTrajectoryDuration(trajectories) << " s.");
   return trajectories;
 }
 
