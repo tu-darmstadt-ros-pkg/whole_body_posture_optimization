@@ -124,7 +124,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
       ROS_ERROR_STREAM("Trajectory execution failed");
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
+        result.result.val = move_base_lite_msgs::ErrorCodes::FAILURE;
         follow_path_goal_.setAborted(result, "Trajectory execution failed.");
       }
       return false;
@@ -277,7 +277,8 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
                             std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
                             FollowPathClient::SimpleActiveCallback(),
                             FollowPathClient::SimpleFeedbackCallback());
-  if (!executeJointTrajectory(combined_trajectory, false, starting_time)) {
+  if (!executeJointTrajectory(trajectory, false, start_time)) {
+    driving_client_->cancelAllGoals();
     return false;
   }
 

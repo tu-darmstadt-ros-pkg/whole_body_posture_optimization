@@ -401,13 +401,14 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
 {
   START_TIMING("Trajectory planning")
   std::string group_with_world = complete_robot_with_world_group_;
-  robot_trajectory::RobotTrajectory full_trajectory(robot_model_->getMoveitRobotModel(), group_with_world);
+  robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), group_with_world);
+  std::string group = complete_robot_group_;
+  robot_trajectory::RobotTrajectory trajectory(robot_model_->getMoveitRobotModel(), group);
   if (opt_result.size() < 2) {
     ROS_WARN_STREAM("Can't compute timed trajectory, path is empty.");
-    return full_trajectory;
+    return trajectory;
   }
 
-  std::string group = complete_robot_group_;
   const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(group);
 
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
@@ -423,13 +424,13 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
       ROS_ERROR_STREAM("Using planner '" << trajectory_planner_name_ << "' instead.");
     } else {
       ROS_ERROR_STREAM("No planners found.");
-      return {};
+      return trajectory;
     }
   }
   planning_interface::PlannerManagerPtr planner_instance(planner_plugin_loader.createUnmanagedInstance(trajectory_planner_name_));
   if (!planner_instance->initialize(robot_model_->getMoveitRobotModel(), nh_.getNamespace())) {
     ROS_FATAL_STREAM("Could not initialize planner instance");
-    return full_trajectory;
+    return trajectory;
   }
   ROS_INFO_STREAM("Using planning interface '" << planner_instance->getDescription() << "'");
 
@@ -460,7 +461,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
     planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
     if (!context) {
       ROS_ERROR_STREAM("Failed to construct planning context. Error: " << res.error_code_);
-      return full_trajectory;
+      return trajectory_with_world;
     }
     context->solve(res);
     if (res.error_code_.val != res.error_code_.SUCCESS)
@@ -499,11 +500,11 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
     total_distance += position_diff.norm();
 
     // Save start index of this trajectory part
-    trajectory_start_indices.push_back(full_trajectory.getWayPointCount());
+    trajectory_start_indices.push_back(trajectory_with_world.getWayPointCount());
     // Append trajectory parts to full trajectory
     if (i != opt_result.size()-2) {
       // Append to full trajectory (minus the end point, which would be a duplicate of the next start)
-      full_trajectory.append(*res.trajectory_, 0, 0, res.trajectory_->getWayPointCount()-1);
+      trajectory_with_world.append(*res.trajectory_, 0, 0, res.trajectory_->getWayPointCount()-1);
     } else {
       // Keep end point on last trajectory
 //      updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), opt_result[i+1].result_pose);
@@ -511,7 +512,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
       odom_fake_pose.translation().x() = total_distance;
       updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), odom_fake_pose);
       world_poses.push_back(opt_result[i+1].result_pose);
-      full_trajectory.append(*res.trajectory_, 0);
+      trajectory_with_world.append(*res.trajectory_, 0);
     }
     full_world_poses.insert(full_world_poses.end(), world_poses.begin(), world_poses.end());
   }
@@ -521,19 +522,21 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
 
   // Perform time parameterization
   trajectory_processing::IterativeSplineParameterization time_parameterization(false);
-  time_parameterization.computeTimeStamps(full_trajectory);
+  time_parameterization.computeTimeStamps(trajectory_with_world);
 
   // Write back world poses
-  for (unsigned int i = 0; i < full_trajectory.getWayPointCount(); ++i) {
-    updateMoveitRobotState(*full_trajectory.getWayPointPtr(i), full_world_poses[i]);
+  for (unsigned int i = 0; i < trajectory_with_world.getWayPointCount(); ++i) {
+    updateMoveitRobotState(*trajectory_with_world.getWayPointPtr(i), full_world_poses[i]);
   }
 
-  publishTrajectory(full_trajectory);
+  publishTrajectory(trajectory_with_world);
 
   STOP_TIMING_AVG
 
-  ROS_INFO_STREAM("Trajectory duration: " << full_trajectory.getDuration() << " s.");
-  return full_trajectory;
+  ROS_INFO_STREAM("Trajectory duration: " << trajectory_with_world.getDuration() << " s.");
+  // Planning group must not contain world, because otherwise moveit wants a controller for floating joints
+  trajectory.append(trajectory_with_world, 0);
+  return trajectory;
 }
 
 robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
