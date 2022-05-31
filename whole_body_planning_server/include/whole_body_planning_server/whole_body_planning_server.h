@@ -35,7 +35,7 @@ namespace whole_body_planning_server {
 class WholeBodyPlanningServer {
 public:
   WholeBodyPlanningServer(const ros::NodeHandle& nh, const ros::NodeHandle& pnh);
-  bool loadTsdfFromPath(std::string tsdf_path);
+  bool loadTsdfFromPath(const std::string& tsdf_path);
   /**
    * @brief planAndExecutePath Plan and execute a whole-body plan along the given path
    * @param path_msg Path to drive
@@ -66,7 +66,7 @@ private:
   /// Callbacks
   ///! Path following action server interface
   void followPathGoalCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle goal);
-  void followPathPreemptCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle preempt);
+  void followPathPreemptCallback(const actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle& preempt);
   void setFollowPathGoalSuccessful();
 
   ///! Simple path goal via topic

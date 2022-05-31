@@ -68,7 +68,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   ROS_INFO_STREAM("Initialization finished");
 }
 
-bool WholeBodyPlanningServer::loadTsdfFromPath(std::string tsdf_path)
+bool WholeBodyPlanningServer::loadTsdfFromPath(const std::string& tsdf_path)
 {
   ROS_INFO_STREAM("Loading sdf from path '" << tsdf_path << "'.");
   if (!esdf_server_.loadMap(tsdf_path)) {
@@ -325,7 +325,7 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
                               FollowPathClient::SimpleFeedbackCallback());
   }
 }
-void WholeBodyPlanningServer::followPathPreemptCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle preempt)
+void WholeBodyPlanningServer::followPathPreemptCallback(const actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle& preempt)
 {
   if (preempt == follow_path_goal_) {
     // Cancel vehicle controller and stop moveit execution
