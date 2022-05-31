@@ -17,7 +17,6 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
 {
   // Parameters
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
-  pnh_.param<std::string>("complete_robot_group", move_group_, "complete_robot_group");
 //  pnh_.param<std::string>("map_frame", map_frame_, "map");
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
   pnh_.param("override_path_time", override_path_time_, true);
@@ -102,17 +101,17 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   ROS_INFO_STREAM("Planning took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms.");
 
 
-  ros::Time starting_time;
+  ros::Time start_time;
   if (replanning) {
     // Trajectory has to start here in time, because planning takes time and robot might not be at the start state anymore
-    starting_time = path_msg.header.stamp;
+    start_time = path_msg.header.stamp;
   } else {
     // If this is the first trajectory, future-date the starting time, so we do not miss the first waypoint
-    starting_time = ros::Time::now() + ros::Duration(0.1);
+    start_time = ros::Time::now() + ros::Duration(0.1);
   }
 
-  ros::Duration trajectory_duration(whole_body_posture_optimization::computeTrajectoryDuration(trajectory_));
-  ros::Time trajectory_end = starting_time + trajectory_duration;
+  ros::Duration trajectory_duration(trajectory_->getDuration());
+  ros::Time trajectory_end = start_time + trajectory_duration;
 
   ros::Time now = ros::Time::now();
   if (now > trajectory_end) {
@@ -121,7 +120,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   }
 
   if (auto_start) {
-    if (!executeTrajectory(trajectory_, starting_time)) {
+    if (!executeTrajectory(*trajectory_, start_time)) {
       ROS_ERROR_STREAM("Trajectory execution failed");
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
@@ -198,7 +197,7 @@ nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, do
   return path_slice;
 }
 
-bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::vector<robot_trajectory::RobotTrajectory>& trajectory_out)
+bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out)
 {
   ROS_INFO_STREAM("Planning a new path");
   if (path_msg.poses.empty()) {
@@ -210,10 +209,13 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::
 
   // *** Compute plan ***
   auto result = optimizer_->findOptimalPostures(path_msg);
-  trajectory_out = optimizer_->computeTimedTrajectory(result);
-  if (trajectory_out.empty()) {
+  auto trajectory = optimizer_->computeTimedTrajectory(result);
+  if (trajectory.empty()) {
     return false;
   }
+  trajectory_out = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory);
+
+
   // Statistics
 //  whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
 //  if (stability_info_save_folder_.empty()) {
@@ -247,22 +249,16 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, std::
 //  return false;
 //}
 
-bool WholeBodyPlanningServer::executeTrajectory(const std::vector<robot_trajectory::RobotTrajectory>& trajectories, ros::Time starting_time)
+bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time)
 {
   ROS_INFO_STREAM("Starting trajectory execution");
-  if (trajectories.empty()) {
+  if (trajectory.empty()) {
     ROS_WARN_STREAM("Trajectory is empty, execution is trivially successful.");
     return true;
   }
 
-  // Merge trajectory-parts
-  robot_trajectory::RobotTrajectory combined_trajectory(trajectories[0].getRobotModel(), move_group_);
-  for (const auto & trajectory : trajectories) {
-    combined_trajectory.append(trajectory, 0);
-  }
-
   // Assemble driving plan
-  nav_msgs::Path path = extractPathFromTrajectories(trajectories, starting_time);
+  nav_msgs::Path path = extractPathFromTrajectories(trajectory, start_time);
 
   move_base_lite_msgs::FollowPathGoal follow_path_goal;
   follow_path_goal.target_path = path;
@@ -538,23 +534,18 @@ bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::Rob
 //  return true;
 //}
 
-nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const std::vector<robot_trajectory::RobotTrajectory>& trajectories, const ros::Time& start_time) const
+nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const
 {
-  robot_trajectory::RobotTrajectory combined_trajectory(trajectories[0].getRobotModel(), move_group_);
-  for (const auto & trajectory : trajectories) {
-    combined_trajectory.append(trajectory, 0);
-  }
   nav_msgs::Path path;
   path.header.frame_id = map_frame_;
   path.header.stamp = start_time;
-  for (unsigned int i = 0; i < combined_trajectory.getWayPointCount(); ++i) {
+  for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
     geometry_msgs::PoseStamped pose_msg;
     pose_msg.header.frame_id = map_frame_;
-    pose_msg.header.stamp = start_time + ros::Duration(combined_trajectory.getWayPointDurationFromStart(i));
-    Eigen::Affine3d goal_pose = combined_trajectory.getWayPointPtr(i)->getJointTransform("world_virtual_joint");
+    pose_msg.header.stamp = start_time + ros::Duration(trajectory.getWayPointDurationFromStart(i));
+    Eigen::Affine3d goal_pose = trajectory.getWayPoint(i).getJointTransform("world_virtual_joint");
     tf::poseEigenToMsg(goal_pose, pose_msg.pose);
     path.poses.push_back(pose_msg);
-    ROS_INFO_STREAM("Time from start " << combined_trajectory.getWayPointDurationFromStart(i));
   }
   return path;
 }
@@ -576,7 +567,7 @@ void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {
 void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
 {
   ros::Time starting_time = ros::Time::now() + ros::Duration(1);
-  if (!executeTrajectory(trajectory_, starting_time)) {
+  if (!executeTrajectory(*trajectory_, starting_time)) {
     ROS_ERROR_STREAM("Trajectory execution failed");
   }
 }
