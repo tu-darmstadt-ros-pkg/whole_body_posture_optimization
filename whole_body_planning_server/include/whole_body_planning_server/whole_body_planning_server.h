@@ -87,7 +87,7 @@ private:
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
   std::vector<std::string> joint_names_;
   std::vector<double> joint_states_;
-  std::vector<robot_trajectory::RobotTrajectory> trajectory_;
+  robot_trajectory::RobotTrajectory trajectory_;
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
