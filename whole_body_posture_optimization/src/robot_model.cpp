@@ -66,7 +66,7 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   moveit_robot_state_ = std::make_shared<robot_state::RobotState>(moveit_robot_model_);
 
   // ad kinematics
-  if (collision_group_ != "") {
+  if (!collision_group_.empty()) {
     ad_chain_ = std::make_shared<ad_kinematics::Chain>(moveit_robot_model_->getURDF(), moveit_robot_state_->getJointModelGroup(collision_group_));
     generateLinkBodyDecompositions(0.02); //TODO resolution?
   }
@@ -214,7 +214,7 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
   return tsdf;
 }
 
-void RobotModel::updateJointAngles(const std::vector<double> joint_angles)
+void RobotModel::updateJointAngles(const std::vector<double>& joint_angles)
 {
   if (joint_angles.size() != num_actuated_joints_) {
     ROS_ERROR_STREAM("[RobotModel::updateJointAngles] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_actuated_joints_ << ")");
@@ -469,7 +469,7 @@ void RobotModel::updateActuatedJointMapping(const std::string& joint_name, unsig
       ROS_INFO_STREAM("Joint is actuated.");
       actuated_joint_names_.push_back(joint_name);
       actuated_idx_to_joint_idx_.push_back(joint_index);
-      actuated_joint_mimics_.push_back(std::vector<JointMimic>());
+      actuated_joint_mimics_.emplace_back();
       num_actuated_joints_++;
     }
   }

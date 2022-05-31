@@ -40,7 +40,7 @@ public:
   std::shared_ptr<voxblox::TsdfMap> computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance,
                                                               const std::shared_ptr<voxblox::TsdfMap>& init_tsdf, const std::vector<double>& joint_state=std::vector<double>());
 
-  void updateJointAngles(const std::vector<double> joint_angles);
+  void updateJointAngles(const std::vector<double>& joint_angles);
   void updatePose(const Eigen::Isometry3d& robot_pose);
   void updateRobotState(const Eigen::Isometry3d& robot_pose, const std::vector<double> joint_angles);
   void publishRobotState(const Eigen::Isometry3d& robot_pose, const std::vector<double> joint_angles);
