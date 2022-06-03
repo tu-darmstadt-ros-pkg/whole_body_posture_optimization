@@ -34,7 +34,9 @@
   </node>
 
   <!-- moveit parameters -->
-  <include file="$(find asterix_moveit_config)/launch/planning_context.launch">
-    <arg name="load_robot_description" value="false" />
-  </include>
+  <group ns="robot_description_planning">
+    <rosparam command="load" file="$(find asterix_moveit_config)/config/joint_limits.yaml"/>
+    <rosparam command="load" file="$(find asterix_moveit_config)/config/joint_limits_world.yaml"/>
+  </group>
+
 </launch>
