@@ -98,4 +98,30 @@ double computeTrajectoryDuration(const std::vector<robot_trajectory::RobotTrajec
   return trajectory_duration;
 }
 
+Eigen::Vector3d quatToEuler(const Eigen::Quaterniond& quaternion, const std::string& convention) {
+  double temp[5];
+  if (convention == "zyx") {
+    temp[0] =  2*(quaternion.x() * quaternion.y() + quaternion.w() * quaternion.z());
+    temp[1] =     quaternion.w() * quaternion.w() + quaternion.x() * quaternion.x() - quaternion.y() *quaternion.y() - quaternion.z() * quaternion.z();
+    temp[2] = -2*(quaternion.x() * quaternion.z() - quaternion.w() * quaternion.y());
+    temp[3] =  2*(quaternion.y() * quaternion.z() + quaternion.w() * quaternion.x());
+    temp[4] =     quaternion.w() * quaternion.w() - quaternion.x() * quaternion.x() - quaternion.y() * quaternion.y() + quaternion.z() * quaternion.z();
+  } else if (convention == "xyz") {
+    temp[0] =  -2*(quaternion.y() * quaternion.z() - quaternion.w() * quaternion.x());
+    temp[1] =      quaternion.w() * quaternion.w() - quaternion.x() * quaternion.x() - quaternion.y() * quaternion.y() + quaternion.z() * quaternion.z();
+    temp[2] =   2*(quaternion.x() * quaternion.z() + quaternion.w() * quaternion.y());
+    temp[3] =  -2*(quaternion.x() * quaternion.y() - quaternion.w() * quaternion.z());
+    temp[4] =      quaternion.w() * quaternion.w() + quaternion.x() * quaternion.x() - quaternion.y() * quaternion.y() - quaternion.z() * quaternion.z();
+  } else {
+    throw std::invalid_argument("not supported");
+  }
+
+  Eigen::Vector3d angles;
+  angles(0) = atan2(temp[0], temp[1]);
+  angles(1) = asin(temp[2]);
+  angles(2) = atan2(temp[3], temp[4]);
+
+  return angles;
+}
+
 }

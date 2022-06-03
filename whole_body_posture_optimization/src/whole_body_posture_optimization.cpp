@@ -437,7 +437,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
   std::vector<Eigen::Isometry3d> full_world_poses;
   std::vector<size_t> trajectory_start_index;
   double total_distance = 0;
-
+  double total_rotation = 0;
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     // set start state
     robot_model_->updateJointAngles(opt_result[i].result_joint_angles);
@@ -493,11 +493,21 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
       world_poses.push_back(interpolated_pose);
 
       double distance = (t * position_diff).norm();
-      Eigen::Isometry3d odom_fake_pose(interpolated_orientation);
-      odom_fake_pose.translation().x() = total_distance + distance;
+
+      Eigen::Quaterniond rotation_diff = start_orientation.inverse() * interpolated_orientation;
+      Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
+      double yaw_distance = euler_angles(0);
+
+      Eigen::Isometry3d odom_fake_pose = Eigen::Isometry3d::Identity();
+      odom_fake_pose.translation().x() = total_distance + distance; // TODO this does not account for driving direction change
+      odom_fake_pose.translation().z() = total_rotation + yaw_distance; // We use translation z for rotation. I consider this a work-around, not a hack!
       updateMoveitRobotState(*res.trajectory_->getWayPointPtr(j), odom_fake_pose);
     }
     total_distance += position_diff.norm();
+    Eigen::Quaterniond rotation_diff = start_orientation.inverse() * end_orientation;
+    Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
+    double yaw_distance = euler_angles(0);
+    total_rotation += yaw_distance;
 
     // Save start index of this trajectory part
     trajectory_start_indices.push_back(trajectory_with_world.getWayPointCount());
@@ -508,8 +518,9 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
     } else {
       // Keep end point on last trajectory
 //      updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), opt_result[i+1].result_pose);
-      Eigen::Isometry3d odom_fake_pose;
+      Eigen::Isometry3d odom_fake_pose = Eigen::Isometry3d::Identity();
       odom_fake_pose.translation().x() = total_distance;
+      odom_fake_pose.translation().z() = total_rotation;
       updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), odom_fake_pose);
       world_poses.push_back(opt_result[i+1].result_pose);
       trajectory_with_world.append(*res.trajectory_, 0);
@@ -518,7 +529,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
   }
   // Debug: print out trajectories
   //  ROS_INFO_STREAM(vecToString(trajectory_start_index));
-  //  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(full_trajectory));
+//  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(trajectory_with_world));
 
   // Perform time parameterization
   trajectory_processing::IterativeSplineParameterization time_parameterization(false);
