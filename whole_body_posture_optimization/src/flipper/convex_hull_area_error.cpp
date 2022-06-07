@@ -21,8 +21,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   // *** Simulation ** //
   // Update joint state
   for (unsigned int i = 0; i < free_joints_.size(); i++) {
-    double angle = flipper_angles[0][i];
-    pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], angle);
+    pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], flipper_angles[0][i]);
   }
   // Simulate contact
   hector_pose_prediction_interface::SupportPolygon<double> support_polygon;

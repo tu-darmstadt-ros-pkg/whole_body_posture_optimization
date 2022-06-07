@@ -77,12 +77,9 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
   return true;
 }
 
-FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d &robot_pose, const Eigen::Isometry3d &base_to_com, const std::vector<double>& init_joint_angles,
+FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d &robot_pose, const std::vector<double>& init_joint_angles,
                                                         const std::vector<double> &previous_joint_angles)
 {
-  Eigen::Vector3d com_pos = base_to_com.translation();
-  ROS_DEBUG_STREAM("COM position: [" << com_pos[0] << ", " << com_pos[1] << ", " << com_pos[2] << "]");
-
   // Reset seed (for stochastic algorithms)
   nlopt_srand(0);
 
@@ -95,10 +92,16 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   int verbosity_level = 0;
 
   // Set initial state in pose predictor
+  const std::vector<double>* full_state;
+  if (!previous_joint_angles.empty()) {
+    full_state = &previous_joint_angles;
+  } else {
+    full_state = &init_joint_angles;
+  }
   std::unordered_map<std::string, double> initial_joint_update;
   initial_joint_update.reserve(robot_model_->getActuatedJointNames().size());
   for (size_t j = 0; j < init_joint_angles.size(); ++j) {
-    initial_joint_update[robot_model_->getActuatedJointNames()[j]] = init_joint_angles[j];
+    initial_joint_update[robot_model_->getActuatedJointNames()[j]] = (*full_state)[j];
   }
   pose_predictor_->robotModel()->updateJointPositions(initial_joint_update);
 
@@ -174,7 +177,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   FlipperOptimizationResult result;
   result.final_cost = minf;
   // Fill in complete robot state with solution
-  result.joint_state = init_joint_angles;
+  result.joint_state = *full_state;
   for (unsigned int i = 0; i < param_idx_to_jnt_idx_.size(); i++) {
     result.joint_state[param_idx_to_jnt_idx_[i]] = parameters[i];
   }

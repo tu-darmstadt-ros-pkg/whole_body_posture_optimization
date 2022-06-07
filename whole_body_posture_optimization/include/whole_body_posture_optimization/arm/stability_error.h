@@ -14,14 +14,14 @@ namespace  whole_body_posture_optimization {
 
 class ComputeCenterOfMass : public ceres::CostFunction {
 public:
-  ComputeCenterOfMass(const std::shared_ptr<RobotModel>& robot_model, const std::vector<double>& init_angles, const std::vector<std::size_t>& param_idx_to_joint_idx);
+  ComputeCenterOfMass(const std::shared_ptr<RobotModel>& robot_model, const std::vector<double>& full_state, const std::vector<std::size_t>& param_idx_to_joint_idx);
 
   virtual bool Evaluate(double const* const* parameters,
                         double* residuals,
                         double** jacobians) const;
 private:
   std::shared_ptr<RobotModel> robot_model_;
-  std::vector<double> init_angles_;
+  std::vector<double> full_state_;
   std::vector<std::size_t> param_idx_to_joint_idx_;
 
 };
@@ -64,7 +64,7 @@ struct StabilityErrorParameters {
 class StabilityError {
 public:
   StabilityError(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<Eigen::Vector3d>& contact_points,
-                 const std::vector<double>& initial_joint_angles, const std::vector<double>& previous_param_angles, const Eigen::Isometry3d& robot_pose,
+                 const std::vector<double>& full_state, const std::vector<double>& previous_param_angles, const Eigen::Isometry3d& robot_pose,
                  const StabilityErrorParameters& parameters);
 
   template <typename T> bool operator()(T const* const* parameters, T* cost) const {
@@ -121,7 +121,7 @@ public:
   }
 
   static ceres::CostFunction* Create(const std::shared_ptr<RobotModel>& robot_model, const std::vector<std::string> &free_joints, const std::vector<Eigen::Vector3d> &contact_points,
-                                     const std::vector<double>& initial_joint_angles, const std::vector<double> &previous_param_angles, const Eigen::Isometry3d &robot_pose, const StabilityErrorParameters &parameters);
+                                     const std::vector<double>& full_state, const std::vector<double> &previous_param_angles, const Eigen::Isometry3d &robot_pose, const StabilityErrorParameters &parameters);
 
 private:
   std::shared_ptr<ceres::DynamicCostFunctionToFunctor> compute_com_;
@@ -130,7 +130,6 @@ private:
   std::vector<std::size_t> param_idx_to_joint_idx_;
   std::vector<Eigen::Vector3d> contact_points_;
   Eigen::Isometry3d robot_pose_;
-  std::vector<double> initial_joint_angles_;
   std::vector<double> previous_param_angles_;
 
   StabilityErrorParameters parameters_;

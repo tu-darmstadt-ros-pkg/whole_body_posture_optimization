@@ -179,7 +179,16 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
                                                 const std::vector<double>& previous_joint_angles)
 {
   ArmOptimizationResult result;
-  result.joint_angles = initial_angles;
+
+  // Set initial state in pose predictor
+  const std::vector<double>* full_state;
+  if (!previous_joint_angles.empty()) {
+    full_state = &previous_joint_angles;
+  } else {
+    full_state = &initial_angles;
+  }
+
+  result.joint_angles = *full_state;
 
   // immediately return if there are no contact points with the ground (error)
   if (contact_hull_points.empty()) {
@@ -192,12 +201,13 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   if (enabled_) {
     // Add objective function
     ceres_nlopt_wrapper::OptimizationHistory history;
+
     std::vector<double> previous_parameters;
     if (!previous_joint_angles.empty()) {
       previous_parameters = mapListToSubset(previous_joint_angles, param_idx_to_jnt_idx_);
     }
     ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost(
-          StabilityError::Create(robot_model_, free_joints_, contact_hull_points, initial_angles, previous_parameters, robot_pose, stability_error_params_), 0, history.setObjective());
+          StabilityError::Create(robot_model_, free_joints_, contact_hull_points, *full_state, previous_parameters, robot_pose, stability_error_params_), 0, history.setObjective());
     stability_cost.setName("stability_cost");
     stability_cost.enableInfCheck(true);
     stability_cost.enableNanCheck(true);
@@ -209,7 +219,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     std::vector<std::size_t> chain_idx_to_jnt_idx = robot_model_->getChainToJointIndexMapping();
     std::vector<double> default_chain_angles(chain_idx_to_jnt_idx.size());
     for (unsigned int chain_idx = 0; chain_idx < default_chain_angles.size(); chain_idx++) {
-      default_chain_angles[chain_idx] = initial_angles[chain_idx_to_jnt_idx[chain_idx]];
+      default_chain_angles[chain_idx] = (*full_state)[chain_idx_to_jnt_idx[chain_idx]];
     }
     std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> environment_constraints;
     START_TIMING("Env. collision const. creation")
@@ -232,7 +242,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
     // self-collision tsdf constraints
     START_TIMING("Self-collision tsdf const. creation")
-    std::shared_ptr<voxblox::TsdfMap> tsdf = robot_model_->computeTsdfFromRobotModel(semi_static_link_names_, static_cast<float>(self_collision_tsdf_truncation_distance_), partial_robot_tsdf_, initial_angles);
+    std::shared_ptr<voxblox::TsdfMap> tsdf = robot_model_->computeTsdfFromRobotModel(semi_static_link_names_, static_cast<float>(self_collision_tsdf_truncation_distance_), partial_robot_tsdf_, *full_state);
 //    sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose, 0.4f);
     auto robot_base_tsdf = std::make_shared<sdf_contact_estimation::SdfModel>();
     robot_base_tsdf->loadTsdf(tsdf, self_collision_tsdf_truncation_distance_, false, false);
@@ -323,10 +333,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     auto start = std::chrono::high_resolution_clock::now();
     nlopt::result nlopt_result;
     try {
-      if (enabled_) {
-        nlopt_result = opt_.optimize(parameters, minf);
-        ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
-      }
+      nlopt_result = opt_.optimize(parameters, minf);
+      ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
     }
     catch (const std::invalid_argument& e) {
       ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());
