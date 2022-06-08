@@ -41,6 +41,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   optimizer_ = std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(pnh, pose_predictor, sdf_model_);
   joint_names_ = optimizer_->getRobotModel()->getActuatedJointNames();
   joint_states_ = optimizer_->getDefaultJointPositions();
+  current_robot_state_ = std::make_shared<robot_state::RobotState>(optimizer_->getRobotModel()->getMoveitRobotState());
 
   // Create moveit planner instance
   moveit_cpp_ptr_ = std::make_shared<moveit_cpp::MoveItCpp>(pnh);
@@ -138,18 +139,6 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
 {
   nav_msgs::Path path_copy = path;
 
-  // Replace first pose with current pose for better planning initialization
-  geometry_msgs::TransformStamped base_transform;
-  try {
-    // Get world transform
-    base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path.header.stamp, ros::Duration(0.1));
-    path_copy.poses.front().pose.orientation = base_transform.transform.rotation; // TODO only YAW
-    path_copy.poses.front().pose.position.z = base_transform.transform.translation.z;
-  }
-  catch (tf2::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
-  }
-
   // Re-sample and smooth path
   bool allow_reverse_paths = true;
   bool ignore_goal_orientation = false;
@@ -157,7 +146,6 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
   if (followPathServerIsActive()) {
     allow_reverse_paths = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
     ignore_goal_orientation = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance > 3.1415; // TODO ugly
-
   }
 
   Pathsmoother3D path_smoother(allow_reverse_paths, ignore_goal_orientation);
@@ -208,8 +196,8 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot
   sdf_model_->publishSdfMesh();
 
   // *** Compute plan ***
-  auto result = optimizer_->findOptimalPostures(path_msg);
-  auto trajectory = optimizer_->computeTimedTrajectory(result);
+  updateRobotPose(path_msg);
+  auto trajectory = optimizer_->computeOptimalTrajectory(path_msg, current_robot_state_);
   if (trajectory.empty()) {
     return false;
   }
@@ -575,18 +563,20 @@ void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
 
 void WholeBodyPlanningServer::jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg)
 {
-  bool state_changed = false;
-  for (unsigned int joint_idx = 0; joint_idx < joint_names_.size(); ++joint_idx) {
-    auto it = std::find(joint_state_msg->name.begin(), joint_state_msg->name.end(), joint_names_[joint_idx]);
-    if (it != joint_state_msg->name.end()) {
-      size_t index = static_cast<size_t>(it - joint_state_msg->name.begin());
-      joint_states_[joint_idx] = joint_state_msg->position[index];
-      state_changed = true;
-    }
-  }
-  if (state_changed) {
-    optimizer_->setDefaultJointPositions(joint_states_);
-  }
+  current_robot_state_->setVariableValues(*joint_state_msg);
+
+//  bool state_changed = false;
+//  for (unsigned int joint_idx = 0; joint_idx < joint_names_.size(); ++joint_idx) {
+//    auto it = std::find(joint_state_msg->name.begin(), joint_state_msg->name.end(), joint_names_[joint_idx]);
+//    if (it != joint_state_msg->name.end()) {
+//      size_t index = static_cast<size_t>(it - joint_state_msg->name.begin());
+//      joint_states_[joint_idx] = joint_state_msg->position[index];
+//      state_changed = true;
+//    }
+//  }
+//  if (state_changed) {
+//    optimizer_->setDefaultJointPositions(joint_states_);
+//  }
 }
 bool WholeBodyPlanningServer::followPathServerIsActive() const
 {
@@ -633,6 +623,25 @@ void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planni
   path_sampling_resolution_ = config.path_sampling_resolution;
   path_slice_length_ = config.path_slice_length;
   auto_start_ = config.auto_start;
+}
+void WholeBodyPlanningServer::updateRobotPose(const nav_msgs::Path& path)
+{
+  Eigen::Isometry3d base_transform_eigen;
+  try {
+    // Get world transform
+    geometry_msgs::TransformStamped base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path.header.stamp, ros::Duration(0.1));
+    tf::transformMsgToEigen(base_transform.transform, base_transform_eigen);
+
+    //    path_copy.poses.front().pose.orientation = base_transform.transform.rotation; // TODO only YAW
+    //    path_copy.poses.front().pose.position.z = base_transform.transform.translation.z;
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("%s",ex.what());
+    // Use first pose of path instead
+    geometry_msgs::PoseStamped base_pose = path.poses.front();
+    tf::poseMsgToEigen(base_pose.pose, base_transform_eigen);
+  }
+  whole_body_posture_optimization::updateMoveitRobotState(*current_robot_state_, base_transform_eigen);
 }
 
 }

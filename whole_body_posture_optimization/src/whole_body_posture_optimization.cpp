@@ -508,8 +508,8 @@ void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOpti
 robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeOptimalTrajectory(
     const nav_msgs::Path& path, const moveit::core::RobotStateConstPtr& start_state)
 {
-  auto result = findOptimalPostures(path);
-  auto trajectory = computeTimedTrajectory(result);
+  auto result = findOptimalPostures(path, start_state);
+  auto trajectory = computeTimedTrajectory(result, start_state);
   return trajectory;
 }
 

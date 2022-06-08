@@ -42,8 +42,9 @@ public:
    */
   bool planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start=true, bool replanning=false);
 private:
+  void updateRobotPose(const nav_msgs::Path& path);
   nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
-  static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance) ;
+  static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance);
   bool generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out);
 //  bool moveToStartAndExecute(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
   bool executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time);
@@ -59,7 +60,7 @@ private:
 //  bool continuousReplanning(const nav_msgs::Path& path_msg);
 
   /// Util
-  nav_msgs::Path extractPathFromTrajectories(const robot_trajectory::RobotTrajectory & trajectory, const ros::Time& start_time) const;
+  nav_msgs::Path extractPathFromTrajectories(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const;
   std::string pathToString(const nav_msgs::Path& path) const;
   bool followPathServerIsActive() const;
 
@@ -87,6 +88,7 @@ private:
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
   std::vector<std::string> joint_names_;
   std::vector<double> joint_states_;
+  robot_state::RobotStatePtr current_robot_state_;
   robot_trajectory::RobotTrajectoryPtr trajectory_;
 
   tf2_ros::Buffer tf_buffer_;
