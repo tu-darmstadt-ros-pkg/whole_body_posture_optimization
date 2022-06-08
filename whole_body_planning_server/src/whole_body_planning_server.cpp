@@ -139,6 +139,21 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
 {
   nav_msgs::Path path_copy = path;
 
+  // Replace first pose with current pose to account for driving direction and better planning initialization
+  geometry_msgs::TransformStamped base_transform;
+  try {
+    // Get world transform
+    base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path.header.stamp, ros::Duration(0.1));
+    path_copy.poses.front().pose.orientation = base_transform.transform.rotation;
+    path_copy.poses.front().pose.position.x = base_transform.transform.translation.x;
+    path_copy.poses.front().pose.position.y = base_transform.transform.translation.y;
+    path_copy.poses.front().pose.position.z = base_transform.transform.translation.z;
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("%s",ex.what());
+  }
+
+
   // Re-sample and smooth path
   bool allow_reverse_paths = true;
   bool ignore_goal_orientation = false;
@@ -626,22 +641,11 @@ void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planni
 }
 void WholeBodyPlanningServer::updateRobotPose(const nav_msgs::Path& path)
 {
-  Eigen::Isometry3d base_transform_eigen;
-  try {
-    // Get world transform
-    geometry_msgs::TransformStamped base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path.header.stamp, ros::Duration(0.1));
-    tf::transformMsgToEigen(base_transform.transform, base_transform_eigen);
-
-    //    path_copy.poses.front().pose.orientation = base_transform.transform.rotation; // TODO only YAW
-    //    path_copy.poses.front().pose.position.z = base_transform.transform.translation.z;
-  }
-  catch (tf2::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
-    // Use first pose of path instead
-    geometry_msgs::PoseStamped base_pose = path.poses.front();
-    tf::poseMsgToEigen(base_pose.pose, base_transform_eigen);
-  }
-  whole_body_posture_optimization::updateMoveitRobotState(*current_robot_state_, base_transform_eigen);
+  Eigen::Isometry3d robot_pose_eigen;
+  // First pose is current pose of robot
+  const geometry_msgs::PoseStamped& robot_pose_msg = path.poses.front();
+  tf::poseMsgToEigen(robot_pose_msg.pose, robot_pose_eigen);
+  whole_body_posture_optimization::updateMoveitRobotState(*current_robot_state_, robot_pose_eigen);
 }
 
 }
