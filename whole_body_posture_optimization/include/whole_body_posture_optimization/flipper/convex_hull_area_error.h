@@ -17,6 +17,7 @@ struct ConvexHullAreaErrorParameters {
     nh.param("movement_cost_weight", parameters_.movement_cost_weight, 0.2);
     nh.param("lorentzian_sigma", parameters_.lorentzian_sigma, 0.2);
     nh.param("track_contact_weight", parameters_.track_contact_weight, 2.0);
+    nh.param("turning_resistance_weight", parameters_.turning_resistance_weight, 1.0);
     nh.param("body_contact_weight", parameters_.body_contact_weight, 4.0);
     nh.param("position_deviation_weight", parameters_.position_deviation_weight, 10.0);
     nh.param("roll_cost_weight", parameters_.roll_cost_weight, 2.0);
@@ -32,7 +33,8 @@ struct ConvexHullAreaErrorParameters {
     ss << "lorentzian_sigma = " << lorentzian_sigma << std::endl;
     ss << "track_contact_weight = " << track_contact_weight << std::endl;
     ss << "body_contact_weight = " << body_contact_weight << std::endl;
-    ss << "position_deviation_weight = " << position_deviation_weight << std::endl;
+    ss << "body_contact_weight = " << body_contact_weight << std::endl;
+    ss << "turning_resistance_weight = " << turning_resistance_weight << std::endl;
     ss << "roll_cost_weight = " << roll_cost_weight << std::endl;
     return ss.str();
   }

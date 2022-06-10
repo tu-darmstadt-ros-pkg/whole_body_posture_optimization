@@ -140,6 +140,7 @@ flipper_optimization:
     support_area_weight: 0
     track_contact_weight: 8
     body_contact_weight: 50
+    turning_resistance_weight: 0.1
     roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
     position_deviation_weight: 0
     verbose: false

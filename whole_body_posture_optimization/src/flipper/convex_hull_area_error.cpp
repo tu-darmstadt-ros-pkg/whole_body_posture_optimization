@@ -89,6 +89,26 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
     }
   }
 
+  // Approximate moment of turning resistance
+  double turning_resistance = 0;
+  if (!prev_flipper_param_angles_.empty()) { // Check if there is a valid previous state
+    // Compute contact
+    for (const hector_pose_prediction_interface::ContactPointInformation<double>& point: contact_information.contact_points) {
+      Eigen::Vector3d p_base = result_pose_eigen.inverse() * point.point; // Transform from world to base link
+      double distance = p_base.block<2, 1>(0, 0).norm();
+      turning_resistance += distance;
+    }
+    // Compute turning angle
+    Eigen::Quaterniond start_orientation(prev_pose_.linear());
+    Eigen::Quaterniond end_orientation(result_pose_eigen.linear());
+    Eigen::Quaterniond rotation_diff = start_orientation.inverse() * end_orientation;
+    Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
+    double turning_angle = euler_angles(0);
+
+    turning_resistance *= std::abs(turning_angle);
+  }
+
+
   // Penalize contact normals that point against the moving direction
   // For now, the moving direction is hard-coded to x+
 //  Eigen::Vector3d moving_direction = Eigen::Vector3d::UnitX();
@@ -117,6 +137,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   cost[0] = - parameters_.support_area_weight * support_area
             - parameters_.track_contact_weight * track_contact_area
             + parameters_.body_contact_weight * body_contact_area
+            + parameters_.turning_resistance_weight * turning_resistance
             + parameters_.movement_cost_weight * movement_cost
             + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
             + parameters_.position_deviation_weight * position_deviation_cost;
@@ -126,6 +147,7 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
     "Support area: " << support_area << " (" << parameters_.support_area_weight * support_area << ")" << std::endl <<
     "Track contact: " << track_contact_area << " (" << parameters_.track_contact_weight * track_contact_area << ")" << std::endl <<
     "Body contact: " << body_contact_area << " (" << parameters_.body_contact_weight * body_contact_area << ")" << std::endl <<
+    "Turning resistance: " << turning_resistance << " (" << parameters_.turning_resistance_weight * turning_resistance << ")" << std::endl <<
     "Movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl <<
     "Position deviation cost: " << position_deviation_cost << " (" << parameters_.position_deviation_weight * position_deviation_cost << ")" << std::endl <<
     "Chassis roll angle: " << chassis_roll_angle << " (" << parameters_.roll_cost_weight * chassis_roll_angle << ")" << std::endl <<
