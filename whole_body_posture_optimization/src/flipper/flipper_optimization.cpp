@@ -78,22 +78,18 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
 }
 
 FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d &robot_pose, const std::vector<double>& init_joint_angles,
-                                                        const std::vector<double> &previous_joint_angles)
+                                                        const robot_state::RobotStateConstPtr& previous_state)
 {
   // Reset seed (for stochastic algorithms)
   nlopt_srand(0);
 
   // Add objective function
-  std::vector<double> previous_parameters;
-  if (!previous_joint_angles.empty()) {
-    previous_parameters = mapListToSubset(previous_joint_angles, param_idx_to_jnt_idx_);
-  }
-
-  int verbosity_level = 0;
 
   // Set initial state in pose predictor
   const std::vector<double>* full_state;
-  if (!previous_joint_angles.empty()) {
+  std::vector<double> previous_joint_angles;
+  if (previous_state) {
+    previous_joint_angles = getVariablePositions(previous_state, robot_model_->getActuatedJointNames());
     full_state = &previous_joint_angles;
   } else {
     full_state = &init_joint_angles;
@@ -105,10 +101,11 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   }
   pose_predictor_->robotModel()->updateJointPositions(initial_joint_update);
 
+  int verbosity_level = 0;
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
   if (objective_ == "heuristic") {
     objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
-          ConvexHullAreaError::Create(free_joints_, pose_predictor_, robot_pose, previous_parameters, convex_hull_error_parameters_),
+          ConvexHullAreaError::Create(free_joints_, pose_predictor_, robot_pose, previous_state, convex_hull_error_parameters_),
           verbosity_level);
   } else if (objective_ == "stability") {
 //    objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(

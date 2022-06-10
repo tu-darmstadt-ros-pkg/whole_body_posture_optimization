@@ -87,6 +87,8 @@ template <typename T> std::vector<T> computeForceAngleStabilitiesWithGravity(con
 
 void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Isometry3d& pose);
 
+std::vector<double> getVariablePositions(const robot_state::RobotStateConstPtr& state, const std::vector<std::string>& variables);
+
 std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& trajectory);
 
 double computeTrajectoryDuration(const std::vector<robot_trajectory::RobotTrajectory>& trajectories);

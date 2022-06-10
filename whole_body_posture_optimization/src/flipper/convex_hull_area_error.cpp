@@ -8,11 +8,14 @@ namespace whole_body_posture_optimization {
 
 ConvexHullAreaError::ConvexHullAreaError(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                          const Eigen::Isometry3d &pose,
-                                         const std::vector<double> &prev_flipper_angles,
+                                         const robot_state::RobotStateConstPtr& previous_state,
                                          const ConvexHullAreaErrorParameters &parameters)
-  : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose),
-    prev_flipper_param_angles_(prev_flipper_angles), parameters_(parameters)
+  : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose), parameters_(parameters)
 {
+  if (previous_state) {
+    prev_flipper_param_angles_ = getVariablePositions(previous_state, free_joints_);
+    prev_pose_ = previous_state->getJointTransform("world_virtual_joint");
+  }
   param_idx_to_state_idx = getIndexMap<std::string>(pose_predictor_->robotModel()->jointNames(), free_joints_);
 }
 
@@ -132,12 +135,14 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   return true;
 }
 
-ceres::CostFunction* ConvexHullAreaError::Create(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
+ceres::CostFunction* ConvexHullAreaError::Create(const std::vector<std::string>& free_joints,
+                                                 const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                                  const Eigen::Isometry3d &pose,
-                                                 const std::vector<double> &prev_flipper_angles, const ConvexHullAreaErrorParameters &parameters)
+                                                 const robot_state::RobotStateConstPtr& previous_state,
+                                                 const ConvexHullAreaErrorParameters &parameters)
 {
   auto* cost_function = new ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>(
-      new ConvexHullAreaError(free_joints, pose_predictor, pose, prev_flipper_angles, parameters));
+      new ConvexHullAreaError(free_joints, pose_predictor, pose, previous_state, parameters));
 
   cost_function->AddParameterBlock(static_cast<int>(free_joints.size()));
   cost_function->SetNumResiduals(1);

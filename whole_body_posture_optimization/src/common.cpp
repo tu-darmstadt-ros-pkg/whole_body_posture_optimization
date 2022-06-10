@@ -124,4 +124,13 @@ Eigen::Vector3d quatToEuler(const Eigen::Quaterniond& quaternion, const std::str
   return angles;
 }
 
+std::vector<double> getVariablePositions(const robot_state::RobotStateConstPtr& state, const std::vector<std::string>& variables) {
+  std::vector<double> positions;
+  positions.reserve(variables.size());
+  for (const std::string& variable: variables) {
+    positions.push_back(state->getVariablePosition(variable));
+  }
+  return positions;
+}
+
 }

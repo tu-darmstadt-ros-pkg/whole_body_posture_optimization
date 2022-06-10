@@ -184,14 +184,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   result.init_joint_angles = init_joint_angles;
 
   Eigen::Isometry3d estimated_pose = pose; // Estimated pose of the robot at the requested position
-  std::vector<double> previous_joint_angles;
   if (previous_state) {
-    // Use previous solution as current joint state, if available
-    previous_joint_angles.reserve(robot_model_->getActuatedJointNames().size());
-    for (const std::string& joint: robot_model_->getActuatedJointNames()) {
-      previous_joint_angles.push_back(previous_state->getVariablePosition(joint));
-    }
-
     // Use last estimated pose to update estimate, if available
     estimated_pose = sdf_contact_estimation::updatePoseFromLastResult(pose, previous_state->getJointTransform("world_virtual_joint"), true, false);
   }
@@ -202,7 +195,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 
   // Optimize
   ROS_INFO_STREAM("Estimated pose before optimization: " << poseToString(estimated_pose));
-  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(estimated_pose, init_joint_angles, previous_joint_angles);
+  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(estimated_pose, init_joint_angles, previous_state);
   result.result_pose = flipper_result.pose;
   result.support_polygon = flipper_result.support_polygon;
   result.result_joint_angles = flipper_result.joint_state;

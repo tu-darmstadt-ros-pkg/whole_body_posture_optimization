@@ -6,6 +6,7 @@
 #include <sstream>
 #include <Eigen/Eigen>
 #include <hector_pose_prediction_interface/pose_predictor.h>
+#include <moveit/robot_state/robot_state.h>
 
 namespace whole_body_posture_optimization {
 
@@ -40,6 +41,7 @@ struct ConvexHullAreaErrorParameters {
   double lorentzian_sigma;
   double track_contact_weight;
   double body_contact_weight;
+  double turning_resistance_weight;
   double position_deviation_weight;
   double roll_cost_weight;
   bool verbose;
@@ -47,21 +49,26 @@ struct ConvexHullAreaErrorParameters {
 
 class ConvexHullAreaError {
 public:
-  ConvexHullAreaError(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
+  ConvexHullAreaError(const std::vector<std::string>& free_joints,
+                      const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                       const Eigen::Isometry3d& pose,
-                      const std::vector<double>& prev_flipper_angles, const ConvexHullAreaErrorParameters& parameters);
+                      const robot_state::RobotStateConstPtr& previous_state,
+                      const ConvexHullAreaErrorParameters& parameters);
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
-  static ceres::CostFunction* Create(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
+  static ceres::CostFunction* Create(const std::vector<std::string>& free_joints,
+                                     const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                      const Eigen::Isometry3d& pose,
-                                     const std::vector<double>& prev_flipper_angles, const ConvexHullAreaErrorParameters &parameters);
+                                     const robot_state::RobotStateConstPtr& previous_state,
+                                     const ConvexHullAreaErrorParameters &parameters);
 private:
   const std::vector<std::string>& free_joints_;
   const hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
   Eigen::Isometry3d pose_;
   hector_math::Pose<double> pose_math_;
   std::vector<double> prev_flipper_param_angles_;
+  Eigen::Isometry3d prev_pose_;
   std::vector<size_t> param_idx_to_state_idx;
 
   const ConvexHullAreaErrorParameters& parameters_;

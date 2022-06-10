@@ -27,7 +27,7 @@ public:
   FlipperOptimization(ros::NodeHandle& nh, const std::shared_ptr<RobotModel>& robot_model,
                       const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor);
   FlipperOptimizationResult optimize(const Eigen::Isometry3d& robot_pose, const std::vector<double> &init_joint_angles,
-                                     const std::vector<double>& previous_joint_angles);
+                                     const robot_state::RobotStateConstPtr& previous_state);
 
   bool enabled() const;
   void setEnabled(bool enabled);
