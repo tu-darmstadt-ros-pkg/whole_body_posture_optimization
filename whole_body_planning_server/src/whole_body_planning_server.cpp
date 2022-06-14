@@ -268,6 +268,7 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
   follow_path_goal.follow_path_options.desired_speed = 0.0; // Implicitly given by pose time stamps
   follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = follow_path_goal_.getGoal()->follow_path_options.rotate_front_to_goal_pose_orientation;
   follow_path_goal.follow_path_options.reverse_allowed = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
+  follow_path_goal.follow_path_options.use_path_orientation = true; // Drive path as planned
   follow_path_goal.follow_path_options.is_fixed = true; // No smoothing
   follow_path_goal.follow_path_options.reset_stuck_history = follow_path_goal_.getGoal()->follow_path_options.reset_stuck_history;
   follow_path_goal.follow_path_options.goal_pose_position_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_position_tolerance;
