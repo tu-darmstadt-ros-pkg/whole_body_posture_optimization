@@ -161,7 +161,7 @@ std::vector<Eigen::Vector3d> Pathsmoother3D::computeSmoothedPositions(const std:
 
   for(double d = 0; d < distances.back(); d += SMOOTHED_PATH_DISCRETIZATION)
   {
-    if(d > *(itT + 1))
+    while(d > *(itT + 1))
     {
       itT++;
       itX++;
