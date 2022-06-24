@@ -9,7 +9,6 @@
 #include <whole_body_posture_optimization/common.h>
 #include <whole_body_posture_optimization/robot_model.h>
 #include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost.h>
-//#include <whole_body_posture_optimization/flipper/fast_traction_cost.h>
 
 namespace whole_body_posture_optimization {
 
