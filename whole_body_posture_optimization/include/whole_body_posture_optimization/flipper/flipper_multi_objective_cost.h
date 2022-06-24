@@ -1,5 +1,5 @@
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_CONVEX_HULL_AREA_ERROR_H
-#define WHOLE_BODY_POSTURE_OPTIMIZATION_CONVEX_HULL_AREA_ERROR_H
+#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_FLIPPER_MULTI_OBJECTIVE_COST_H
+#define WHOLE_BODY_POSTURE_OPTIMIZATION_FLIPPER_MULTI_OBJECTIVE_COST_H
 
 #include <ros/node_handle.h>
 #include <ceres/cost_function.h>
@@ -10,9 +10,10 @@
 
 namespace whole_body_posture_optimization {
 
-struct ConvexHullAreaErrorParameters {
-  static ConvexHullAreaErrorParameters createFromServer(const ros::NodeHandle& nh) {
-    ConvexHullAreaErrorParameters parameters_{};
+struct FlipperMultiObjectiveCostParameters
+{
+  static FlipperMultiObjectiveCostParameters createFromServer(const ros::NodeHandle& nh) {
+    FlipperMultiObjectiveCostParameters parameters_{};
     nh.param("support_area_weight", parameters_.support_area_weight, 1.0);
     nh.param("movement_cost_weight", parameters_.movement_cost_weight, 0.2);
     nh.param("lorentzian_sigma", parameters_.lorentzian_sigma, 0.2);
@@ -49,13 +50,14 @@ struct ConvexHullAreaErrorParameters {
   bool verbose;
 };
 
-class ConvexHullAreaError {
+class FlipperMultiObjectiveCost
+{
 public:
-  ConvexHullAreaError(const std::vector<std::string>& free_joints,
+  FlipperMultiObjectiveCost(const std::vector<std::string>& free_joints,
                       const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                       const Eigen::Isometry3d& pose,
                       const robot_state::RobotStateConstPtr& previous_state,
-                      const ConvexHullAreaErrorParameters& parameters);
+                      const FlipperMultiObjectiveCostParameters& parameters);
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
@@ -63,7 +65,7 @@ public:
                                      const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                      const Eigen::Isometry3d& pose,
                                      const robot_state::RobotStateConstPtr& previous_state,
-                                     const ConvexHullAreaErrorParameters &parameters);
+                                     const FlipperMultiObjectiveCostParameters&parameters);
 private:
   const std::vector<std::string>& free_joints_;
   const hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
@@ -73,7 +75,7 @@ private:
   Eigen::Isometry3d prev_pose_;
   std::vector<size_t> param_idx_to_state_idx;
 
-  const ConvexHullAreaErrorParameters& parameters_;
+  const FlipperMultiObjectiveCostParameters& parameters_;
 };
 
 }

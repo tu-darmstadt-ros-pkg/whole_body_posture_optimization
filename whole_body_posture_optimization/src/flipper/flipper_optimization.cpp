@@ -65,8 +65,8 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param("enabled", enabled_, enabled_);
 
   if (objective_ == "heuristic") {
-    convex_hull_error_parameters_ = ConvexHullAreaErrorParameters::createFromServer(ros::NodeHandle(nh, "heuristic"));
-    ROS_INFO_STREAM(convex_hull_error_parameters_.toString());
+    flipper_multi_objective_cost_parameters_ = FlipperMultiObjectiveCostParameters::createFromServer(ros::NodeHandle(nh, "heuristic"));
+    ROS_INFO_STREAM(flipper_multi_objective_cost_parameters_.toString());
   } else if (objective_ == "stability") {
 //    stability_cost_parameters_ = FlipperStabilityCostParameters::createFromServer(ros::NodeHandle(nh, "stability"));
 //    ROS_INFO_STREAM(stability_cost_parameters_.toString());
@@ -105,7 +105,8 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
   if (objective_ == "heuristic") {
     objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
-          ConvexHullAreaError::Create(free_joints_, pose_predictor_, robot_pose, previous_state, convex_hull_error_parameters_),
+        FlipperMultiObjectiveCost::Create(free_joints_, pose_predictor_, robot_pose, previous_state,
+                                          flipper_multi_objective_cost_parameters_),
           verbosity_level);
   } else if (objective_ == "stability") {
 //    objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
@@ -162,13 +163,13 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
                   << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
 
   // Estimating again for debug output
-  bool cost_function_verbosity = convex_hull_error_parameters_.verbose;
-  convex_hull_error_parameters_.verbose = true;
-  if (convex_hull_error_parameters_.verbose) {
+  bool cost_function_verbosity = flipper_multi_objective_cost_parameters_.verbose;
+  flipper_multi_objective_cost_parameters_.verbose = true;
+  if (flipper_multi_objective_cost_parameters_.verbose) {
     std::vector<double> gradient;
     ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
   }
-  convex_hull_error_parameters_.verbose = cost_function_verbosity;
+  flipper_multi_objective_cost_parameters_.verbose = cost_function_verbosity;
 
   // Compose result
   FlipperOptimizationResult result;

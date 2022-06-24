@@ -46,7 +46,7 @@ set(HEADERS
   include/${PROJECT_NAME}/arm/sdf_contact_constraint.h
   include/${PROJECT_NAME}/arm/self_contact_constraint.h
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
-  include/${PROJECT_NAME}/flipper/convex_hull_area_error.h
+  include/${PROJECT_NAME}/flipper/flipper_multi_objective_cost.h
 #  include/${PROJECT_NAME}/flipper/flipper_stability_cost.h
 #  include/${PROJECT_NAME}/flipper/fast_traction_cost.h
 #  include/${PROJECT_NAME}/combined/combined_optimization.h
@@ -62,7 +62,7 @@ set(SOURCES
   src/arm/stability_error.cpp
   src/arm/arm_optimization.cpp
   src/flipper/flipper_optimization.cpp
-  src/flipper/convex_hull_area_error.cpp
+  src/flipper/flipper_multi_objective_cost.cpp
 #  src/flipper/flipper_stability_cost.cpp
 #  src/flipper/fast_traction_cost.cpp
 #  src/combined/combined_optimization.cpp

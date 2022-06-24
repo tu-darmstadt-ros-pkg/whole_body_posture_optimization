@@ -1,15 +1,14 @@
-#include <whole_body_posture_optimization/flipper/convex_hull_area_error.h>
+#include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost.h>
 
 #include <whole_body_posture_optimization/common.h>
 #include <algorithm>
 #include <ceres/dynamic_numeric_diff_cost_function.h>
 
 namespace whole_body_posture_optimization {
-
-ConvexHullAreaError::ConvexHullAreaError(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
+FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                          const Eigen::Isometry3d &pose,
                                          const robot_state::RobotStateConstPtr& previous_state,
-                                         const ConvexHullAreaErrorParameters &parameters)
+                                         const FlipperMultiObjectiveCostParameters&parameters)
   : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose), parameters_(parameters)
 {
   if (previous_state) {
@@ -19,7 +18,7 @@ ConvexHullAreaError::ConvexHullAreaError(const std::vector<std::string>& free_jo
   param_idx_to_state_idx = getIndexMap<std::string>(pose_predictor_->robotModel()->jointNames(), free_joints_);
 }
 
-bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double* cost) const
+bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, double* cost) const
 {
   // *** Simulation ** //
   // Update joint state
@@ -157,14 +156,14 @@ bool ConvexHullAreaError::operator()(double const* const* flipper_angles, double
   return true;
 }
 
-ceres::CostFunction* ConvexHullAreaError::Create(const std::vector<std::string>& free_joints,
+ceres::CostFunction* FlipperMultiObjectiveCost::Create(const std::vector<std::string>& free_joints,
                                                  const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                                  const Eigen::Isometry3d &pose,
                                                  const robot_state::RobotStateConstPtr& previous_state,
-                                                 const ConvexHullAreaErrorParameters &parameters)
+                                                 const FlipperMultiObjectiveCostParameters&parameters)
 {
-  auto* cost_function = new ceres::DynamicNumericDiffCostFunction<ConvexHullAreaError>(
-      new ConvexHullAreaError(free_joints, pose_predictor, pose, previous_state, parameters));
+  auto* cost_function = new ceres::DynamicNumericDiffCostFunction<FlipperMultiObjectiveCost>(
+      new FlipperMultiObjectiveCost(free_joints, pose_predictor, pose, previous_state, parameters));
 
   cost_function->AddParameterBlock(static_cast<int>(free_joints.size()));
   cost_function->SetNumResiduals(1);

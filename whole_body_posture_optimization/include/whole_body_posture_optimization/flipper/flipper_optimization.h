@@ -8,7 +8,7 @@
 
 #include <whole_body_posture_optimization/common.h>
 #include <whole_body_posture_optimization/robot_model.h>
-#include <whole_body_posture_optimization/flipper/convex_hull_area_error.h>
+#include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost.h>
 //#include <whole_body_posture_optimization/flipper/flipper_stability_cost.h>
 //#include <whole_body_posture_optimization/flipper/fast_traction_cost.h>
 
@@ -50,7 +50,7 @@ private:
   std::vector<double> lower_bounds_;
   std::string objective_;
 
-  ConvexHullAreaErrorParameters convex_hull_error_parameters_;
+  FlipperMultiObjectiveCostParameters flipper_multi_objective_cost_parameters_;
 //  FlipperStabilityCostParameters stability_cost_parameters_;
 //  FastTractionCost::Parameters fast_traction_cost_parameters_;
 
