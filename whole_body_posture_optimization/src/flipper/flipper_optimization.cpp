@@ -26,9 +26,6 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
 
   // Create nlopt optimizer
   parameter_count_ = static_cast<unsigned int>(free_joints_.size());
-  if (objective_ == "fast") {
-    parameter_count_ += 3;
-  }
   std::string algorithm;
   nh.param<std::string>("algorithm", algorithm, "GN_DIRECT_L");
   opt_ = nlopt::opt(algorithm.c_str(), parameter_count_);
@@ -61,18 +58,11 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
     return false;
   }
 
-  nh.param<std::string>("objective", objective_, "heuristic");
   nh.param("enabled", enabled_, enabled_);
 
-  if (objective_ == "heuristic") {
-    flipper_multi_objective_cost_parameters_ = FlipperMultiObjectiveCostParameters::createFromServer(ros::NodeHandle(nh, "heuristic"));
-    ROS_INFO_STREAM(flipper_multi_objective_cost_parameters_.toString());
-  } else if (objective_ == "stability") {
-//    stability_cost_parameters_ = FlipperStabilityCostParameters::createFromServer(ros::NodeHandle(nh, "stability"));
-//    ROS_INFO_STREAM(stability_cost_parameters_.toString());
-  } else if (objective_ == "fast") {
-//    fast_traction_cost_parameters_ = FastTractionCost::Parameters::createFromServer(ros::NodeHandle(nh, "fast"));
-  }
+  flipper_multi_objective_cost_parameters_ = FlipperMultiObjectiveCostParameters::createFromServer(ros::NodeHandle(nh, "cost_parameters"));
+  ROS_INFO_STREAM(flipper_multi_objective_cost_parameters_.toString());
+
 
   return true;
 }
@@ -103,22 +93,10 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
 
   int verbosity_level = 0;
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
-  if (objective_ == "heuristic") {
-    objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
-        FlipperMultiObjectiveCost::Create(free_joints_, pose_predictor_, robot_pose, previous_state,
-                                          flipper_multi_objective_cost_parameters_),
-          verbosity_level);
-  } else if (objective_ == "stability") {
-//    objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
-//          FlipperStabilityCost::Create(static_cast<unsigned int>(free_joints_.size()), contact_estimation_, robot_pose, base_to_com, previous_parameters, stability_cost_parameters_),
-//          verbosity_level);
-  } else if (objective_ == "fast") {
-//    objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
-//          FastTractionCost::Create(robot_pose, free_joints_, init_flipper_angles, previous_parameters, contact_estimation_, fast_traction_cost_parameters_),
-//          verbosity_level);
-  } else {
-    ROS_ERROR_STREAM("Unknown objective '" << objective_ << "'!");
-  }
+  objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
+      FlipperMultiObjectiveCost::Create(free_joints_, pose_predictor_, robot_pose, previous_state,
+                                        flipper_multi_objective_cost_parameters_), verbosity_level);
+
   objective->setName("flipper_objective");
   objective->enableInfCheck(true);
   objective->enableNanCheck(true);
@@ -130,13 +108,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
 
   std::vector<double> parameters = mapListToSubset(init_joint_angles, param_idx_to_jnt_idx_);
   ceres_nlopt_wrapper::applyBounds(lower_bounds_, upper_bounds_, parameters);
-  if (objective_ == "fast") {
-    Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(robot_pose.linear());
-    // z position and roll, pitch orientation parameters
-    parameters.push_back(0);
-    parameters.push_back(pose_rpy(0));
-    parameters.push_back(pose_rpy(1));
-  }
   START_TIMING("Flipper optimization")
   double minf = std::nan("");
   auto start = std::chrono::high_resolution_clock::now();
@@ -179,11 +150,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   for (unsigned int i = 0; i < param_idx_to_jnt_idx_.size(); i++) {
     result.joint_state[param_idx_to_jnt_idx_[i]] = parameters[i];
   }
-  // Fill in complete flipper state with solution
-//  result.flipper_angles = init_flipper_angles;
-//  for (unsigned int i = 0; i < free_joints_.size(); ++i) {
-//    result.flipper_angles[param_idx_to_flippers_idx_[i]] = parameters[i];
-//  }
 
   // Estimate robot pose with solution
   std::unordered_map<std::string, double> final_joint_update;
@@ -197,13 +163,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   result.stability = pose_predictor_->predictPoseAndSupportPolygon(result_pose, result.support_polygon);
   result.pose = result_pose.asTransform();
 
-  if (objective_ == "fast") {
-    Eigen::Vector3d pose_rpy = sdf_contact_estimation::rotToNormalizedRpy(robot_pose.linear());
-    result.pose = Eigen::Isometry3d(Eigen::AngleAxisd(pose_rpy(2), Eigen::Vector3d::UnitZ())
-        * Eigen::AngleAxisd(parameters[free_joints_.size() + 2], Eigen::Vector3d::UnitY())
-        * Eigen::AngleAxisd(parameters[free_joints_.size() + 1], Eigen::Vector3d::UnitX()));
-    result.pose.translation() = Eigen::Vector3d(robot_pose.translation()(0), robot_pose.translation()(1), robot_pose.translation()(2) + parameters[free_joints_.size() + 0]);
-  }
   ROS_INFO("New robot position: [%f, %f, %f]", result.pose.translation()(0), result.pose.translation()(1), result.pose.translation()(2));
 
   // Publish result
@@ -234,18 +193,6 @@ bool FlipperOptimization::loadLimits()
     }
     upper_bounds_.push_back(upper);
     lower_bounds_.push_back(lower);
-  }
-
-  if (objective_ == "fast") {
-    // Z offset
-    upper_bounds_.push_back(0.5);
-    lower_bounds_.push_back(-0.5);
-    // Roll
-    upper_bounds_.push_back(M_PI_4);
-    lower_bounds_.push_back(-M_PI_4);
-    // Pitch
-    upper_bounds_.push_back(M_PI_2);
-    lower_bounds_.push_back(-M_PI_2);
   }
   return true;
 }

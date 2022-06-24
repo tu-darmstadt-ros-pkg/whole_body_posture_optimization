@@ -16,6 +16,10 @@ nav_msgs::Path createPath(double start_x, double stop_x, double step, const Eige
     pose_msg.header.frame_id = "world";
 
     Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+//     if (x == start_x) {
+//       pose = Eigen::AngleAxisd(M_PI_2, Eigen::Vector3d::UnitZ());
+//     }
+
     pose.translation() = Eigen::Vector3d(x, 0, 0) + offset;
     tf::poseEigenToMsg(pose, pose_msg.pose);
 

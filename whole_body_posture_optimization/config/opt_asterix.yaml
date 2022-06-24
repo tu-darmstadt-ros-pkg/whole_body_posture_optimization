@@ -131,10 +131,9 @@ flipper_optimization:
   joints:
     - flipper_front_joint
     - flipper_back_joint
-    
-  objective: heuristic
-    
-  heuristic:
+
+  cost_parameters:
+    verbose: false
     lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
     movement_cost_weight: 0.1 #0.05  #0.2  #0.5
     support_area_weight: 0
@@ -143,14 +142,8 @@ flipper_optimization:
     turning_resistance_weight: 0.1
     roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
     position_deviation_weight: 0
-    verbose: false
     stability_weight: 1.0;
     stability_exp_parameters: [14.0, -2.6, 0.3]
-    
-  stability:
-    exp_parameters: [14.0, -2.6, 0.3] 
-    lorentzian_sigma: 0.2
-    movement_cost_weight: 0.02
   
 ## Debug
 posture_optimization_debug: false
