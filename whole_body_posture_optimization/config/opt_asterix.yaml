@@ -144,6 +144,8 @@ flipper_optimization:
     roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
     position_deviation_weight: 0
     verbose: false
+    stability_weight: 1.0;
+    stability_exp_parameters: [14.0, -2.6, 0.3]
     
   stability:
     exp_parameters: [14.0, -2.6, 0.3] 

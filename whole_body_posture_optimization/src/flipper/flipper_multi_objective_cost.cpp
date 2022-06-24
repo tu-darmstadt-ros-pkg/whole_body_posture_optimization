@@ -62,6 +62,19 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     chassis_roll_angle = M_PI - chassis_roll_angle;
   }
 
+  // Stability cost
+  double stability_cost = 0;
+  if (parameters_.stability_weight != 0) {
+//    Eigen::Vector3d com_pos = result_pose_eigen * pose_predictor_->robotModel()->centerOfMass();
+//    std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, com_pos);
+    std::vector<double> transformed_edge_stabilities =  support_polygon.edge_stabilities;
+    std::transform(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), transformed_edge_stabilities.begin(), [this](double stability) -> double {
+      return parameters_.stability_exp_parameters[0] * exp(parameters_.stability_exp_parameters[1] * stability+parameters_.stability_exp_parameters[2]);
+    });
+
+    stability_cost = std::accumulate(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), 0.0);
+    stability_cost /= static_cast<double>(support_polygon.edge_stabilities.size()); // average cost per axis
+  }
 
   // Use contact information
   // Use track contact to approximate traction and penalize chassis contacts
@@ -140,6 +153,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
             + parameters_.movement_cost_weight * movement_cost
             + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
             + parameters_.position_deviation_weight * position_deviation_cost;
+            + parameters_.stability_weight * stability_cost;
 
   if (parameters_.verbose) {
     ROS_INFO_STREAM("Flipper cost function (weighted value in brackets): " << std::endl <<
@@ -150,6 +164,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     "Movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl <<
     "Position deviation cost: " << position_deviation_cost << " (" << parameters_.position_deviation_weight * position_deviation_cost << ")" << std::endl <<
     "Chassis roll angle: " << chassis_roll_angle << " (" << parameters_.roll_cost_weight * chassis_roll_angle << ")" << std::endl <<
+    "Stability cost: " << stability_cost << " (" << parameters_.stability_weight * stability_cost << ")" << std::endl <<
     "Total cost: " << cost[0]);
   }
 

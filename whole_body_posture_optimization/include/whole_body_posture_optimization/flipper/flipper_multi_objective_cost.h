@@ -23,6 +23,16 @@ struct FlipperMultiObjectiveCostParameters
     nh.param("position_deviation_weight", parameters_.position_deviation_weight, 10.0);
     nh.param("roll_cost_weight", parameters_.roll_cost_weight, 2.0);
     nh.param("verbose", parameters_.verbose, false);
+    nh.param("stability_weight", parameters_.stability_weight, 1.0);
+    std::vector<double> exp_parameters;
+    nh.param("stability_exp_parameters", exp_parameters,  {1.6, -1.7, 0.0});
+    if (exp_parameters.size() != 3) {
+      ROS_ERROR_STREAM("Invalid size for parameter 'exp_parameter'. Got " << exp_parameters.size() << " expected 3");
+      parameters_.stability_exp_parameters[0] = parameters_.stability_exp_parameters[1] = parameters_.stability_exp_parameters[2] = 0;
+    } else {
+      std::copy(begin(exp_parameters), end(exp_parameters), parameters_.stability_exp_parameters);
+    }
+
     return parameters_;
   }
 
@@ -37,6 +47,11 @@ struct FlipperMultiObjectiveCostParameters
     ss << "body_contact_weight = " << body_contact_weight << std::endl;
     ss << "turning_resistance_weight = " << turning_resistance_weight << std::endl;
     ss << "roll_cost_weight = " << roll_cost_weight << std::endl;
+    ss << "stability_weight = " << stability_weight << std::endl;
+    ss << "stability_exp_parameters = "
+       << stability_exp_parameters[0] << ", "
+       << stability_exp_parameters[1] << ", "
+       << stability_exp_parameters[2] << std::endl;
     return ss.str();
   }
   double support_area_weight;
@@ -47,6 +62,8 @@ struct FlipperMultiObjectiveCostParameters
   double turning_resistance_weight;
   double position_deviation_weight;
   double roll_cost_weight;
+  double stability_weight;
+  double stability_exp_parameters[3];
   bool verbose;
 };
 
