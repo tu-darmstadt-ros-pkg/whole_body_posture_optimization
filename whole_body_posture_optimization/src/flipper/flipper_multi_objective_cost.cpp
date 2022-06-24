@@ -51,6 +51,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     // Enforce valid transitions from previous to this state
     // The transition is only considered valid, if the previous (world) COM pose is still inside the new support polygon
     // This should ensure that no intermediate state between the discretized states is unstable.
+    // Note: This completely prevents tipping between states, even if it would be possible
     std::vector<double> prev_com_stabilities =
         computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, prev_com_);
     double prev_com_stability = *std::min_element(prev_com_stabilities.begin(), prev_com_stabilities.end());
