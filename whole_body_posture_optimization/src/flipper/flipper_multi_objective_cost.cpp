@@ -11,11 +11,16 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
                                          const FlipperMultiObjectiveCostParameters&parameters)
   : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose), parameters_(parameters)
 {
+  param_idx_to_state_idx = getIndexMap<std::string>(pose_predictor_->robotModel()->jointNames(), free_joints_);
   if (previous_state) {
     prev_flipper_param_angles_ = getVariablePositions(previous_state, free_joints_);
     prev_pose_ = previous_state->getJointTransform("world_virtual_joint");
+    // Compute previous COM in world
+    for (unsigned int i = 0; i < free_joints_.size(); i++) {
+      pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], prev_flipper_param_angles_[i]);
+    }
+    prev_com_ = prev_pose_ * pose_predictor->robotModel()->centerOfMass();
   }
-  param_idx_to_state_idx = getIndexMap<std::string>(pose_predictor_->robotModel()->jointNames(), free_joints_);
 }
 
 bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, double* cost) const
@@ -39,21 +44,54 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     return true;
   }
 
-  // *** Cost functions ** //
+  // ** Transition costs ++ //
+  double turning_resistance = 0;
+  double movement_cost = 0.0;
+  if (!prev_flipper_param_angles_.empty()) {
+    // Enforce valid transitions from previous to this state
+    // The transition is only considered valid, if the previous (world) COM pose is still inside the new support polygon
+    // This should ensure that no intermediate state between the discretized states is unstable.
+    std::vector<double> prev_com_stabilities =
+        computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, prev_com_);
+    double prev_com_stability = *std::min_element(prev_com_stabilities.begin(), prev_com_stabilities.end());
+    if (prev_com_stability < 0)
+    {
+      cost[0] = std::numeric_limits<double>::max();
+      return true;
+    }
+
+    // Approximate moment of turning resistance
+    if (parameters_.turning_resistance_weight != 0) {
+      // Compute contact
+      for (const hector_pose_prediction_interface::ContactPointInformation<double>& point: contact_information.contact_points) {
+        Eigen::Vector3d p_base = result_pose_eigen.inverse() * point.point; // Transform from world to base link
+        double distance = p_base.block<2, 1>(0, 0).norm();
+        turning_resistance += distance;
+      }
+      // Compute turning angle
+      Eigen::Quaterniond start_orientation(prev_pose_.linear());
+      Eigen::Quaterniond end_orientation(result_pose_eigen.linear());
+      Eigen::Quaterniond rotation_diff = start_orientation.inverse() * end_orientation;
+      Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
+      double turning_angle = euler_angles(0);
+      turning_resistance *= std::abs(turning_angle);
+    }
+
+    if (parameters_.movement_cost_weight != 0) {
+      // Joint movement cost
+      for (unsigned int idx = 0; idx < prev_flipper_param_angles_.size(); idx++) {
+        double angle_difference = prev_flipper_param_angles_[idx] - flipper_angles[0][idx];
+        movement_cost += lorentzian<double>(angle_difference, parameters_.lorentzian_sigma);
+      }
+      movement_cost /= static_cast<double>(prev_flipper_param_angles_.size()); // Normalize by number of joints
+    }
+  }
+
+  // *** State costs ** //
   // Penalize deviation from requested position
   Eigen::Isometry3d original_to_estimated = pose_.inverse() * result_pose_eigen;
   double position_difference = original_to_estimated.translation().block<2,1>(0,0).norm();
   double position_deviation_cost = std::max(0.0, position_difference - 0.02); // 2cm leeway
-
-  // Joint movement cost
-  double movement_cost = 0.0;
-  if (!prev_flipper_param_angles_.empty()) {
-    for (unsigned int idx = 0; idx < prev_flipper_param_angles_.size(); idx++) {
-      double angle_difference = prev_flipper_param_angles_[idx] - flipper_angles[0][idx];
-      movement_cost += lorentzian<double>(angle_difference, parameters_.lorentzian_sigma);
-    }
-    movement_cost /= static_cast<double>(prev_flipper_param_angles_.size()); // Normalize by number of joints
-  }
 
   // Penalize chassis roll angle
   // We want the chassis to be upright
@@ -76,7 +114,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     stability_cost /= static_cast<double>(support_polygon.edge_stabilities.size()); // average cost per axis
   }
 
-  // Use contact information
+  // Traction and fragile contacts costs
   // Use track contact to approximate traction and penalize chassis contacts
   double track_contact_area = 0;
   double body_contact_area = 0;
@@ -100,26 +138,6 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
       body_contact_area += point.surface_area;
     }
   }
-
-  // Approximate moment of turning resistance
-  double turning_resistance = 0;
-  if (!prev_flipper_param_angles_.empty()) { // Check if there is a valid previous state
-    // Compute contact
-    for (const hector_pose_prediction_interface::ContactPointInformation<double>& point: contact_information.contact_points) {
-      Eigen::Vector3d p_base = result_pose_eigen.inverse() * point.point; // Transform from world to base link
-      double distance = p_base.block<2, 1>(0, 0).norm();
-      turning_resistance += distance;
-    }
-    // Compute turning angle
-    Eigen::Quaterniond start_orientation(prev_pose_.linear());
-    Eigen::Quaterniond end_orientation(result_pose_eigen.linear());
-    Eigen::Quaterniond rotation_diff = start_orientation.inverse() * end_orientation;
-    Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
-    double turning_angle = euler_angles(0);
-
-    turning_resistance *= std::abs(turning_angle);
-  }
-
 
   // Penalize contact normals that point against the moving direction
   // For now, the moving direction is hard-coded to x+

@@ -90,6 +90,7 @@ private:
   hector_math::Pose<double> pose_math_;
   std::vector<double> prev_flipper_param_angles_;
   Eigen::Isometry3d prev_pose_;
+  Eigen::Vector3d prev_com_;
   std::vector<size_t> param_idx_to_state_idx;
 
   const FlipperMultiObjectiveCostParameters& parameters_;
