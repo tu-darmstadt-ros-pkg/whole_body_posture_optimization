@@ -131,11 +131,11 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
       previous_state = std::make_shared<robot_state::RobotState>(robot_model_->getMoveitRobotState());
       updateMoveitRobotState(*previous_state, last_result.result_pose);
 
+      results.push_back(last_result);
       if (!last_result.success) {
         ROS_ERROR_STREAM("Posture optimization failed.");
         return results;
       }
-      results.push_back(last_result);
 
       if (last_result.stability_arm_opt < stability_limit_) {
         ROS_WARN_STREAM("Robot unstable (" << last_result.stability_arm_opt << " < " << stability_limit_ << "). Aborting!");
@@ -291,6 +291,10 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
   robot_trajectory::RobotTrajectory trajectory(robot_model_->getMoveitRobotModel(), group);
   if (opt_result.size() < 2) {
     ROS_WARN_STREAM("Can't compute timed trajectory, path is empty.");
+    return trajectory;
+  }
+  if (!opt_result.back().success) {
+    ROS_WARN_STREAM("Posture optimization failed, can't compute trajectory");
     return trajectory;
   }
 
