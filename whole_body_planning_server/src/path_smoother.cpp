@@ -178,9 +178,10 @@ std::vector<Eigen::Vector3d> Pathsmoother3D::computeSmoothedPositions(const std:
   {
     Eigen::Vector3d p = Eigen::Vector3d::Zero();
     double weight = 0;
-    for(unsigned j = 0; j < samples.size(); ++j)
+    int step = std::min(static_cast<int>(i), static_cast<int>(samples.size() - 1) - static_cast<int>(i));
+    for(unsigned j = i - step; j < i + step + 1; ++j)
       weight += gaussianWeight(samples[i], samples[j]);
-    for(unsigned j = 0; j < samples.size(); ++j)
+    for(unsigned j = i - step; j < i + step + 1; ++j)
     {
       double w_ij = gaussianWeight(samples[i], samples[j]);
       p(0) += (w_ij / weight) * samplesX[j](0);
