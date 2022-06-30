@@ -156,8 +156,8 @@ std::vector<Eigen::Vector3d> Pathsmoother3D::computeSmoothedPositions(const std:
   std::vector<Eigen::Vector3d> samplesX;
   samplesX.reserve(distances.back() / SMOOTHED_PATH_DISCRETIZATION);
 
-  std::vector<double>::const_iterator itT = distances.begin();
-  std::deque<Eigen::Vector3d>::const_iterator itX = positions.begin();
+  auto itT = distances.begin();
+  auto itX = positions.begin();
 
   for(double d = 0; d < distances.back(); d += SMOOTHED_PATH_DISCRETIZATION)
   {
