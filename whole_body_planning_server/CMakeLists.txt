@@ -51,6 +51,8 @@ catkin_package(
 #  DEPENDS system_lib
 )
 
+catkin_add_env_hooks(50.export.whole_body_planning_server SHELLS bash)
+
 ###########
 ## Build ##
 ###########
