@@ -107,6 +107,11 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
 //    Eigen::Vector3d com_pos = result_pose_eigen * pose_predictor_->robotModel()->centerOfMass();
 //    std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, com_pos);
     std::vector<double> transformed_edge_stabilities =  support_polygon.edge_stabilities;
+    if (parameters_.stability_nominal_value != 0) {
+      std::transform(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), transformed_edge_stabilities.begin(), [this](double stability) -> double {
+        return std::min(stability, parameters_.stability_nominal_value);
+      });
+    }
     std::transform(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), transformed_edge_stabilities.begin(), [this](double stability) -> double {
       return parameters_.stability_exp_parameters[0] * exp(parameters_.stability_exp_parameters[1] * stability+parameters_.stability_exp_parameters[2]);
     });
@@ -138,6 +143,9 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
         point.link_type == hector_pose_prediction_interface::LinkType::Fragile) {
       body_contact_area += point.surface_area;
     }
+  }
+  if (parameters_.track_contact_nominal_value != 0) {
+    track_contact_area = std::min(track_contact_area, parameters_.track_contact_nominal_value);
   }
 
   // Penalize contact normals that point against the moving direction
@@ -171,7 +179,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
             + parameters_.turning_resistance_weight * turning_resistance
             + parameters_.movement_cost_weight * movement_cost
             + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
-            + parameters_.position_deviation_weight * position_deviation_cost;
+            + parameters_.position_deviation_weight * position_deviation_cost
             + parameters_.stability_weight * stability_cost;
 
   if (parameters_.verbose) {
