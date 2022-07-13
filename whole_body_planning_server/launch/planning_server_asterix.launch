@@ -25,6 +25,12 @@
   <!-- moveit_cpp parameters -->
   <rosparam ns="whole_body_planning_server" file="$(find whole_body_planning_server)/config/moveit_cpp.yaml" command="load"/>
 
+  <!-- moveit parameters -->
+  <group ns="robot_description_planning">
+    <rosparam command="load" file="$(find asterix_moveit_config)/config/joint_limits.yaml"/>
+    <rosparam command="load" file="$(find asterix_moveit_config)/config/joint_limits_world.yaml"/>
+  </group>
+
   <!-- Planning Pipeline -->
   <include ns="whole_body_planning_server/ompl" file="$(find asterix_moveit_config)/launch/ompl_planning_pipeline.launch.xml"/>
 
