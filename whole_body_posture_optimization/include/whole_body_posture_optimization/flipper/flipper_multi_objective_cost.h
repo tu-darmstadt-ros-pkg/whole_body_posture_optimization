@@ -18,12 +18,14 @@ struct FlipperMultiObjectiveCostParameters
     nh.param("movement_cost_weight", parameters_.movement_cost_weight, 0.2);
     nh.param("lorentzian_sigma", parameters_.lorentzian_sigma, 0.2);
     nh.param("track_contact_weight", parameters_.track_contact_weight, 2.0);
+    nh.param("track_contact_nominal_value", parameters_.track_contact_nominal_value, 0.0);
     nh.param("turning_resistance_weight", parameters_.turning_resistance_weight, 1.0);
     nh.param("body_contact_weight", parameters_.body_contact_weight, 4.0);
     nh.param("position_deviation_weight", parameters_.position_deviation_weight, 10.0);
     nh.param("roll_cost_weight", parameters_.roll_cost_weight, 2.0);
     nh.param("verbose", parameters_.verbose, false);
     nh.param("stability_weight", parameters_.stability_weight, 1.0);
+    nh.param("stability_nominal_value", parameters_.stability_nominal_value, 0.0);
     std::vector<double> exp_parameters;
     nh.param("stability_exp_parameters", exp_parameters,  {1.6, -1.7, 0.0});
     if (exp_parameters.size() != 3) {
@@ -58,11 +60,13 @@ struct FlipperMultiObjectiveCostParameters
   double movement_cost_weight;
   double lorentzian_sigma;
   double track_contact_weight;
+  double track_contact_nominal_value;
   double body_contact_weight;
   double turning_resistance_weight;
   double position_deviation_weight;
   double roll_cost_weight;
   double stability_weight;
+  double stability_nominal_value;
   double stability_exp_parameters[3];
   bool verbose;
 };

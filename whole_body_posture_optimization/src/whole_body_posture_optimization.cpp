@@ -61,6 +61,7 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
     return false;
   }
 
+
   nh.param("stability_limit", stability_limit_, 0.0);
   nh.param("front_tip_support_area_limit", front_tip_support_area_limit_, 0.5);
   nh.param<bool>("stepping", stepping_, false);

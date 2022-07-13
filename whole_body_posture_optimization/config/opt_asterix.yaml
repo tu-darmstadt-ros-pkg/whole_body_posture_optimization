@@ -138,11 +138,13 @@ flipper_optimization:
     movement_cost_weight: 0.1 #0.05  #0.2  #0.5
     support_area_weight: 0
     track_contact_weight: 8
+    track_contact_nominal_value: 0.2
     body_contact_weight: 50
     turning_resistance_weight: 0.1
     roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
     position_deviation_weight: 0
     stability_weight: 1.0
+    stability_nominal_value: 1.5
     stability_exp_parameters: [14.0, -2.6, 0.3]
   
 ## Debug
