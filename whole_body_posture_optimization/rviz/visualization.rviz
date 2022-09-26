@@ -6,15 +6,15 @@ Panels:
       Expanded:
         - /VoxbloxMesh1
         - /RobotState1
+        - /Path1
       Splitter Ratio: 0.5469200015068054
-    Tree Height: 2816
+    Tree Height: 2240
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
     Expanded:
-      - /2D Pose Estimate1
-      - /2D Nav Goal1
       - /Publish Point1
+      - /Waypoint Tool1
     Name: Tool Properties
     Splitter Ratio: 0.5886790156364441
   - Class: rviz/Views
@@ -23,7 +23,6 @@ Panels:
     Name: Views
     Splitter Ratio: 0.5
   - Class: rviz/Time
-    Experimental: false
     Name: Time
     SyncMode: 0
     SyncSource: ""
@@ -674,7 +673,7 @@ Visualization Manager:
       Show Robot Collision: false
       Show Robot Visual: true
       Show Trail: false
-      State Display Time: 3x
+      State Display Time: 1x
       Trail Step Size: 1
       Trajectory Topic: /whole_body_posture_optimization_node/trajectory
       Use Sim Time: false
@@ -716,6 +715,80 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: false
+    - Class: hector_user_interface/UserInterface
+      Configuration:
+        Battery Topic: /battery
+        Branding: false
+        Dash Height: 100
+        Maximum Latency: 150
+        Network Topic: /processed_connectivity
+        Robot Orientation View:
+          Back Left Flipper Joint: ""
+          Back Right Flipper Joint: ""
+          Front Left Flipper Joint: ""
+          Front Right Flipper Joint: ""
+          IMU Topic: /imu/data
+          Offsets:
+            Back Left Multiplier: 1
+            Back Left Offset: 0
+            Back Right Multiplier: 1
+            Back Right Offset: 0
+            Front Left Multiplier: 1
+            Front Left Offset: 0
+            Front Right Multiplier: 1
+            Front Right Offset: 0
+        TUDa Branding: false
+      Enabled: true
+      Live Reload: false
+      Name: UserInterface
+      Overlay Configuration:
+        robotActions:
+          actionStructure:
+            content:
+              - key: 7b2bb842-c3a2-4b52-8118-0a30805600a3
+                type: robotAction
+                uuid: 5a28a6d1-52ca-4563-ab57-9cf30716740d
+            type: directory
+            uuid: root
+          actions:
+            - evaluateParams: true
+              icon: ""
+              messageType: nav_msgs/Path
+              name: Plan Path
+              parallel: false
+              params: "var waypointTool = null;\nfor (var tool of rviz.toolManager.tools) {\n  if (tool.classId  != \"hector_user_interface/WaypointTool\") continue;\n  waypointTool = tool;\n  break;\n}\nvar poses = [];\nfor (var pose of waypointTool.tool.waypoints) {\n  poses.push({\n    header: {frame_id: waypointTool.tool.frame},\n    pose: {\n      position: pose.position,\n      orientation: {x: pose.orientation.x, \n                    y: pose.orientation.y,\n                    z: pose.orientation.z,\n                    w: pose.orientation.scalar}\n    }\n  });\n}\nreturn ({\n  \"header\": {\n    \"frame_id\": waypointTool.tool.frame,\n    \"seq\": 0,\n    \"stamp\": {\n      \"sec\": 0,\n      \"nsec\": 0\n    }\n  },\n  \"poses\": poses\n});"
+              subactions: ""
+              topic: /whole_body_posture_optimization_node/goal_path
+              type: topic
+              uuid: 7b2bb842-c3a2-4b52-8118-0a30805600a3
+              value: ""
+      Scale: 1
+      Value: true
+      Z-Index: 0
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Billboards
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: Axes
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /whole_body_posture_optimization_node/input_path
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -730,21 +803,16 @@ Visualization Manager:
     - Class: rviz/Select
     - Class: rviz/FocusCamera
     - Class: rviz/Measure
-    - Class: rviz/SetInitialPose
-      Theta std deviation: 0.2617993950843811
-      Topic: /initialpose
-      X std deviation: 0.5
-      Y std deviation: 0.5
-    - Class: rviz/SetGoal
-      Topic: /move_base_simple/goal
     - Class: rviz/PublishPoint
       Single click: true
       Topic: /clicked_point
+    - Class: hector_user_interface/WaypointTool
+      Hide Inactive Objects: true
   Value: true
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 6.330106735229492
+      Distance: 10.081254005432129
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -752,25 +820,25 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 1.7021105289459229
-        Y: 0.2895454168319702
-        Z: -0.27011314034461975
+        X: -2.1704776287078857
+        Y: -0.20414261519908905
+        Z: 0.037843119353055954
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.20979702472686768
+      Pitch: 1.1547966003417969
       Target Frame: <Fixed Frame>
-      Yaw: 4.670403003692627
+      Yaw: 4.7004008293151855
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 3328
+  Height: 2752
   Hide Left Dock: false
   Hide Right Dock: true
-  QMainWindow State: 000000ff00000000fd0000000400000000000003e700000bf8fc020000000bfb0000001200530065006c0065006300740069006f006e00000001e10000009b000000b000fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730200001400000001df00000185000000b0fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000006e00000bf80000018200fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000003880000069e0000000000000000fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000002600000026000000010000015f00000bf8fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000006e00000bf80000013200fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000177000000060fc0100000002fb0000000800540069006d00650100000000000017700000057100fffffffb0000000800540069006d006501000000000000045000000000000000000000137d00000bf800000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000400000000000003e7000009b8fc020000000bfb0000001200530065006c0065006300740069006f006e00000001e10000009b000000b000fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730200001400000001df00000185000000b0fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000006e000009b80000018200fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000003880000069e0000000000000000fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000002600000026000000010000015f00000bf8fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000006e00000bf80000013200fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000137000000060fc0100000002fb0000000800540069006d0065010000000000001370000006dc00fffffffb0000000800540069006d0065010000000000000450000000000000000000000f7d000009b800000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -781,6 +849,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: true
-  Width: 6000
-  X: 5264
-  Y: 54
+  Width: 4976
+  X: 5306
+  Y: 75
