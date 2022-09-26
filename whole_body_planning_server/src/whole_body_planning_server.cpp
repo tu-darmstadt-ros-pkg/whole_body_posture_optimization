@@ -571,6 +571,10 @@ void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {
 
 void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
 {
+  if (!trajectory_) {
+    ROS_ERROR_STREAM("No trajectory planned yet, cannot execute");
+    return;
+  }
   ros::Time starting_time = ros::Time::now() + ros::Duration(1);
   if (!executeTrajectory(*trajectory_, starting_time)) {
     ROS_ERROR_STREAM("Trajectory execution failed");
