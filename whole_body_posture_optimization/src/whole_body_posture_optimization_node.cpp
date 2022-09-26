@@ -31,6 +31,10 @@ nav_msgs::Path createPath(double start_x, double stop_x, double step, const Eige
   return path;
 }
 
+bool isNullQuaternion(const geometry_msgs::Quaternion& quat) {
+  return quat.x == 0.0 && quat.y == 0.0 && quat.z == 0.0 && quat.w == 0.0;
+}
+
 nav_msgs::Path createPath(const geometry_msgs::PoseStamped& start, const geometry_msgs::PoseStamped& goal, double step) {
   // Compute steps
   Eigen::Vector3d start_position, goal_position;
@@ -45,10 +49,17 @@ nav_msgs::Path createPath(const geometry_msgs::PoseStamped& start, const geometr
   path.poses.reserve(num_points+1);
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = start.header.frame_id; // frame_id should be the same for every pose and path
-  pose.pose.orientation = goal.pose.orientation; // Use goal orientation for all poses except start
+  // Goal orientation points x-axis to goal
+  Eigen::Quaterniond path_orientation;
+  path_orientation.setFromTwoVectors(Eigen::Vector3d::UnitX(), position_difference);
+  tf::quaternionEigenToMsg(path_orientation, pose.pose.orientation);
 
   // Fill path
   path.poses.emplace_back(start); // Use start orientation for this one
+  if (isNullQuaternion(start.pose.orientation)) {
+    // If start orientation is not set, point to goal
+    path.poses.back().pose.orientation = pose.pose.orientation;
+  }
   for (unsigned int i = 1; i < num_points; ++i) {
     double t = static_cast<double>(i) / num_points;
     Eigen::Vector3d position = start_position + t * position_difference;
@@ -56,6 +67,10 @@ nav_msgs::Path createPath(const geometry_msgs::PoseStamped& start, const geometr
     path.poses.emplace_back(pose);
   }
   path.poses.emplace_back(goal);
+  if (isNullQuaternion(goal.pose.orientation)) {
+    // If goal orientation is not set, point to goal
+    path.poses.back().pose.orientation = pose.pose.orientation;
+  }
   return path;
 }
 
