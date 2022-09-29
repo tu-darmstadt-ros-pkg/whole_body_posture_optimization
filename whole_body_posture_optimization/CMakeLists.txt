@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   move_base_lite_msgs
   ceres_nlopt_wrapper
   hector_stability_metrics
+  ddynamic_reconfigure
 )
 
 
@@ -28,7 +29,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs hector_pose_prediction_interface sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning ad_kinematics move_base_lite_msgs ceres_nlopt_wrapper hector_stability_metrics
+  CATKIN_DEPENDS nav_msgs hector_pose_prediction_interface sdf_contact_estimation rbdl urdf moveit_core moveit_ros_planning ad_kinematics move_base_lite_msgs ceres_nlopt_wrapper hector_stability_metrics ddynamic_reconfigure
 #  DEPENDS system_lib
 )
 
@@ -51,7 +52,7 @@ set(HEADERS
 #  include/${PROJECT_NAME}/combined/combined_stability_cost.h
 #  include/${PROJECT_NAME}/combined/self_contact_constraint_no_gradient.h
 #  include/${PROJECT_NAME}/combined/sdf_contact_constraint_no_gradient.h
-)
+  include//${PROJECT_NAME}/optimization_parameters_base.h)
 
 set(SOURCES
   src/whole_body_posture_optimization.cpp
@@ -63,7 +64,7 @@ set(SOURCES
   src/flipper/flipper_multi_objective_cost.cpp
 #  src/combined/combined_optimization.cpp
 #  src/combined/combined_stability_cost.cpp
-)
+  src/optimization_parameters_base.cpp)
 
 include_directories(
   include
