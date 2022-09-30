@@ -18,7 +18,7 @@ void OptimizationParametersBase::registerParameter(const ros::NodeHandle& nh, co
                                                    double default_value, const std::string& description, double min,
                                                    double max)
 {
-  nh.param(name, value, default_value);
+  value = default_value;
   config_[name] = &value;
   reconfigure_->registerVariable<double>(name, &value, description, min, max);
 }
