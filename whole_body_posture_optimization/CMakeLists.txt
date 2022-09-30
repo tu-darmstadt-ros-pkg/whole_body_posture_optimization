@@ -48,11 +48,12 @@ set(HEADERS
   include/${PROJECT_NAME}/arm/self_contact_constraint.h
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
   include/${PROJECT_NAME}/flipper/flipper_multi_objective_cost.h
+  include/${PROJECT_NAME}/flipper/flipper_multi_objective_cost_parameters.h
 #  include/${PROJECT_NAME}/combined/combined_optimization.h
 #  include/${PROJECT_NAME}/combined/combined_stability_cost.h
 #  include/${PROJECT_NAME}/combined/self_contact_constraint_no_gradient.h
 #  include/${PROJECT_NAME}/combined/sdf_contact_constraint_no_gradient.h
-  include//${PROJECT_NAME}/optimization_parameters_base.h)
+  include/${PROJECT_NAME}/optimization_parameters_base.h)
 
 set(SOURCES
   src/whole_body_posture_optimization.cpp
@@ -62,7 +63,8 @@ set(SOURCES
   src/arm/arm_optimization.cpp
   src/flipper/flipper_optimization.cpp
   src/flipper/flipper_multi_objective_cost.cpp
-#  src/combined/combined_optimization.cpp
+  src/flipper/flipper_multi_objective_cost_parameters.cpp
+  #  src/combined/combined_optimization.cpp
 #  src/combined/combined_stability_cost.cpp
   src/optimization_parameters_base.cpp)
 

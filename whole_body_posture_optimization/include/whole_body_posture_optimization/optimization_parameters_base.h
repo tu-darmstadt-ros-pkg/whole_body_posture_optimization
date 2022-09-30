@@ -7,13 +7,16 @@ namespace whole_body_posture_optimization {
 
 class OptimizationParametersBase {
 public:
+  OptimizationParametersBase();
   bool loadParametersFromNamespace(const ros::NodeHandle& nh);
   std::string toString() const;
-protected:
 
+  bool verbose;
+protected:
   virtual bool loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) = 0;
   void registerParameter(const ros::NodeHandle& nh, const std::string& name, double& value, double default_value, const std::string& description, double min, double max);
 private:
+  bool loadBaseParametersFromNamespace(const ros::NodeHandle& nh);
   std::shared_ptr<ddynamic_reconfigure::DDynamicReconfigure> reconfigure_;
   std::map<std::string, double*> config_;
 };

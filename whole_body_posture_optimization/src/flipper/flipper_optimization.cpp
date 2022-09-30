@@ -60,7 +60,7 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
 
   nh.param("enabled", enabled_, enabled_);
 
-  flipper_multi_objective_cost_parameters_ = FlipperMultiObjectiveCostParameters::createFromServer(ros::NodeHandle(nh, "cost_parameters"));
+  flipper_multi_objective_cost_parameters_.loadParametersFromNamespace(ros::NodeHandle(nh, "cost_parameters"));
   ROS_INFO_STREAM(flipper_multi_objective_cost_parameters_.toString());
 
 

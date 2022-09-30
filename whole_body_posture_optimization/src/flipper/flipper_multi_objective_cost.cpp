@@ -8,7 +8,7 @@ namespace whole_body_posture_optimization {
 FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                          const Eigen::Isometry3d &pose,
                                          const robot_state::RobotStateConstPtr& previous_state,
-                                         const FlipperMultiObjectiveCostParameters&parameters)
+                                         const FlipperMultiObjectiveCostParameters& parameters)
   : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose), parameters_(parameters)
 {
   param_idx_to_state_idx = getIndexMap<std::string>(pose_predictor_->robotModel()->jointNames(), free_joints_);

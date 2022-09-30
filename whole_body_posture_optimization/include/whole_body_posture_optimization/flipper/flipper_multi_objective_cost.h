@@ -7,69 +7,9 @@
 #include <Eigen/Eigen>
 #include <hector_pose_prediction_interface/pose_predictor.h>
 #include <moveit/robot_state/robot_state.h>
+#include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost_parameters.h>
 
 namespace whole_body_posture_optimization {
-
-struct FlipperMultiObjectiveCostParameters
-{
-  static FlipperMultiObjectiveCostParameters createFromServer(const ros::NodeHandle& nh) {
-    FlipperMultiObjectiveCostParameters parameters_{};
-    nh.param("support_area_weight", parameters_.support_area_weight, 1.0);
-    nh.param("movement_cost_weight", parameters_.movement_cost_weight, 0.2);
-    nh.param("lorentzian_sigma", parameters_.lorentzian_sigma, 0.2);
-    nh.param("track_contact_weight", parameters_.track_contact_weight, 2.0);
-    nh.param("track_contact_nominal_value", parameters_.track_contact_nominal_value, 0.0);
-    nh.param("turning_resistance_weight", parameters_.turning_resistance_weight, 1.0);
-    nh.param("body_contact_weight", parameters_.body_contact_weight, 4.0);
-    nh.param("position_deviation_weight", parameters_.position_deviation_weight, 10.0);
-    nh.param("roll_cost_weight", parameters_.roll_cost_weight, 2.0);
-    nh.param("verbose", parameters_.verbose, false);
-    nh.param("stability_weight", parameters_.stability_weight, 1.0);
-    nh.param("stability_nominal_value", parameters_.stability_nominal_value, 0.0);
-    std::vector<double> exp_parameters;
-    nh.param("stability_exp_parameters", exp_parameters,  {1.6, -1.7, 0.0});
-    if (exp_parameters.size() != 3) {
-      ROS_ERROR_STREAM("Invalid size for parameter 'exp_parameter'. Got " << exp_parameters.size() << " expected 3");
-      parameters_.stability_exp_parameters[0] = parameters_.stability_exp_parameters[1] = parameters_.stability_exp_parameters[2] = 0;
-    } else {
-      std::copy(begin(exp_parameters), end(exp_parameters), parameters_.stability_exp_parameters);
-    }
-
-    return parameters_;
-  }
-
-  std::string toString() const {
-    std::stringstream ss;
-    ss << "Heuristic cost parameters:" << std::endl;
-    ss << "support_area_weight = " << support_area_weight << std::endl;
-    ss << "movement_cost_weight = " << movement_cost_weight << std::endl;
-    ss << "lorentzian_sigma = " << lorentzian_sigma << std::endl;
-    ss << "track_contact_weight = " << track_contact_weight << std::endl;
-    ss << "body_contact_weight = " << body_contact_weight << std::endl;
-    ss << "body_contact_weight = " << body_contact_weight << std::endl;
-    ss << "turning_resistance_weight = " << turning_resistance_weight << std::endl;
-    ss << "roll_cost_weight = " << roll_cost_weight << std::endl;
-    ss << "stability_weight = " << stability_weight << std::endl;
-    ss << "stability_exp_parameters = "
-       << stability_exp_parameters[0] << ", "
-       << stability_exp_parameters[1] << ", "
-       << stability_exp_parameters[2] << std::endl;
-    return ss.str();
-  }
-  double support_area_weight;
-  double movement_cost_weight;
-  double lorentzian_sigma;
-  double track_contact_weight;
-  double track_contact_nominal_value;
-  double body_contact_weight;
-  double turning_resistance_weight;
-  double position_deviation_weight;
-  double roll_cost_weight;
-  double stability_weight;
-  double stability_nominal_value;
-  double stability_exp_parameters[3];
-  bool verbose;
-};
 
 class FlipperMultiObjectiveCost
 {

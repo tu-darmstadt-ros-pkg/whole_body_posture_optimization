@@ -2,10 +2,15 @@
 
 namespace whole_body_posture_optimization {
 
+OptimizationParametersBase::OptimizationParametersBase()
+: verbose(false)
+{}
+
 bool OptimizationParametersBase::loadParametersFromNamespace(const ros::NodeHandle& nh)
 {
   reconfigure_ = std::make_shared<ddynamic_reconfigure::DDynamicReconfigure>(nh);
   bool success = loadParametersFromNamespaceImpl(nh);
+  success &= loadBaseParametersFromNamespace(nh);
   reconfigure_->publishServicesTopics();
   return success;
 }
@@ -21,9 +26,15 @@ std::string OptimizationParametersBase::toString() const
 {
   std::stringstream ss;
   for (auto const& parameter: config_) {
-    ss << parameter.first << " = " << parameter.second << std::endl;
+    ss << parameter.first << " = " << *parameter.second << std::endl;
   }
   return ss.str();
+}
+bool OptimizationParametersBase::loadBaseParametersFromNamespace(const ros::NodeHandle& nh)
+{
+  nh.param("verbose", verbose, false);
+  reconfigure_->registerVariable<bool>("verbose", &verbose, std::string("Verbosity"));
+  return true;
 }
 
 }
