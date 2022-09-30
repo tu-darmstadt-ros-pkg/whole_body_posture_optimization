@@ -8,6 +8,7 @@
 
 #include <moveit/collision_detection/collision_matrix.h>
 #include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
+#include <ceres_nlopt_wrapper/nlopt_parameter_server.h>
 
 #include <sdf_contact_estimation/sdf/sdf_model.h>
 #include <whole_body_posture_optimization/arm/stability_cost.h>
@@ -37,8 +38,9 @@ private:
   std::vector<double> jointVectorToParamVector(const std::vector<double> &joint_vec);
 
   ros::NodeHandle nh_;
-  nlopt::opt opt_;
-  std::shared_ptr<nlopt::opt> sub_opt_;
+
+  std::shared_ptr<ceres_nlopt_wrapper::NloptParameterServer> opt_server_;
+//  std::shared_ptr<nlopt::opt> sub_opt_;
 
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<std::size_t> param_idx_to_jnt_idx_;

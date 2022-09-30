@@ -39,36 +39,29 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   robot_tsdf_pub_ = nh.advertise<pcl::PointCloud<pcl::PointXYZI>>("robot_tsdf", 10, true);
 
   // Create nlopt optimizer
-  opt_ = nlopt::opt(algorithm_.c_str(), free_joints_.size());
-  // Define parameter bounds
-  opt_.set_lower_bounds(lower_bounds_);
-  opt_.set_upper_bounds(upper_bounds_);
-
-  // Set convergence criterion
-  ros::NodeHandle stopping_criteria_nh(nh_, "stopping_criteria");
-  ceres_nlopt_wrapper::setParametersFromServer(stopping_criteria_nh, opt_);
+  opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(ros::NodeHandle(nh, "solver"), free_joints_.size());
 
   // Set local optimizer
-  std::string local_algorithm;
-  if (nh.getParam("local_algorithm", local_algorithm)) {
-    nlopt::opt local_opt(local_algorithm.c_str(), free_joints_.size());
-    ros::NodeHandle local_stopping_criteria_nh(nh_, "local_stopping_criteria");
-    ceres_nlopt_wrapper::setParametersFromServer(local_stopping_criteria_nh, local_opt);
-
-    local_opt.set_lower_bounds(lower_bounds_);
-    local_opt.set_upper_bounds(upper_bounds_);
-    opt_.set_local_optimizer(local_opt); // makes a copy
-  }
-
-  std::string sub_algorithm;
-  if (nh.getParam("sub_algorithm", sub_algorithm)) {
-    sub_opt_ = std::make_shared<nlopt::opt>(sub_algorithm.c_str(), free_joints_.size());
-    // Define parameter bounds
-    sub_opt_->set_lower_bounds(lower_bounds_);
-    sub_opt_->set_upper_bounds(upper_bounds_);
-    ros::NodeHandle sub_stopping_criteria_nh(nh_, "sub_stopping_criteria");
-    ceres_nlopt_wrapper::setParametersFromServer(sub_stopping_criteria_nh, *sub_opt_);
-  }
+//  std::string local_algorithm;
+//  if (nh.getParam("local_algorithm", local_algorithm)) {
+//    nlopt::opt local_opt(local_algorithm.c_str(), free_joints_.size());
+//    ros::NodeHandle local_stopping_criteria_nh(nh_, "local_stopping_criteria");
+//    ceres_nlopt_wrapper::setParametersFromServer(local_stopping_criteria_nh, local_opt);
+//
+//    local_opt.set_lower_bounds(lower_bounds_);
+//    local_opt.set_upper_bounds(upper_bounds_);
+//    opt_.set_local_optimizer(local_opt); // makes a copy
+//  }
+//
+//  std::string sub_algorithm;
+//  if (nh.getParam("sub_algorithm", sub_algorithm)) {
+//    sub_opt_ = std::make_shared<nlopt::opt>(sub_algorithm.c_str(), free_joints_.size());
+//    // Define parameter bounds
+//    sub_opt_->set_lower_bounds(lower_bounds_);
+//    sub_opt_->set_upper_bounds(upper_bounds_);
+//    ros::NodeHandle sub_stopping_criteria_nh(nh_, "sub_stopping_criteria");
+//    ceres_nlopt_wrapper::setParametersFromServer(sub_stopping_criteria_nh, *sub_opt_);
+//  }
 }
 
 bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -199,6 +192,12 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   }
 
   if (enabled_) {
+    nlopt::opt& opt = opt_server_->getOptimizer();
+
+    // Define parameter bounds
+    opt.set_lower_bounds(lower_bounds_);
+    opt.set_upper_bounds(upper_bounds_);
+
     // Add objective function
     ceres_nlopt_wrapper::OptimizationHistory history;
 
@@ -211,10 +210,10 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     stability_cost.setName("stability_cost");
     stability_cost.enableInfCheck(true);
     stability_cost.enableNanCheck(true);
-    opt_.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost);
+    opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost);
 
     // Add constraints
-    opt_.remove_inequality_constraints();
+    opt.remove_inequality_constraints();
     std::vector<int> param_idx_to_chain_idx = robot_model_->getParamToChainIndexMapping(free_joints_);
     std::vector<std::size_t> chain_idx_to_jnt_idx = robot_model_->getChainToJointIndexMapping();
     std::vector<double> default_chain_angles(chain_idx_to_jnt_idx.size());
@@ -234,7 +233,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
         std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
         wrapper->setName("constraint_environment_" + collision_link);
         environment_constraints.push_back(wrapper);
-        opt_.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+        opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
       }
     }
   //  ROS_INFO_STREAM("Created " << environment_constraints.size() << " environment collision constraints.");
@@ -259,7 +258,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
         std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
         wrapper->setName("constraint_self_collision_tsdf_" + collision_link);
         self_collision_tsdf_constraints.push_back(wrapper);
-        opt_.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+        opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
       }
     }
   //  ROS_INFO_STREAM("Created " << self_collision_tsdf_constraints.size() << " self-collision tsdf constraints.");
@@ -293,7 +292,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
             std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
             wrapper->setName("constraint_self_collision_" + link_name_1 + "_vs_" + link_name_2);
             self_collision_constraints.push_back(wrapper);
-            opt_.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+            opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
           }
         }
       }
@@ -307,7 +306,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   //  stability_cost.checkGradient(parameters);
 
-    // Check for collisions in solution
+    // Check for collisions in initialization
     std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
     if (!ceres_nlopt_wrapper::checkConstraints(parameters, environment_constraints, 0.001, constraint_violations)) {
       ROS_WARN_STREAM("Detected environment collision before optimization!");
@@ -333,7 +332,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     auto start = std::chrono::high_resolution_clock::now();
     nlopt::result nlopt_result;
     try {
-      nlopt_result = opt_.optimize(parameters, minf);
+      nlopt_result = opt.optimize(parameters, minf);
       ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
     }
     catch (const std::invalid_argument& e) {
@@ -351,40 +350,40 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
                     << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
 
     // Subsidiary optimization
-    if (sub_opt_) {
-      start = std::chrono::high_resolution_clock::now();
-      stability_cost.resetEvaluationCounter();
-      sub_opt_->set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost);
-
-      sub_opt_->remove_inequality_constraints();
-      for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: environment_constraints) {
-        sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
-      }
-      for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: self_collision_tsdf_constraints) {
-        sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
-      }
-      for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: self_collision_constraints) {
-        sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
-      }
-
-      try {
-        nlopt_result = sub_opt_->optimize(parameters, minf);
-        ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
-      }
-      catch (const std::invalid_argument& e) {
-        ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());
-      }
-      catch (const nlopt::roundoff_limited& e) {
-        ROS_ERROR_STREAM("Optimization failed: " << e.what());
-      }
-      catch (const std::runtime_error& e) {
-        ROS_ERROR_STREAM("Optimization failed: " << e.what());
-      }
-
-      elapsed = std::chrono::high_resolution_clock::now() - start;
-      ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
-                      << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
-    }
+//    if (sub_opt_) {
+//      start = std::chrono::high_resolution_clock::now();
+//      stability_cost.resetEvaluationCounter();
+//      sub_opt_->set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost);
+//
+//      sub_opt_->remove_inequality_constraints();
+//      for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: environment_constraints) {
+//        sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+//      }
+//      for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: self_collision_tsdf_constraints) {
+//        sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+//      }
+//      for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: self_collision_constraints) {
+//        sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
+//      }
+//
+//      try {
+//        nlopt_result = sub_opt_->optimize(parameters, minf);
+//        ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
+//      }
+//      catch (const std::invalid_argument& e) {
+//        ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());
+//      }
+//      catch (const nlopt::roundoff_limited& e) {
+//        ROS_ERROR_STREAM("Optimization failed: " << e.what());
+//      }
+//      catch (const std::runtime_error& e) {
+//        ROS_ERROR_STREAM("Optimization failed: " << e.what());
+//      }
+//
+//      elapsed = std::chrono::high_resolution_clock::now() - start;
+//      ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
+//                      << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
+//    }
 
     const ceres_nlopt_wrapper::OptimizationResult* best_result = history.getBestResult();
     if (best_result) {

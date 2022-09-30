@@ -42,6 +42,7 @@ private:
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
 
   std::shared_ptr<ceres_nlopt_wrapper::NloptParameterServer> opt_server_;
+  std::shared_ptr<ceres_nlopt_wrapper::NloptParameterServer> local_opt_server_;
   bool enabled_;
   unsigned int parameter_count_;
   std::vector<std::string> free_joints_;
