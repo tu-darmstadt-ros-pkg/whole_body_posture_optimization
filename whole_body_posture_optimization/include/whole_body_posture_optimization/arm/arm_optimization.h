@@ -10,7 +10,7 @@
 #include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
 
 #include <sdf_contact_estimation/sdf/sdf_model.h>
-#include <whole_body_posture_optimization/arm/stability_error.h>
+#include <whole_body_posture_optimization/arm/stability_cost.h>
 
 namespace whole_body_posture_optimization {
 

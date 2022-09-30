@@ -42,7 +42,7 @@ set(HEADERS
   include/${PROJECT_NAME}/robot_model.h
   include/${PROJECT_NAME}/common.h
   include/${PROJECT_NAME}/timing.h
-  include/${PROJECT_NAME}/arm/stability_error.h
+  include/${PROJECT_NAME}/arm/stability_cost.h
   include/${PROJECT_NAME}/arm/stability_cost_parameters.h
   include/${PROJECT_NAME}/arm/arm_optimization.h
   include/${PROJECT_NAME}/arm/sdf_contact_constraint.h
@@ -60,7 +60,7 @@ set(SOURCES
   src/whole_body_posture_optimization.cpp
   src/robot_model.cpp
   src/common.cpp
-  src/arm/stability_error.cpp
+  src/arm/stability_cost.cpp
   src/arm/stability_cost_parameters.cpp
   src/arm/arm_optimization.cpp
   src/flipper/flipper_optimization.cpp

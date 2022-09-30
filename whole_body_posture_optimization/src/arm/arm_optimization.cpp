@@ -207,7 +207,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       previous_parameters = mapListToSubset(previous_joint_angles, param_idx_to_jnt_idx_);
     }
     ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost(
-          StabilityError::Create(robot_model_, free_joints_, contact_hull_points, *full_state, previous_parameters, robot_pose, stability_cost_params_), 0, history.setObjective());
+        StabilityCost::Create(robot_model_, free_joints_, contact_hull_points, *full_state, previous_parameters, robot_pose, stability_cost_params_), 0, history.setObjective());
     stability_cost.setName("stability_cost");
     stability_cost.enableInfCheck(true);
     stability_cost.enableNanCheck(true);

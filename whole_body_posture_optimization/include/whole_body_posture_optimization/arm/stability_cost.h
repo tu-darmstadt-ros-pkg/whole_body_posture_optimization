@@ -1,5 +1,5 @@
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_STABILITY_ERROR_H
-#define WHOLE_BODY_POSTURE_OPTIMIZATION_STABILITY_ERROR_H
+#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_STABILITY_COST_H
+#define WHOLE_BODY_POSTURE_OPTIMIZATION_STABILITY_COST_H
 
 #include <whole_body_posture_optimization/common.h>
 
@@ -27,9 +27,10 @@ private:
 
 };
 
-class StabilityError {
+class StabilityCost
+{
 public:
-  StabilityError(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<Eigen::Vector3d>& contact_points,
+  StabilityCost(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<Eigen::Vector3d>& contact_points,
                  const std::vector<double>& full_state, const std::vector<double>& previous_param_angles, const Eigen::Isometry3d& robot_pose,
                  const StabilityCostParameters& parameters);
 
