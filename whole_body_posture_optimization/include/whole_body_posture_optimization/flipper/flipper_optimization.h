@@ -2,6 +2,7 @@
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_FLIPPER_OPTIMIZATION_H
 
 #include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
+#include <ceres_nlopt_wrapper/nlopt_parameter_server.h>
 
 #include <sdf_contact_estimation/visualisation.h>
 #include <hector_pose_prediction_interface/pose_predictor.h>
@@ -40,7 +41,7 @@ private:
   std::vector<std::size_t> param_idx_to_jnt_idx_;
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
 
-  nlopt::opt opt_;
+  std::shared_ptr<ceres_nlopt_wrapper::NloptParameterServer> opt_server_;
   bool enabled_;
   unsigned int parameter_count_;
   std::vector<std::string> free_joints_;

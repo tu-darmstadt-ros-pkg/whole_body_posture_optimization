@@ -26,29 +26,20 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
 
   // Create nlopt optimizer
   parameter_count_ = static_cast<unsigned int>(free_joints_.size());
-  std::string algorithm;
-  nh.param<std::string>("algorithm", algorithm, "GN_DIRECT_L");
-  opt_ = nlopt::opt(algorithm.c_str(), parameter_count_);
+  opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(ros::NodeHandle(nh, "solver"), parameter_count_);
 
-  // Define parameter bounds
-  opt_.set_lower_bounds(lower_bounds_);
-  opt_.set_upper_bounds(upper_bounds_);
-
-  // Set convergence criterion
-  ros::NodeHandle stopping_criteria_nh(nh_, "stopping_criteria");
-  ceres_nlopt_wrapper::setParametersFromServer(stopping_criteria_nh, opt_);
 
   // Set local optimizer
-  std::string local_algorithm;
-  if (nh.getParam("local_algorithm", local_algorithm)) {
-    nlopt::opt local_opt(local_algorithm.c_str(), parameter_count_);
-    ros::NodeHandle local_stopping_criteria_nh(nh_, "local_stopping_criteria");
-    ceres_nlopt_wrapper::setParametersFromServer(local_stopping_criteria_nh, local_opt);
-
-    local_opt.set_lower_bounds(lower_bounds_);
-    local_opt.set_upper_bounds(upper_bounds_);
-    opt_.set_local_optimizer(local_opt); // makes a copy
-  }
+//  std::string local_algorithm;
+//  if (nh.getParam("local_algorithm", local_algorithm)) {
+//    nlopt::opt local_opt(local_algorithm.c_str(), parameter_count_);
+//    ros::NodeHandle local_stopping_criteria_nh(nh_, "local_stopping_criteria");
+//    ceres_nlopt_wrapper::setParametersFromServer(local_stopping_criteria_nh, local_opt);
+//
+//    local_opt.set_lower_bounds(lower_bounds_);
+//    local_opt.set_upper_bounds(upper_bounds_);
+//    opt_.set_local_optimizer(local_opt); // makes a copy
+//  }
 }
 
 bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -73,7 +64,12 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   // Reset seed (for stochastic algorithms)
   nlopt_srand(0);
 
-  // Add objective function
+  // Construct solver
+  nlopt::opt& opt = opt_server_->getOptimizer();
+
+  // Define parameter bounds
+  opt.set_lower_bounds(lower_bounds_);
+  opt.set_upper_bounds(upper_bounds_);
 
   // Set initial state in pose predictor
   const std::vector<double>* full_state;
@@ -91,6 +87,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   }
   pose_predictor_->robotModel()->updateJointPositions(initial_joint_update);
 
+  // Add objective function
   int verbosity_level = 0;
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
   objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
@@ -100,7 +97,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   objective->setName("flipper_objective");
   objective->enableInfCheck(true);
   objective->enableNanCheck(true);
-  opt_.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, objective.get());
+  opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, objective.get());
 
   // Publish start state
 //  robot_shape_gen_->updateShape(init_flipper_angles);
@@ -114,7 +111,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   nlopt::result nlopt_result;
   try {
     if (enabled_) {
-      nlopt_result = opt_.optimize(parameters, minf);
+      nlopt_result = opt.optimize(parameters, minf);
       //  ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
     }
   }

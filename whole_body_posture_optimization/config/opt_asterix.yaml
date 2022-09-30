@@ -98,7 +98,6 @@ arm_optimization:
 
 flipper_optimization:
   enabled: true
-  algorithm: GN_DIRECT
   #algorithm: GN_DIRECT_L
   #algorithm: GN_ORIG_DIRECT_L
   #algorithm: LN_NELDERMEAD
@@ -116,7 +115,8 @@ flipper_optimization:
   #algorithm: GN_AGS
   #algorithm: G_MLSL
   #algorithm: G_MLSL_LDS
-  stopping_criteria:
+  solver:
+    algorithm: GN_DIRECT
     maxeval: 100
     stopval: -3
     #ftol_abs: 1e-3
