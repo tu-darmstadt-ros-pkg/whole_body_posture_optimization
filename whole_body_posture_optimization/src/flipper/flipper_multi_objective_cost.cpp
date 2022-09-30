@@ -67,7 +67,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
       for (const hector_pose_prediction_interface::ContactPointInformation<double>& point: contact_information.contact_points) {
         Eigen::Vector3d p_base = result_pose_eigen.inverse() * point.point; // Transform from world to base link
         double distance = p_base.block<2, 1>(0, 0).norm();
-        turning_resistance += distance;
+        turning_resistance += distance * point.surface_area;
       }
       // Compute turning angle
       Eigen::Quaterniond start_orientation(prev_pose_.linear());
