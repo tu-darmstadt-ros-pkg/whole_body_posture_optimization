@@ -51,7 +51,7 @@ private:
   // Optimization parameters
   bool enabled_;
   std::string algorithm_;
-  StabilityErrorParameters stability_error_params_;
+  StabilityCostParameters stability_cost_params_;
 
   std::shared_ptr<voxblox::TsdfMap> partial_robot_tsdf_;
   std::vector<std::string> semi_static_link_names_;

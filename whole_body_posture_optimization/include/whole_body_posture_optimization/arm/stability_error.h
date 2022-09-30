@@ -4,6 +4,7 @@
 #include <whole_body_posture_optimization/common.h>
 
 #include <whole_body_posture_optimization/robot_model.h>
+#include <whole_body_posture_optimization/arm/stability_cost_parameters.h>
 #include <algorithm>
 #include <ceres/ceres.h>
 
@@ -26,46 +27,11 @@ private:
 
 };
 
-struct StabilityErrorParameters {
-
-  static StabilityErrorParameters createFromServer(const ros::NodeHandle& nh) {
-    StabilityErrorParameters parameters;
-
-    std::vector<double> exp_parameters = {1.6, -1.7, 0.0};
-    nh.param("exp_parameters", exp_parameters, exp_parameters);
-    if (exp_parameters.size() != 3) {
-      ROS_ERROR_STREAM("Invalid size for parameter 'exp_parameter'. Got " << exp_parameters.size() << " expected 3");
-      parameters.exp_parameters[0] = parameters.exp_parameters[1] = parameters.exp_parameters[2] = 0;
-    } else {
-      std::copy(begin(exp_parameters), end(exp_parameters), parameters.exp_parameters);
-    }
-    nh.param("lorentzian_sigma", parameters.lorentzian_sigma, 0.1);
-    nh.param("movement_cost_weight", parameters.movement_cost_weight, 0.0);
-    nh.param("function_scale", parameters.function_scale, 1.0);
-    return parameters;
-  }
-
-  std::string toString() {
-    std::stringstream ss;
-    ss << "Stability cost parameters:" << std::endl;
-    ss << "lorentzian_sigma = " << lorentzian_sigma << std::endl;
-    ss << "movement_cost_weight = " << movement_cost_weight << std::endl;
-    ss << "function_scale = " << function_scale << std::endl;
-    ss << "exp_parameters = [" << exp_parameters[0] << ", " << exp_parameters[1] << ", " << exp_parameters[2] << "]" << std::endl;
-    return ss.str();
-  }
-
-  double exp_parameters[3];
-  double movement_cost_weight;
-  double lorentzian_sigma;
-  double function_scale;
-};
-
 class StabilityError {
 public:
   StabilityError(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<Eigen::Vector3d>& contact_points,
                  const std::vector<double>& full_state, const std::vector<double>& previous_param_angles, const Eigen::Isometry3d& robot_pose,
-                 const StabilityErrorParameters& parameters);
+                 const StabilityCostParameters& parameters);
 
   template <typename T> bool operator()(T const* const* parameters, T* cost) const {
     // Compute COM
@@ -121,7 +87,7 @@ public:
   }
 
   static ceres::CostFunction* Create(const std::shared_ptr<RobotModel>& robot_model, const std::vector<std::string> &free_joints, const std::vector<Eigen::Vector3d> &contact_points,
-                                     const std::vector<double>& full_state, const std::vector<double> &previous_param_angles, const Eigen::Isometry3d &robot_pose, const StabilityErrorParameters &parameters);
+                                     const std::vector<double>& full_state, const std::vector<double> &previous_param_angles, const Eigen::Isometry3d &robot_pose, const StabilityCostParameters &parameters);
 
 private:
   std::shared_ptr<ceres::DynamicCostFunctionToFunctor> compute_com_;
@@ -132,7 +98,7 @@ private:
   Eigen::Isometry3d robot_pose_;
   std::vector<double> previous_param_angles_;
 
-  StabilityErrorParameters parameters_;
+  StabilityCostParameters parameters_;
 };
 
 }

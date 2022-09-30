@@ -43,6 +43,7 @@ set(HEADERS
   include/${PROJECT_NAME}/common.h
   include/${PROJECT_NAME}/timing.h
   include/${PROJECT_NAME}/arm/stability_error.h
+  include/${PROJECT_NAME}/arm/stability_cost_parameters.h
   include/${PROJECT_NAME}/arm/arm_optimization.h
   include/${PROJECT_NAME}/arm/sdf_contact_constraint.h
   include/${PROJECT_NAME}/arm/self_contact_constraint.h
@@ -60,13 +61,14 @@ set(SOURCES
   src/robot_model.cpp
   src/common.cpp
   src/arm/stability_error.cpp
+  src/arm/stability_cost_parameters.cpp
   src/arm/arm_optimization.cpp
   src/flipper/flipper_optimization.cpp
   src/flipper/flipper_multi_objective_cost.cpp
   src/flipper/flipper_multi_objective_cost_parameters.cpp
   #  src/combined/combined_optimization.cpp
 #  src/combined/combined_stability_cost.cpp
-  src/optimization_parameters_base.cpp)
+  src/optimization_parameters_base.cpp )
 
 include_directories(
   include

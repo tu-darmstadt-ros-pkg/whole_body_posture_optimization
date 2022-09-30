@@ -93,8 +93,8 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param("enabled", enabled_, enabled_);
   nh.param<std::string>("algorithm", algorithm_, "LD_SLSQP");
 
-  stability_error_params_ = StabilityErrorParameters::createFromServer(ros::NodeHandle(nh, "objective_parameters"));
-  ROS_INFO_STREAM(stability_error_params_.toString());
+  stability_cost_params_.loadParametersFromNamespace(ros::NodeHandle(nh, "cost_parameters"));
+  ROS_INFO_STREAM(stability_cost_params_.toString());
 
   return success;
 }
@@ -207,7 +207,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       previous_parameters = mapListToSubset(previous_joint_angles, param_idx_to_jnt_idx_);
     }
     ceres_nlopt_wrapper::CeresCostFunctionWrapper stability_cost(
-          StabilityError::Create(robot_model_, free_joints_, contact_hull_points, *full_state, previous_parameters, robot_pose, stability_error_params_), 0, history.setObjective());
+          StabilityError::Create(robot_model_, free_joints_, contact_hull_points, *full_state, previous_parameters, robot_pose, stability_cost_params_), 0, history.setObjective());
     stability_cost.setName("stability_cost");
     stability_cost.enableInfCheck(true);
     stability_cost.enableNanCheck(true);
