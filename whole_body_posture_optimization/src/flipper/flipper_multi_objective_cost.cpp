@@ -20,7 +20,10 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
       pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], prev_flipper_param_angles_[i]);
     }
     prev_com_ = prev_pose_ * pose_predictor->robotModel()->centerOfMass();
+    // Compute previous support polygon
+    pose_predictor_->estimateSupportPolygon(hector_math::Pose<double>(prev_pose_), prev_support_polygon_);
   }
+
 }
 
 bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, double* cost) const
@@ -47,6 +50,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
   // ** Transition costs ++ //
   double turning_resistance = 0;
   double movement_cost = 0.0;
+  double impact_cost = 0.0;
   if (!prev_flipper_param_angles_.empty()) {
     // Enforce valid transitions from previous to this state
     // The transition is only considered valid, if the previous (world) COM pose is still inside the new support polygon
@@ -55,10 +59,28 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     std::vector<double> prev_com_stabilities =
         computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, prev_com_);
     double prev_com_stability = *std::min_element(prev_com_stabilities.begin(), prev_com_stabilities.end());
-    if (prev_com_stability < 0)
-    {
+    if (prev_com_stability < 0) {
       cost[0] = std::numeric_limits<double>::max();
       return true;
+    }
+
+    // Compute rotation difference
+    Eigen::Quaterniond start_orientation(prev_pose_.linear());
+    Eigen::Quaterniond end_orientation(result_pose_eigen.linear());
+    Eigen::Quaterniond rotation_diff = start_orientation.inverse() * end_orientation;
+    Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
+
+    // Reduce impact force when tipping
+    if (parameters_.impact_weight != 0) {
+      Eigen::Vector3d com = result_pose_eigen * pose_predictor_->robotModel()->centerOfMass();
+      std::vector<double> curr_com_prev_polygon_stabilities =
+          computeForceAngleStabilitiesWithGravity<double>(prev_support_polygon_.contact_hull_points, com);
+      double curr_com_prev_polygon_stability = *std::min_element(curr_com_prev_polygon_stabilities.begin(), curr_com_prev_polygon_stabilities.end());
+      if (curr_com_prev_polygon_stability < 0) {
+        // Tipping event, penalize tipping angle
+        double rotation_angle = euler_angles(1);
+        impact_cost = std::max(0.0, rotation_angle);
+      }
     }
 
     // Approximate moment of turning resistance
@@ -69,11 +91,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
         double distance = p_base.block<2, 1>(0, 0).norm();
         turning_resistance += distance * point.surface_area;
       }
-      // Compute turning angle
-      Eigen::Quaterniond start_orientation(prev_pose_.linear());
-      Eigen::Quaterniond end_orientation(result_pose_eigen.linear());
-      Eigen::Quaterniond rotation_diff = start_orientation.inverse() * end_orientation;
-      Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
+
       double turning_angle = euler_angles(0);
       turning_resistance *= std::abs(turning_angle);
     }
@@ -180,13 +198,15 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
             + parameters_.movement_cost_weight * movement_cost
             + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
             + parameters_.position_deviation_weight * position_deviation_cost
-            + parameters_.stability_weight * stability_cost;
+            + parameters_.stability_weight * stability_cost
+            + parameters_.impact_weight * impact_cost;
 
   if (parameters_.verbose) {
     ROS_INFO_STREAM("Flipper cost function (weighted value in brackets): " << std::endl <<
     "Support area: " << support_area << " (" << parameters_.support_area_weight * support_area << ")" << std::endl <<
     "Track contact: " << track_contact_area << " (" << parameters_.track_contact_weight * track_contact_area << ")" << std::endl <<
     "Body contact: " << body_contact_area << " (" << parameters_.body_contact_weight * body_contact_area << ")" << std::endl <<
+    "Impact: " << impact_cost << " (" << parameters_.impact_weight * impact_cost << ")" << std::endl <<
     "Turning resistance: " << turning_resistance << " (" << parameters_.turning_resistance_weight * turning_resistance << ")" << std::endl <<
     "Movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl <<
     "Position deviation cost: " << position_deviation_cost << " (" << parameters_.position_deviation_weight * position_deviation_cost << ")" << std::endl <<

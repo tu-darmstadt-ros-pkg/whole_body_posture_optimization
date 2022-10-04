@@ -24,6 +24,7 @@ bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const 
   registerParameter(nh, "lorentzian_sigma", lorentzian_sigma, 0.2, "Lorentzian sigma", 0.0, 10);
   registerParameter(nh, "track_contact_weight", track_contact_weight, 2.0, "Track contact weight", 0.0, 100);
   registerParameter(nh, "track_contact_nominal_value", track_contact_nominal_value, 10.0, "Track contact nominal value", 0.0, 10);
+  registerParameter(nh, "impact_weight", impact_weight, 1.0, "Impact penalty weight", 0.0, 100);
   registerParameter(nh, "turning_resistance_weight", turning_resistance_weight, 1.0, "Turning resistance weight", 0.0, 100);
   registerParameter(nh, "body_contact_weight", body_contact_weight, 4.0, "Body contact weight", 0.0, 10);
   registerParameter(nh, "position_deviation_weight", position_deviation_weight, 10.0, "Position deviation weight", 0.0, 100);

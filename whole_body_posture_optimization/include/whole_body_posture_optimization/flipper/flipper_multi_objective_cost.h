@@ -35,6 +35,7 @@ private:
   std::vector<double> prev_flipper_param_angles_;
   Eigen::Isometry3d prev_pose_;
   Eigen::Vector3d prev_com_;
+  hector_pose_prediction_interface::SupportPolygon<double> prev_support_polygon_;
   std::vector<size_t> param_idx_to_state_idx;
 
   const FlipperMultiObjectiveCostParameters& parameters_;

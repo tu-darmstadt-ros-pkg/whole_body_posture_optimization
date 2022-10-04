@@ -20,6 +20,7 @@ public:
   double stability_weight;
   double stability_nominal_value;
   double stability_exp_parameters[3];
+  double impact_weight;
 protected:
   bool loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) override;
 private:
