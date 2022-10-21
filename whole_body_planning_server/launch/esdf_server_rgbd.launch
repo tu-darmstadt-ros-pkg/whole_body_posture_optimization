@@ -56,6 +56,6 @@
   </node>
 
   <!-- Load map -->
-  <arg name="map_name" default="gazebo_oc_pallet_terrain.esdf"/>
+  <arg name="map_name" default=""/>
   <node if="$(eval arg('map_name') != '')" name="esdf_server_load_map" pkg="rosservice" type="rosservice" output="screen" args="call /esdf_server/load_map --wait '{file_path: '$(find sdf_contact_estimation)/sdf/$(arg map_name)'}'" />
 </launch>
