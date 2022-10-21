@@ -56,7 +56,6 @@
   </node>
 
   <!-- Load map -->
-<!--    <node name="esdf_server_load_map" pkg="rosservice" type="rosservice" output="screen" args="call /esdf_server/load_map -wait '{file_path: '$(find sdf_contact_estimation)/sdf/gazebo_man6.esdf'}'" /> -->
-<!--      <node name="esdf_server_load_map" pkg="rosservice" type="rosservice" output="screen" args="call /esdf_server/load_map -wait '{file_path: '$(find sdf_contact_estimation)/sdf/gazebo_obs2.esdf'}'" /> -->
-   <node name="esdf_server_load_map" pkg="rosservice" type="rosservice" output="screen" args="call /esdf_server/load_map --wait '{file_path: '$(find sdf_contact_estimation)/sdf/gazebo_obs2_hurdles_0_05.esdf'}'" />
+  <arg name="map_name" default="gazebo_oc_pallet_terrain.esdf"/>
+  <node if="$(eval arg('map_name') != '')" name="esdf_server_load_map" pkg="rosservice" type="rosservice" output="screen" args="call /esdf_server/load_map --wait '{file_path: '$(find sdf_contact_estimation)/sdf/$(arg map_name)'}'" />
 </launch>
