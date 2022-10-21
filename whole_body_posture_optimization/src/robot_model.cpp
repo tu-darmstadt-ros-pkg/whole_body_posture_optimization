@@ -363,9 +363,19 @@ std::string RobotModel::getParentJointName(const std::string &link_name)
 
 bool RobotModel::getJointLimits(const std::string &joint_name, double &lower_limit, double &upper_limit)
 {
-  // Joint limits can be overriden by a parameter
+  // Load limits from URDF
+  urdf::JointConstSharedPtr joint = urdf_model_.getJoint(joint_name);
+  if (!joint) {
+    ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
+    return false;
+  }
+  double urdf_upper_limit = joint->limits->upper;
+  double urdf_lower_limit = joint->limits->lower;
+
+  // Joint limits can be overridden by a parameter
   std::vector<double> limits;
-  if (nh_.getParam("joint_limits/" + joint_name, limits)) {
+  std::string parameter_name = "joint_limits/" + joint_name;
+  if (nh_.getParam(parameter_name, limits)) {
     if (limits.size() != 2) {
       ROS_ERROR_STREAM("Parameter 'joint_limits/" << joint_name << "' is not size 2.");
       return false;
@@ -377,17 +387,18 @@ bool RobotModel::getJointLimits(const std::string &joint_name, double &lower_lim
       upper_limit = limits[0];
       lower_limit = limits[1];
     }
+    if (upper_limit > urdf_upper_limit || lower_limit < urdf_lower_limit) {
+      ROS_ERROR_STREAM("Configured joint limits '" << parameter_name << " exceed bounds.");
+      ROS_ERROR_STREAM(upper_limit << " > " << urdf_upper_limit << " or " << lower_limit << " < " << urdf_lower_limit);
+      return false;
+    }
+    return true;
+  } else {
+    // Use URDF values
+    upper_limit = urdf_upper_limit;
+    lower_limit = urdf_lower_limit;
     return true;
   }
-  // Load limits from URDF
-  urdf::JointConstSharedPtr joint = urdf_model_.getJoint(joint_name);
-  if (!joint) {
-    ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
-    return false;
-  }
-  upper_limit = joint->limits->upper;
-  lower_limit = joint->limits->lower;
-  return true;
 }
 
 unsigned int RobotModel::getNumJoints() const

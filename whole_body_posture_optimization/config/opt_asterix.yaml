@@ -13,8 +13,8 @@ complete_robot_with_world_group: flipper_group_with_world
 trajectory_planner: ompl_interface/OMPLPlanner  # [chomp_interface/CHOMPPlanner, lerp_interface/LERPPlanner, ompl_interface/OMPLPlanner, pilz_industrial_motion_planner::CommandPlanner]
 
 joint_limits:
-  flipper_front_joint: [-3.1415, 0]
-  flipper_back_joint: [-3.1415, 0]
+  flipper_front_joint: [-3.054, 0]
+  flipper_back_joint: [-3.054, 0]
   
 arm_optimization:
   enabled: false
