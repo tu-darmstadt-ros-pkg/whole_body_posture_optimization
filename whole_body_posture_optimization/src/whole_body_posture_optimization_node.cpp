@@ -13,10 +13,11 @@ bool new_path_received_ = false;
 
 nav_msgs::Path createPath(double start_x, double stop_x, double step, const Eigen::Vector3d& offset=Eigen::Vector3d::Zero()) {
   nav_msgs::Path path;
+  path.header.frame_id = "world";
   double dir = start_x < stop_x ? 1 : -1;
   for (double x = start_x; dir * x < dir * stop_x; x+=dir*step) {
     geometry_msgs::PoseStamped pose_msg;
-    pose_msg.header.frame_id = "world";
+    pose_msg.header.frame_id = path.header.frame_id;
 
     Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
 //     if (x == start_x) {

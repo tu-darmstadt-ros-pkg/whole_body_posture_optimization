@@ -15,6 +15,7 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
   if (previous_state) {
     prev_flipper_param_angles_ = getVariablePositions(previous_state, free_joints_);
     prev_pose_ = previous_state->getJointTransform("world_virtual_joint");
+    // TODO: use these values from previous iteration
     // Compute previous COM in world
     for (unsigned int i = 0; i < free_joints_.size(); i++) {
       pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], prev_flipper_param_angles_[i]);
