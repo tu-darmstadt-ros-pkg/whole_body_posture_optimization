@@ -4,22 +4,23 @@
   <param name="robot_description" command="$(find xacro)/xacro $(find asterix_description)/urdf/asterix_ugv.urdf.xacro" />
   <param name="robot_description_semantic" textfile="$(find asterix_moveit_config)/config/asterix_ugv.srdf" />
   
-  <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen" clear_params="true">
+  <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen" clear_params="true" ><!--launch-prefix="gdb -args"-->
     <!-- load scenario -->
     <rosparam subst_value="true" ns="sdf_map">
 <!--       scenario: step_0.18 -->
       voxel_size: 0.05
       use_esdf: true
 <!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_step.esdf -->
-      <!--sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf-->
+<!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf -->
 <!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf -->
 <!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_man6.esdf -->
-      sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_obs2_hurdles_0_05.esdf
+<!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_obs2_hurdles_0_05.esdf -->
+      sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_oc_pallet_terrain.esdf
       truncation_distance: 0.4
     </rosparam>
 
-<!--    <param name="path_start" value="0"/>
-    <param name="path_stop" value="2.5"/>
+<!--    <param name="path_start" value="3.0"/>
+    <param name="path_stop" value="5.0"/>
     <param name="path_step" value="0.02"/>-->
 
 <!--     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/> -->

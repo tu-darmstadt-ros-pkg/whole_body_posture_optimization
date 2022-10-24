@@ -94,23 +94,6 @@ arm_optimization:
 
 flipper_optimization:
   enabled: true
-  #algorithm: GN_DIRECT_L
-  #algorithm: GN_ORIG_DIRECT_L
-  #algorithm: LN_NELDERMEAD
-  #algorithm: LN_PRAXIS
-  #algorithm: GN_CRS2_LM
-  #algorithm: GN_MLSL
-  #algorithm: GN_MLSL_LDS
-  #algorithm: LN_COBYLA
-  #algorithm: LN_NEWUOA_BOUND
-  #algorithm: LN_SBPLX
-  #algorithm: LN_AUGLAG
-  #algorithm: LN_BOBYQA
-  #algorithm: GN_ISRES
-  #algorithm: GN_ESCH
-  #algorithm: GN_AGS
-  #algorithm: G_MLSL
-  #algorithm: G_MLSL_LDS
   solver:
     algorithm: GN_DIRECT
     maxeval: 100

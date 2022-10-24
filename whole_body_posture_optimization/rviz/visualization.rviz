@@ -25,7 +25,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: ESDF slice
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -710,7 +710,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.05000000074505806
       Style: Flat Squares
-      Topic: /whole_body_posture_optimization_node/contact_estimation/esdf_slice
+      Topic: /whole_body_posture_optimization_node/sdf_map/esdf_slice
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -781,7 +781,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Pose Color: 255; 85; 255
-      Pose Style: Axes
+      Pose Style: None
       Queue Size: 10
       Radius: 0.029999999329447746
       Shaft Diameter: 0.10000000149011612
@@ -812,7 +812,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 10.081254005432129
+      Distance: 6.1469855308532715
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -820,17 +820,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -2.1704776287078857
-        Y: -0.20414261519908905
-        Z: 0.037843119353055954
+        X: 2.258134126663208
+        Y: -0.35739845037460327
+        Z: 0.15834254026412964
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.1547966003417969
+      Pitch: 0.6647970080375671
       Target Frame: <Fixed Frame>
-      Yaw: 4.7004008293151855
+      Yaw: 4.680399417877197
     Saved: ~
 Window Geometry:
   Displays:
@@ -851,4 +851,4 @@ Window Geometry:
     collapsed: true
   Width: 4976
   X: 5306
-  Y: 75
+  Y: 54
