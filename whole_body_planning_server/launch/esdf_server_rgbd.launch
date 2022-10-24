@@ -11,7 +11,7 @@
 
     <param name="min_time_between_msgs_sec" value="0.0" />
     <param name="verbose" value="false" />
-    <param name="color_mode" value="color" /> <!-- normals, color -->
+    <param name="color_mode" value="normals" /> <!-- normals, color -->
 
     <param name="method" value="fast" /> <!-- simple, fast, merged -->
 <!--     <param name="max_integration_time_s" value="3" /> -->
