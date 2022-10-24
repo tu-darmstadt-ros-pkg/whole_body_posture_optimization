@@ -286,6 +286,14 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
     return false;
   }
 
+  // Wait until start time to publish trajectory
+  ros::Time now = ros::Time::now();
+  if (start_time > now) {
+    ros::Duration time_until_start = start_time - now;
+    time_until_start.sleep();
+  }
+  optimizer_->publishTrajectory(trajectory, start_time);
+
   return true;
 }
 

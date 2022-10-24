@@ -137,6 +137,7 @@ int main(int argc, char** argv) {
       // Compute optimal postures
       auto result = po.findOptimalPostures(path_);
       auto trajectory = po.computeTimedTrajectory(result);
+      po.publishTrajectory(trajectory);
 
       // Print and save results
       whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);

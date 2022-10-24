@@ -286,10 +286,8 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
                                                                                        const robot_state::RobotStateConstPtr& trajectory_start_state)
 {
   START_TIMING("Trajectory planning")
-  std::string group_with_world = complete_robot_with_world_group_;
-  robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), group_with_world);
-  std::string group = complete_robot_group_;
-  robot_trajectory::RobotTrajectory trajectory(robot_model_->getMoveitRobotModel(), group);
+  robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
+  robot_trajectory::RobotTrajectory trajectory(robot_model_->getMoveitRobotModel(), complete_robot_group_);
   if (opt_result.size() < 2) {
     ROS_WARN_STREAM("Can't compute timed trajectory, path is empty.");
     return trajectory;
@@ -299,7 +297,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
     return trajectory;
   }
 
-  const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(group);
+  const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(complete_robot_group_);
 
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
 
@@ -330,7 +328,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
   double total_rotation = 0;
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     planning_interface::MotionPlanRequest req;
-    req.group_name = group;
+    req.group_name = complete_robot_group_;
     req.allowed_planning_time = 2.0;
     // set start state
     if (i == 0 && trajectory_start_state) {
@@ -443,7 +441,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
     updateMoveitRobotState(*trajectory_with_world.getWayPointPtr(i), full_world_poses[i]);
   }
 
-  publishTrajectory(trajectory_with_world);
+//  publishTrajectory(trajectory_with_world);
 
   STOP_TIMING_AVG
 
@@ -460,15 +458,17 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
   return computeTimedTrajectory(opt_result, trajectory_start_indices, start_state);
 }
 
-void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory)
+void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const ros::Time& start_time)
 {
+  robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
+  trajectory_with_world.append(robot_trajectory, 0);
+
   moveit_msgs::DisplayTrajectory display_msg;
 //  display_msg.model_id = "";
-
-  moveit::core::robotStateToRobotStateMsg(robot_trajectory.getFirstWayPoint(), display_msg.trajectory_start);
-
+  moveit::core::robotStateToRobotStateMsg(trajectory_with_world.getFirstWayPoint(), display_msg.trajectory_start);
   moveit_msgs::RobotTrajectory trajectory_msg;
-  robot_trajectory.getRobotTrajectoryMsg(trajectory_msg);
+  trajectory_with_world.getRobotTrajectoryMsg(trajectory_msg);
+  trajectory_msg.joint_trajectory.header.stamp = start_time;
   display_msg.trajectory.push_back(trajectory_msg);
 
   trajectory_pub_.publish(display_msg);

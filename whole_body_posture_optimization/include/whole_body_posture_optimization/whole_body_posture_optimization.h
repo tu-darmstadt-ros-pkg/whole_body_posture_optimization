@@ -64,7 +64,7 @@ public:
   robot_trajectory::RobotTrajectory computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result,
                                                            std::vector<size_t>& trajectory_start_indices,
                                                            const robot_state::RobotStateConstPtr& trajectory_start_state =robot_state::RobotStateConstPtr());
-  void publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory);
+  void publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const ros::Time& start_time=ros::Time(0));
 
   static void printResultInfo(const std::vector<PostureOptimizationResult>& results);
 //  static void saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories, std::string save_path);
