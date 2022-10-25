@@ -6,8 +6,9 @@
     <rosparam file="$(find whole_body_planning_server)/config/esdf_server_common.yaml" command="load" />
 
     <param name="publish_esdf_map" value="true" />
-    <param name="update_mesh_every_n_sec" value="$(arg update_rate)" />
-    <param name="update_esdf_every_n_sec" value="$(arg update_rate)" />
+    <param name="update_mesh_every_n_sec" value="$(arg update_rate)" /> <!-- compute and publish mesh -->
+    <param name="update_esdf_every_n_sec" value="$(arg update_rate)" /> <!-- compute esdf -->
+    <param name="publish_map_every_n_sec" value="$(arg update_rate)" /> <!-- publish esdf -->
 
     <param name="min_time_between_msgs_sec" value="0.0" />
     <param name="verbose" value="false" />
@@ -30,6 +31,7 @@
     <param name="publish_slices" value="false" />
 
 <!--     <remap from="pointcloud" to="/front_rgbd_cam/depth/color/points_throttle"/> -->
+    <param name="pointcloud_queue_size" value="20"/>
     <remap from="pointcloud" to="/depth_combined"/>
   </node>
 
@@ -57,5 +59,6 @@
 
   <!-- Load map -->
   <arg name="map_name" default=""/>
+<!--   <arg name="map_name" default="gazebo_oc_pallet_terrain.esdf"/> -->
   <node if="$(eval arg('map_name') != '')" name="esdf_server_load_map" pkg="rosservice" type="rosservice" output="screen" args="call /esdf_server/load_map --wait '{file_path: '$(find sdf_contact_estimation)/sdf/$(arg map_name)'}'" />
 </launch>
