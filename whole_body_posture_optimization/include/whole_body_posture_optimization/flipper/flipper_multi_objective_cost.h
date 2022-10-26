@@ -7,7 +7,9 @@
 #include <Eigen/Eigen>
 #include <hector_pose_prediction_interface/pose_predictor.h>
 #include <moveit/robot_state/robot_state.h>
+
 #include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost_parameters.h>
+#include <whole_body_posture_optimization/data_logging/data_log.h>
 
 namespace whole_body_posture_optimization {
 

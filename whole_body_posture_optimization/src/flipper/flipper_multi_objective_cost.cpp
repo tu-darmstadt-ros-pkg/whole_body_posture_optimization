@@ -25,6 +25,9 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
     pose_predictor_->estimateSupportPolygon(hector_math::Pose<double>(prev_pose_), prev_support_polygon_);
   }
 
+  std::vector<std::string> data_labels = free_joints;
+  data_labels.emplace_back("total_cost");
+  DataLog::getInstance().getTable("flipper_multi_objective_cost").initialize(data_labels);
 }
 
 bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, double* cost) const
@@ -215,6 +218,13 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     "Stability cost: " << stability_cost << " (" << parameters_.stability_weight * stability_cost << ")" << std::endl <<
     "Total cost: " << cost[0]);
   }
+
+  Eigen::VectorXd data(free_joints_.size() + 1);
+  for (unsigned int i = 0; i < free_joints_.size(); ++i) {
+    data[i] = flipper_angles[0][i];
+  }
+  data[free_joints_.size()] = cost[0];
+  DataLog::getInstance().getTable("flipper_multi_objective_cost").addData(data);
 
   return true;
 }

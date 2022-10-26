@@ -68,7 +68,7 @@ set(SOURCES
   src/flipper/flipper_multi_objective_cost_parameters.cpp
   #  src/combined/combined_optimization.cpp
 #  src/combined/combined_stability_cost.cpp
-  src/optimization_parameters_base.cpp )
+  src/optimization_parameters_base.cpp include/whole_body_posture_optimization/data_logging/data_log.cpp include/whole_body_posture_optimization/data_logging/data_log.h include/whole_body_posture_optimization/data_logging/data_table.cpp include/whole_body_posture_optimization/data_logging/data_table.h src/optimization_logging_node.cpp)
 
 include_directories(
   include
@@ -89,6 +89,11 @@ target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
 add_executable(manual_control_node src/manual_control_node.cpp)
 add_dependencies(manual_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(manual_control_node ${PROJECT_NAME})
+
+## Declare an executable
+add_executable(optimization_logging_node src/optimization_logging_node.cpp)
+add_dependencies(optimization_logging_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(optimization_logging_node ${PROJECT_NAME})
 
 ## Declare an executable
 add_executable(com_visualisation_node src/com_visualisation_node.cpp)
