@@ -26,7 +26,7 @@
       truncation_distance: 0.4
     </rosparam>
 
-    <param name="logging_folder" value="$(find whole_body_posture_optimization)/data/opt"/>
+    <param name="logging_folder" value="$(find whole_body_planning_plotting_utils)/data/cost_functions"/>
 
     <!-- posture optimization lib parameters -->
     <param name="stepping" value="false"/>
