@@ -7,6 +7,8 @@
 
 namespace whole_body_planning_plotting_utils {
 
+std::string getTimestamp();
+
 class DataLog
 {
 public:
