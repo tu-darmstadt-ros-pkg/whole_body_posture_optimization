@@ -16,6 +16,7 @@
   <depend>nav_msgs</depend>
   <depend>hector_pose_prediction_interface</depend>
   <depend>sdf_contact_estimation</depend>
+  <depend>whole_body_planning_plotting_utils</depend>
   <depend>rbdl</depend>
   <depend>urdf</depend>
   <depend>moveit_core</depend>

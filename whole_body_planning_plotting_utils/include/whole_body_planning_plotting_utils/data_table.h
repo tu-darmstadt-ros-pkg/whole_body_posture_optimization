@@ -1,15 +1,12 @@
-//
-// Created by martin on 26.10.22.
-//
-
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_DATA_TABLE_H
-#define WHOLE_BODY_POSTURE_OPTIMIZATION_DATA_TABLE_H
+#ifndef WHOLE_BODY_PLANNING_PLOTTING_UTILS_DATA_TABLE_H
+#define WHOLE_BODY_PLANNING_PLOTTING_UTILS_DATA_TABLE_H
 
 #include <string>
 #include <vector>
 #include <Eigen/Eigen>
 
-namespace whole_body_posture_optimization {
+namespace whole_body_planning_plotting_utils {
+
 class DataTable {
 public:
   void initialize(const std::vector<std::string>& data_labels);
@@ -21,4 +18,4 @@ private:
 };
 
 }
-#endif  // WHOLE_BODY_POSTURE_OPTIMIZATION_DATA_TABLE_H
+#endif  // WHOLE_BODY_PLANNING_PLOTTING_UTILS_DATA_TABLE_H

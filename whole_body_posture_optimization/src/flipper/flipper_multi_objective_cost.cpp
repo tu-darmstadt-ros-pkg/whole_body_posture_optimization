@@ -3,6 +3,9 @@
 #include <whole_body_posture_optimization/common.h>
 #include <algorithm>
 #include <ceres/dynamic_numeric_diff_cost_function.h>
+#include <whole_body_planning_plotting_utils/data_log.h>
+
+using whole_body_planning_plotting_utils::DataLog;
 
 namespace whole_body_posture_optimization {
 FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,

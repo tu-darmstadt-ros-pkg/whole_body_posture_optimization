@@ -1,11 +1,11 @@
-#ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_DATA_LOG_H
-#define WHOLE_BODY_POSTURE_OPTIMIZATION_DATA_LOG_H
+#ifndef WHOLE_BODY_PLANNING_PLOTTING_UTILS_DATA_LOG_H
+#define WHOLE_BODY_PLANNING_PLOTTING_UTILS_DATA_LOG_H
 
-#include <whole_body_posture_optimization/data_logging/data_table.h>
+#include <whole_body_planning_plotting_utils/data_table.h>
 
 #include <unordered_map>
 
-namespace whole_body_posture_optimization {
+namespace whole_body_planning_plotting_utils {
 
 class DataLog
 {
@@ -24,4 +24,4 @@ private:
 
 }
 
-#endif  // WHOLE_BODY_POSTURE_OPTIMIZATION_DATA_LOG_H
+#endif  // WHOLE_BODY_PLANNING_PLOTTING_UTILS_DATA_LOG_H

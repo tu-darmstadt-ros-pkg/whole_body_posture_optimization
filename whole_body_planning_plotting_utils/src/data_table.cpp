@@ -1,14 +1,10 @@
-//
-// Created by martin on 26.10.22.
-//
-
-#include "data_table.h"
+#include <whole_body_planning_plotting_utils/data_table.h>
 
 #include <ros/console.h>
 #include <iostream>
 #include <fstream>
 
-namespace whole_body_posture_optimization {
+namespace whole_body_planning_plotting_utils {
 void DataTable::initialize(const std::vector<std::string>& data_labels)
 {
   if (!labels_.empty()) {

@@ -1,10 +1,12 @@
 #include <ros/ros.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
-#include <whole_body_posture_optimization/data_logging/data_log.h>
+#include <whole_body_planning_plotting_utils/data_log.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <sdf_contact_estimation/robot_model/shape_model.h>
 
+using whole_body_planning_plotting_utils::DataLog;
+using namespace whole_body_posture_optimization;
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "optimization_logging_node");
@@ -24,7 +26,7 @@ int main(int argc, char** argv) {
   sdf_pose_predictor->enableVisualisation(false);
   auto pose_predictor = std::static_pointer_cast<hector_pose_prediction_interface::PosePredictor<double>>(sdf_pose_predictor);
 
-  whole_body_posture_optimization::WholeBodyPostureOptimization po(pnh, pose_predictor, sdf_model);
+  WholeBodyPostureOptimization po(pnh, pose_predictor, sdf_model);
 
   // Load robot pose
   std::vector<double> requested_pose_vec = pnh.param<std::vector<double>>("robot_pose", std::vector<double>(6, 0));
@@ -38,12 +40,12 @@ int main(int argc, char** argv) {
   robot_pose.translation() = Eigen::Vector3d(requested_pose_vec[0], requested_pose_vec[1], requested_pose_vec[2]);
 
   // Optimize
-  whole_body_posture_optimization::PostureOptimizationResult result = po.findOptimalPosture(robot_pose, po.getDefaultJointPositions());
+  PostureOptimizationResult result = po.findOptimalPosture(robot_pose, po.getDefaultJointPositions());
 
   // Save results
   std::string logging_folder;
   if (pnh.getParam("logging_folder", logging_folder)) {
-    whole_body_posture_optimization::DataLog::getInstance().saveTablesToFolder(logging_folder);
+    DataLog::getInstance().saveTablesToFolder(logging_folder);
   }
 
   ros::spin();
