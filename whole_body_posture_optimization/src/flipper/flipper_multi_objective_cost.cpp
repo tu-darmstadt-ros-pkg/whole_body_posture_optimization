@@ -29,7 +29,17 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
   }
 
   std::vector<std::string> data_labels = free_joints;
+  data_labels.emplace_back("support_area_cost");
+  data_labels.emplace_back("track_contact_cost");
+  data_labels.emplace_back("body_contact_cost");
+  data_labels.emplace_back("turning_resistance_cost");
+  data_labels.emplace_back("movement_cost");
+  data_labels.emplace_back("roll_angle_cost");
+  data_labels.emplace_back("position_deviation_cost");
+  data_labels.emplace_back("stability_cost");
+  data_labels.emplace_back("impact_cost");
   data_labels.emplace_back("total_cost");
+
   DataLog::getInstance().getTable("flipper_multi_objective_cost").initialize(data_labels);
 }
 
@@ -172,6 +182,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
   if (parameters_.track_contact_nominal_value != 0) {
     track_contact_area = std::min(track_contact_area, parameters_.track_contact_nominal_value);
   }
+  track_contact_area *= -1; // Negative cost (reward)
 
   // Penalize contact normals that point against the moving direction
   // For now, the moving direction is hard-coded to x+
@@ -196,10 +207,11 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     support_area += support_polygon.contact_hull_points[i].y() * support_polygon.contact_hull_points[j].x()
         - support_polygon.contact_hull_points[i].x() * support_polygon.contact_hull_points[j].y();
   }
+  support_area *= -1; // Negative cost (reward)
 
   // Sum up cost terms
-  cost[0] = - parameters_.support_area_weight * support_area
-            - parameters_.track_contact_weight * track_contact_area
+  cost[0] = + parameters_.support_area_weight * support_area
+            + parameters_.track_contact_weight * track_contact_area
             + parameters_.body_contact_weight * body_contact_area
             + parameters_.turning_resistance_weight * turning_resistance
             + parameters_.movement_cost_weight * movement_cost
@@ -222,11 +234,20 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     "Total cost: " << cost[0]);
   }
 
-  Eigen::VectorXd data(free_joints_.size() + 1);
+  Eigen::VectorXd data(free_joints_.size() + 10);
   for (unsigned int i = 0; i < free_joints_.size(); ++i) {
     data[i] = flipper_angles[0][i];
   }
-  data[free_joints_.size()] = cost[0];
+  data[free_joints_.size()] = parameters_.support_area_weight * support_area;
+  data[free_joints_.size() + 1] = parameters_.track_contact_weight * track_contact_area;
+  data[free_joints_.size() + 2] = parameters_.body_contact_weight * body_contact_area;
+  data[free_joints_.size() + 3] = parameters_.turning_resistance_weight * turning_resistance;
+  data[free_joints_.size() + 4] = parameters_.movement_cost_weight * movement_cost;
+  data[free_joints_.size() + 5] = parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle;
+  data[free_joints_.size() + 6] = parameters_.position_deviation_weight * position_deviation_cost;
+  data[free_joints_.size() + 7] = parameters_.stability_weight * stability_cost;
+  data[free_joints_.size() + 8] = parameters_.impact_weight * impact_cost;
+  data[free_joints_.size() + 9] = cost[0];
   DataLog::getInstance().getTable("flipper_multi_objective_cost").addData(data);
 
   return true;
