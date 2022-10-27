@@ -19,9 +19,13 @@ public:
 
   DataTable& getTable(const std::string& table_name);
   bool saveTablesToFolder(const std::string& folder_name);
+
+  void enableLogging();
+  bool loggingEnabled() const;
 private:
-  DataLog() = default;
+  DataLog();
   std::unordered_map<std::string, DataTable> tables_;
+  bool logging_enabled_;
 };
 
 }

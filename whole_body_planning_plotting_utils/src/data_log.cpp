@@ -32,5 +32,19 @@ bool DataLog::saveTablesToFolder(const std::string& folder_name)
   }
   return success;
 }
+void DataLog::enableLogging()
+{
+  logging_enabled_ = true;
+}
+
+bool DataLog::loggingEnabled() const
+{
+  return logging_enabled_;
+}
+
+DataLog::DataLog()
+: logging_enabled_(false) {}
+
+
 
 }
