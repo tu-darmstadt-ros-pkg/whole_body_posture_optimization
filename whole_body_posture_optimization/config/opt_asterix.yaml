@@ -1,5 +1,5 @@
 # default
-default_joint_state: [1.15, -1.48, 1.47, -1.51, -1.65, -3.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0] # (12) default for all joints
+default_joint_state: [1.15, -1.48, 1.47, -1.51, -1.65, -3.03, 0.0, 0.0, -1.57, -1.57, 0.0, 0] # (12) default for all joints
 #default_joint_state: [0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0.0, 0] # (12) default for all joints
 
 optimization_type: split
@@ -97,7 +97,7 @@ flipper_optimization:
   solver:
     algorithm: GN_DIRECT
     maxeval: 100
-    stopval: -3
+    stopval: -1.1
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1

@@ -3,10 +3,7 @@ Panels:
     Help Height: 138
     Name: Displays
     Property Tree Widget:
-      Expanded:
-        - /VoxbloxMesh1
-        - /RobotState1
-        - /Path1
+      Expanded: ~
       Splitter Ratio: 0.5469200015068054
     Tree Height: 2240
   - Class: rviz/Selection
@@ -25,7 +22,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: ESDF slice
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -407,7 +404,7 @@ Visualization Manager:
     - Class: moveit_rviz_plugin/Trajectory
       Color Enabled: false
       Enabled: true
-      Interrupt Display: false
+      Interrupt Display: true
       Links:
         All Links Enabled: true
         Expand Joint Details: false
@@ -812,7 +809,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 6.1469855308532715
+      Distance: 6.404602527618408
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -820,17 +817,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 2.258134126663208
-        Y: -0.35739845037460327
-        Z: 0.15834254026412964
+        X: -1.7502069473266602
+        Y: 0.007784626446664333
+        Z: 0.49109554290771484
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6647970080375671
+      Pitch: 0.6397970914840698
       Target Frame: <Fixed Frame>
-      Yaw: 4.680399417877197
+      Yaw: 4.610395431518555
     Saved: ~
 Window Geometry:
   Displays:
