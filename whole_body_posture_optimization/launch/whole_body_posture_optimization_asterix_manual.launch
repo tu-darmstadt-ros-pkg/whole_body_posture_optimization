@@ -13,8 +13,8 @@
       arm_joint_3: -1.57
       arm_joint_4: -1.30
       arm_joint_5: 0.05
-      flipper_front_joint: 0
-      flipper_back_joint: 0
+      flipper_front_joint: -1.57
+      flipper_back_joint: -1.57
 <!--      arm_joint_0: 0
       arm_joint_1: 0
       arm_joint_2: 0
