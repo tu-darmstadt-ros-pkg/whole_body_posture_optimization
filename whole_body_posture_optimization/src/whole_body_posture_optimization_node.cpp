@@ -50,9 +50,13 @@ nav_msgs::Path createPath(const geometry_msgs::PoseStamped& start, const geometr
   path.poses.reserve(num_points+1);
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = start.header.frame_id; // frame_id should be the same for every pose and path
-  // Goal orientation points x-axis to goal
+
+  // Goal orientation points x-axis to goal (in 2D)
+  Eigen::Vector3d position_difference_no_z = position_difference;
+  position_difference_no_z.z() = 0;
   Eigen::Quaterniond path_orientation;
-  path_orientation.setFromTwoVectors(Eigen::Vector3d::UnitX(), position_difference);
+  path_orientation.setFromTwoVectors(Eigen::Vector3d::UnitX(), position_difference_no_z);
+
   tf::quaternionEigenToMsg(path_orientation, pose.pose.orientation);
 
   // Fill path

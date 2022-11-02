@@ -12,6 +12,7 @@ public:
   void initialize(const std::vector<std::string>& data_labels);
   void addData(const Eigen::VectorXd& data);
   bool saveToCsv(const std::string& file_name) const;
+  size_t getDataSize() const;
 private:
   std::vector<std::string> labels_;
   Eigen::MatrixXd data_;
