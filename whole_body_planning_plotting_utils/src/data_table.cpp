@@ -19,6 +19,10 @@ void DataTable::addData(const Eigen::VectorXd& data)
     ROS_ERROR_STREAM("Table has not been initialized yet");
     return;
   }
+  if (data.size() != labels_.size()) {
+    ROS_ERROR_STREAM("Data has wrong size. Expected: " << labels_.size() << ", received: " << data.size());
+    return;
+  }
   Eigen::Index num_entries = data_.rows();
   data_.conservativeResize(num_entries + 1, labels_.size());
   data_.row(num_entries) = data.transpose();
@@ -50,6 +54,10 @@ bool DataTable::saveToCsv(const std::string& file_name) const
   file.close();
   ROS_INFO_STREAM("Saved " << data_.rows() << " data points to '" << file_name << "'");
   return true;
+}
+size_t DataTable::getDataSize() const
+{
+  return labels_.size();
 }
 }
 
