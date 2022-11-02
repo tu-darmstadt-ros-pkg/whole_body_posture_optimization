@@ -15,7 +15,9 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
   roll_cost_weight(0.0),
   stability_weight(0.0),
   stability_nominal_value(0.0),
-  stability_exp_parameters{0, 0, 0}
+  stability_exp_parameters{0, 0, 0},
+  num_offset_steps_x(0.0),
+  offset_step_size(0.05)
 {}
 
 bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) {
@@ -34,6 +36,8 @@ bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const 
   registerParameter(nh, "stability_exp_parameters_a", stability_exp_parameters[0], 1.6, "Stability EXP parameter (a)", 0.0, 100);
   registerParameter(nh, "stability_exp_parameters_b", stability_exp_parameters[1], -1.7, "Stability EXP parameter (b)", -100.0, 0);
   registerParameter(nh, "stability_exp_parameters_c", stability_exp_parameters[2], 0.0, "Stability EXP parameter (c)", 0.0, 10);
+  registerParameter(nh, "num_offset_steps_x", num_offset_steps_x, 0.0, "Number of offset steps in robot x-direction", -10, 10);
+  registerParameter(nh, "offset_step_size", offset_step_size, 0.0, "Length of offset steps", -1, 1);
   return true;
 }
 

@@ -54,10 +54,9 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
   }
 
   cost[0] = -std::numeric_limits<double>::max();
-  const double offset_step = 0.05;
-  const int offset_steps = 1;
-  for (int offset_counter = 0; offset_counter < offset_steps*2+1; ++offset_counter) {
-    double offset = (offset_counter - offset_steps) * offset_step;
+  const int num_offset_steps = std::floor(parameters_.num_offset_steps_x);
+  for (int offset_counter = 0; offset_counter < num_offset_steps * 2 + 1; ++offset_counter) {
+    double offset = (offset_counter - num_offset_steps) * parameters_.offset_step_size;
     Eigen::Translation3d offset_trans(offset, 0, 0);
 
     // Simulate contact

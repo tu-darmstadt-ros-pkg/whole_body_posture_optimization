@@ -129,6 +129,9 @@ flipper_optimization:
     stability_exp_parameters_a: 14.0
     stability_exp_parameters_b: -2.6
     stability_exp_parameters_c: 0.3
+    num_offset_steps_x: 0
+    offset_step_size: 0.05
+
   
 ## Debug
 posture_optimization_debug: false

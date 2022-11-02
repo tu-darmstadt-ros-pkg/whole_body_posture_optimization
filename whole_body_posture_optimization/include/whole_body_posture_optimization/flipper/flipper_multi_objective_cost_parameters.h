@@ -21,6 +21,8 @@ public:
   double stability_nominal_value;
   double stability_exp_parameters[3];
   double impact_weight;
+  double num_offset_steps_x;
+  double offset_step_size;
 protected:
   bool loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) override;
 private:
