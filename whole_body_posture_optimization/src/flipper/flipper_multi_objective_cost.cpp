@@ -29,6 +29,7 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
   }
   if (DataLog::getInstance().loggingEnabled()) {
     std::vector<std::string> data_labels = free_joints;
+    data_labels.emplace_back("offset_step");
     data_labels.emplace_back("support_area_cost");
     data_labels.emplace_back("track_contact_cost");
     data_labels.emplace_back("body_contact_cost");
@@ -51,207 +52,221 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
   for (unsigned int i = 0; i < free_joints_.size(); i++) {
     pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], flipper_angles[0][i]);
   }
-  // Simulate contact
-  hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
-  hector_pose_prediction_interface::ContactInformation<double> contact_information;
 
-  hector_math::Pose<double> result_pose = pose_math_;
-  double stability = pose_predictor_->predictPoseAndContactInformation(result_pose, support_polygon, contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
-  Eigen::Isometry3d result_pose_eigen = result_pose.asTransform();
+  cost[0] = -std::numeric_limits<double>::max();
+  const double offset_step = 0.05;
+  const int offset_steps = 1;
+  for (int offset_counter = 0; offset_counter < offset_steps*2+1; ++offset_counter) {
+    double offset = (offset_counter - offset_steps) * offset_step;
+    Eigen::Translation3d offset_trans(offset, 0, 0);
 
-  // Catch: Estimation failed or robot fell over
-  if (std::isnan(stability) || stability == -std::numeric_limits<double>::max()) {
-    cost[0] = std::numeric_limits<double>::max();
-    return true;
-  }
+    // Simulate contact
+    hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
+    hector_pose_prediction_interface::ContactInformation<double> contact_information;
 
-  // ** Transition costs ++ //
-  double turning_resistance = 0;
-  double movement_cost = 0.0;
-  double impact_cost = 0.0;
-  if (!prev_flipper_param_angles_.empty()) {
-    // Enforce valid transitions from previous to this state
-    // The transition is only considered valid, if the previous (world) COM pose is still inside the new support polygon
-    // This should ensure that no intermediate state between the discretized states is unstable.
-    // Note: This completely prevents tipping between states, even if it would be possible
-    std::vector<double> prev_com_stabilities =
-        computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, prev_com_);
-    double prev_com_stability = *std::min_element(prev_com_stabilities.begin(), prev_com_stabilities.end());
-    if (prev_com_stability < 0) {
+    hector_math::Pose<double> result_pose = hector_math::Pose<double>(pose_ * offset_trans);
+    double stability = pose_predictor_->predictPoseAndContactInformation(result_pose, support_polygon, contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
+    Eigen::Isometry3d result_pose_eigen = result_pose.asTransform();
+
+    // Catch: Estimation failed or robot fell over
+    if (std::isnan(stability) || stability == -std::numeric_limits<double>::max()) {
       cost[0] = std::numeric_limits<double>::max();
       return true;
     }
 
-    // Compute rotation difference
-    Eigen::Quaterniond start_orientation(prev_pose_.linear());
-    Eigen::Quaterniond end_orientation(result_pose_eigen.linear());
-    Eigen::Quaterniond rotation_diff = start_orientation.inverse() * end_orientation;
-    Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
+    // ** Transition costs ++ //
+    double turning_resistance = 0;
+    double movement_cost = 0.0;
+    double impact_cost = 0.0;
+    if (!prev_flipper_param_angles_.empty()) {
+      // Enforce valid transitions from previous to this state
+      // The transition is only considered valid, if the previous (world) COM pose is still inside the new support polygon
+      // This should ensure that no intermediate state between the discretized states is unstable.
+      // Note: This completely prevents tipping between states, even if it would be possible
+      std::vector<double> prev_com_stabilities =
+          computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, prev_com_);
+      double prev_com_stability = *std::min_element(prev_com_stabilities.begin(), prev_com_stabilities.end());
+      if (prev_com_stability < 0) {
+        cost[0] = std::numeric_limits<double>::max();
+        return true;
+      }
 
-    // Reduce impact force when tipping
-    if (parameters_.impact_weight != 0) {
-      Eigen::Vector3d com = result_pose_eigen * pose_predictor_->robotModel()->centerOfMass();
-      std::vector<double> curr_com_prev_polygon_stabilities =
-          computeForceAngleStabilitiesWithGravity<double>(prev_support_polygon_.contact_hull_points, com);
-      double curr_com_prev_polygon_stability = *std::min_element(curr_com_prev_polygon_stabilities.begin(), curr_com_prev_polygon_stabilities.end());
-      if (curr_com_prev_polygon_stability < 0) {
-        // Tipping event, penalize tipping angle
-        double rotation_angle = euler_angles(1);
-        impact_cost = std::max(0.0, rotation_angle);
+      // Compute rotation difference
+      Eigen::Quaterniond start_orientation(prev_pose_.linear());
+      Eigen::Quaterniond end_orientation(result_pose_eigen.linear());
+      Eigen::Quaterniond rotation_diff = start_orientation.inverse() * end_orientation;
+      Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
+
+      // Reduce impact force when tipping
+      if (parameters_.impact_weight != 0) {
+        Eigen::Vector3d com = result_pose_eigen * pose_predictor_->robotModel()->centerOfMass();
+        std::vector<double> curr_com_prev_polygon_stabilities =
+            computeForceAngleStabilitiesWithGravity<double>(prev_support_polygon_.contact_hull_points, com);
+        double curr_com_prev_polygon_stability = *std::min_element(curr_com_prev_polygon_stabilities.begin(), curr_com_prev_polygon_stabilities.end());
+        if (curr_com_prev_polygon_stability < 0) {
+          // Tipping event, penalize tipping angle
+          double rotation_angle = euler_angles(1);
+          impact_cost = std::max(0.0, rotation_angle);
+        }
+      }
+
+      // Approximate moment of turning resistance
+      if (parameters_.turning_resistance_weight != 0) {
+        // Compute contact
+        for (const hector_pose_prediction_interface::ContactPointInformation<double>& point: contact_information.contact_points) {
+          Eigen::Vector3d p_base = result_pose_eigen.inverse() * point.point; // Transform from world to base link
+          double distance = p_base.block<2, 1>(0, 0).norm();
+          turning_resistance += distance * point.surface_area;
+        }
+
+        double turning_angle = euler_angles(0);
+        turning_resistance *= std::abs(turning_angle);
+      }
+
+      if (parameters_.movement_cost_weight != 0) {
+        // Joint movement cost
+        for (unsigned int idx = 0; idx < prev_flipper_param_angles_.size(); idx++) {
+          double angle_difference = prev_flipper_param_angles_[idx] - flipper_angles[0][idx];
+          movement_cost += lorentzian<double>(angle_difference, parameters_.lorentzian_sigma);
+        }
+        movement_cost /= static_cast<double>(prev_flipper_param_angles_.size()); // Normalize by number of joints
       }
     }
 
-    // Approximate moment of turning resistance
-    if (parameters_.turning_resistance_weight != 0) {
-      // Compute contact
-      for (const hector_pose_prediction_interface::ContactPointInformation<double>& point: contact_information.contact_points) {
-        Eigen::Vector3d p_base = result_pose_eigen.inverse() * point.point; // Transform from world to base link
-        double distance = p_base.block<2, 1>(0, 0).norm();
-        turning_resistance += distance * point.surface_area;
-      }
+    // *** State costs ** //
+    // Penalize deviation from requested position
+    Eigen::Isometry3d original_to_estimated = pose_.inverse() * result_pose_eigen;
+    double position_difference = original_to_estimated.translation().block<2,1>(0,0).norm();
+    double position_deviation_cost = std::max(0.0, position_difference - 0.02); // 2cm leeway
 
-      double turning_angle = euler_angles(0);
-      turning_resistance *= std::abs(turning_angle);
+    // Penalize chassis roll angle
+    // We want the chassis to be upright
+    double chassis_roll_angle = result_pose_eigen.linear().eulerAngles(0, 1, 2)[0];
+    if (chassis_roll_angle > M_PI_2) {
+      chassis_roll_angle = M_PI - chassis_roll_angle;
     }
 
-    if (parameters_.movement_cost_weight != 0) {
-      // Joint movement cost
-      for (unsigned int idx = 0; idx < prev_flipper_param_angles_.size(); idx++) {
-        double angle_difference = prev_flipper_param_angles_[idx] - flipper_angles[0][idx];
-        movement_cost += lorentzian<double>(angle_difference, parameters_.lorentzian_sigma);
+    // Stability cost
+    double stability_cost = 0;
+    if (parameters_.stability_weight != 0) {
+      //    Eigen::Vector3d com_pos = result_pose_eigen * pose_predictor_->robotModel()->centerOfMass();
+      //    std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, com_pos);
+      std::vector<double> transformed_edge_stabilities =  support_polygon.edge_stabilities;
+      if (parameters_.stability_nominal_value != 0) {
+        std::transform(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), transformed_edge_stabilities.begin(), [this](double stability) -> double {
+          return std::min(stability, parameters_.stability_nominal_value);
+        });
       }
-      movement_cost /= static_cast<double>(prev_flipper_param_angles_.size()); // Normalize by number of joints
-    }
-  }
-
-  // *** State costs ** //
-  // Penalize deviation from requested position
-  Eigen::Isometry3d original_to_estimated = pose_.inverse() * result_pose_eigen;
-  double position_difference = original_to_estimated.translation().block<2,1>(0,0).norm();
-  double position_deviation_cost = std::max(0.0, position_difference - 0.02); // 2cm leeway
-
-  // Penalize chassis roll angle
-  // We want the chassis to be upright
-  double chassis_roll_angle = result_pose_eigen.linear().eulerAngles(0, 1, 2)[0];
-  if (chassis_roll_angle > M_PI_2) {
-    chassis_roll_angle = M_PI - chassis_roll_angle;
-  }
-
-  // Stability cost
-  double stability_cost = 0;
-  if (parameters_.stability_weight != 0) {
-//    Eigen::Vector3d com_pos = result_pose_eigen * pose_predictor_->robotModel()->centerOfMass();
-//    std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, com_pos);
-    std::vector<double> transformed_edge_stabilities =  support_polygon.edge_stabilities;
-    if (parameters_.stability_nominal_value != 0) {
       std::transform(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), transformed_edge_stabilities.begin(), [this](double stability) -> double {
-        return std::min(stability, parameters_.stability_nominal_value);
+        return parameters_.stability_exp_parameters[0] * exp(parameters_.stability_exp_parameters[1] * stability+parameters_.stability_exp_parameters[2]);
       });
-    }
-    std::transform(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), transformed_edge_stabilities.begin(), [this](double stability) -> double {
-      return parameters_.stability_exp_parameters[0] * exp(parameters_.stability_exp_parameters[1] * stability+parameters_.stability_exp_parameters[2]);
-    });
 
-    stability_cost = std::accumulate(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), 0.0);
-    stability_cost /= static_cast<double>(support_polygon.edge_stabilities.size()); // average cost per axis
-  }
-
-  // Traction and fragile contacts costs
-  // Use track contact to approximate traction and penalize chassis contacts
-  double track_contact_area = 0;
-  double body_contact_area = 0;
-  Eigen::Vector3d gravity_vector = Eigen::Vector3d::UnitZ();
-  for (const hector_pose_prediction_interface::ContactPointInformation<double>& point: contact_information.contact_points) {
-
-    if (point.link_type == hector_pose_prediction_interface::LinkType::Tracks) {
-      // Traction cost
-      // Weight track contact by angle between contact normal and (inverse) gravity vector
-      // Approximates normal force
-      if (point.surface_normal == Eigen::Vector3d::Zero()) continue; // No gradient
-      double angle = std::acos(gravity_vector.dot(point.surface_normal)/(point.surface_normal.norm()));
-      double a = -2/M_PI;
-      double b = 1;
-      double contact_weight = std::max(a * angle + b, 0.0); // Value between 0 (low traction) and 1 (high traction)
-      track_contact_area += contact_weight * point.surface_area;
+      stability_cost = std::accumulate(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), 0.0);
+      stability_cost /= static_cast<double>(support_polygon.edge_stabilities.size()); // average cost per axis
     }
 
-    if (point.link_type == hector_pose_prediction_interface::LinkType::Chassis ||
-        point.link_type == hector_pose_prediction_interface::LinkType::Fragile) {
-      body_contact_area += point.surface_area;
+    // Traction and fragile contacts costs
+    // Use track contact to approximate traction and penalize chassis contacts
+    double track_contact_area = 0;
+    double body_contact_area = 0;
+    Eigen::Vector3d gravity_vector = Eigen::Vector3d::UnitZ();
+    for (const hector_pose_prediction_interface::ContactPointInformation<double>& point: contact_information.contact_points) {
+
+      if (point.link_type == hector_pose_prediction_interface::LinkType::Tracks) {
+        // Traction cost
+        // Weight track contact by angle between contact normal and (inverse) gravity vector
+        // Approximates normal force
+        if (point.surface_normal == Eigen::Vector3d::Zero()) continue; // No gradient
+        double angle = std::acos(gravity_vector.dot(point.surface_normal)/(point.surface_normal.norm()));
+        double a = -2/M_PI;
+        double b = 1;
+        double contact_weight = std::max(a * angle + b, 0.0); // Value between 0 (low traction) and 1 (high traction)
+        track_contact_area += contact_weight * point.surface_area;
+      }
+
+      if (point.link_type == hector_pose_prediction_interface::LinkType::Chassis ||
+          point.link_type == hector_pose_prediction_interface::LinkType::Fragile) {
+        body_contact_area += point.surface_area;
+      }
+    }
+    if (parameters_.track_contact_nominal_value != 0) {
+      track_contact_area = std::min(track_contact_area, parameters_.track_contact_nominal_value);
+    }
+    track_contact_area *= -1; // Negative cost (reward)
+
+    // Penalize contact normals that point against the moving direction
+    // For now, the moving direction is hard-coded to x+
+    //  Eigen::Vector3d moving_direction = Eigen::Vector3d::UnitX();
+    //  Eigen::Vector3d neg_moving_direction = -moving_direction;
+    //  double contact_against_moving_penalty_weight = 0.0;
+    //  double contact_against_moving_penalty_sum = 0;
+    //  for (Eigen::Vector3d& contact_point: result.contact_points) {
+    //    Eigen::Vector3d normal;
+    //    contact_estimation_->getSdf().getDistanceAndGradient(contact_point, normal);
+    //    double angle = std::acos(neg_moving_direction.dot(normal)/(neg_moving_direction.norm() * normal.norm()));
+    //    double a = 1.85;
+    //    double c = -0.85;
+    //    double penalty = std::max(a * std::exp(-angle) + c, 0.0);
+    //    contact_against_moving_penalty_sum += penalty;
+    //  }
+
+    // Compute support area TODO move to hector math
+    double support_area = 0;
+    for (unsigned int i = 0; i < support_polygon.contact_hull_points.size(); ++i) {
+      unsigned int j = (i+1) % support_polygon.contact_hull_points.size();
+      support_area += support_polygon.contact_hull_points[i].y() * support_polygon.contact_hull_points[j].x()
+                      - support_polygon.contact_hull_points[i].x() * support_polygon.contact_hull_points[j].y();
+    }
+    support_area *= -1; // Negative cost (reward)
+
+    // Sum up cost terms
+    double local_cost = + parameters_.support_area_weight * support_area
+              + parameters_.track_contact_weight * track_contact_area
+              + parameters_.body_contact_weight * body_contact_area
+              + parameters_.turning_resistance_weight * turning_resistance
+              + parameters_.movement_cost_weight * movement_cost
+              + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
+              + parameters_.position_deviation_weight * position_deviation_cost
+              + parameters_.stability_weight * stability_cost
+              + parameters_.impact_weight * impact_cost;
+    cost[0] = std::max(cost[0], local_cost);
+
+    if (parameters_.verbose) {
+      ROS_INFO_STREAM("Flipper cost function (weighted value in brackets): " << std::endl <<
+                      "Support area: " << support_area << " (" << parameters_.support_area_weight * support_area << ")" << std::endl <<
+                      "Track contact: " << track_contact_area << " (" << parameters_.track_contact_weight * track_contact_area << ")" << std::endl <<
+                      "Body contact: " << body_contact_area << " (" << parameters_.body_contact_weight * body_contact_area << ")" << std::endl <<
+                      "Impact: " << impact_cost << " (" << parameters_.impact_weight * impact_cost << ")" << std::endl <<
+                      "Turning resistance: " << turning_resistance << " (" << parameters_.turning_resistance_weight * turning_resistance << ")" << std::endl <<
+                      "Movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl <<
+                      "Position deviation cost: " << position_deviation_cost << " (" << parameters_.position_deviation_weight * position_deviation_cost << ")" << std::endl <<
+                      "Chassis roll angle: " << chassis_roll_angle << " (" << parameters_.roll_cost_weight * chassis_roll_angle << ")" << std::endl <<
+                      "Stability cost: " << stability_cost << " (" << parameters_.stability_weight * stability_cost << ")" << std::endl <<
+                      "Total cost: " << local_cost);
+    }
+
+    if (DataLog::getInstance().loggingEnabled()) {
+      Eigen::VectorXd data(DataLog::getInstance().getTable("flipper_multi_objective_cost").getDataSize());
+      for (unsigned int i = 0; i < free_joints_.size(); ++i) {
+        data[i] = flipper_angles[0][i];
+      }
+      Eigen::Index index = static_cast<Eigen::Index>(free_joints_.size()) - 1;
+      data[++index] = offset_counter;
+      data[++index] = parameters_.support_area_weight * support_area;
+      data[++index] = parameters_.track_contact_weight * track_contact_area;
+      data[++index] = parameters_.body_contact_weight * body_contact_area;
+      data[++index] = parameters_.turning_resistance_weight * turning_resistance;
+      data[++index] = parameters_.movement_cost_weight * movement_cost;
+      data[++index] = parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle;
+      data[++index] = parameters_.position_deviation_weight * position_deviation_cost;
+      data[++index] = parameters_.stability_weight * stability_cost;
+      data[++index] = parameters_.impact_weight * impact_cost;
+      data[++index] = local_cost;
+      DataLog::getInstance().getTable("flipper_multi_objective_cost").addData(data);
     }
   }
-  if (parameters_.track_contact_nominal_value != 0) {
-    track_contact_area = std::min(track_contact_area, parameters_.track_contact_nominal_value);
-  }
-  track_contact_area *= -1; // Negative cost (reward)
 
-  // Penalize contact normals that point against the moving direction
-  // For now, the moving direction is hard-coded to x+
-//  Eigen::Vector3d moving_direction = Eigen::Vector3d::UnitX();
-//  Eigen::Vector3d neg_moving_direction = -moving_direction;
-//  double contact_against_moving_penalty_weight = 0.0;
-//  double contact_against_moving_penalty_sum = 0;
-//  for (Eigen::Vector3d& contact_point: result.contact_points) {
-//    Eigen::Vector3d normal;
-//    contact_estimation_->getSdf().getDistanceAndGradient(contact_point, normal);
-//    double angle = std::acos(neg_moving_direction.dot(normal)/(neg_moving_direction.norm() * normal.norm()));
-//    double a = 1.85;
-//    double c = -0.85;
-//    double penalty = std::max(a * std::exp(-angle) + c, 0.0);
-//    contact_against_moving_penalty_sum += penalty;
-//  }
-
-  // Compute support area TODO move to hector math
-  double support_area = 0;
-  for (unsigned int i = 0; i < support_polygon.contact_hull_points.size(); ++i) {
-    unsigned int j = (i+1) % support_polygon.contact_hull_points.size();
-    support_area += support_polygon.contact_hull_points[i].y() * support_polygon.contact_hull_points[j].x()
-        - support_polygon.contact_hull_points[i].x() * support_polygon.contact_hull_points[j].y();
-  }
-  support_area *= -1; // Negative cost (reward)
-
-  // Sum up cost terms
-  cost[0] = + parameters_.support_area_weight * support_area
-            + parameters_.track_contact_weight * track_contact_area
-            + parameters_.body_contact_weight * body_contact_area
-            + parameters_.turning_resistance_weight * turning_resistance
-            + parameters_.movement_cost_weight * movement_cost
-            + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
-            + parameters_.position_deviation_weight * position_deviation_cost
-            + parameters_.stability_weight * stability_cost
-            + parameters_.impact_weight * impact_cost;
-
-  if (parameters_.verbose) {
-    ROS_INFO_STREAM("Flipper cost function (weighted value in brackets): " << std::endl <<
-    "Support area: " << support_area << " (" << parameters_.support_area_weight * support_area << ")" << std::endl <<
-    "Track contact: " << track_contact_area << " (" << parameters_.track_contact_weight * track_contact_area << ")" << std::endl <<
-    "Body contact: " << body_contact_area << " (" << parameters_.body_contact_weight * body_contact_area << ")" << std::endl <<
-    "Impact: " << impact_cost << " (" << parameters_.impact_weight * impact_cost << ")" << std::endl <<
-    "Turning resistance: " << turning_resistance << " (" << parameters_.turning_resistance_weight * turning_resistance << ")" << std::endl <<
-    "Movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl <<
-    "Position deviation cost: " << position_deviation_cost << " (" << parameters_.position_deviation_weight * position_deviation_cost << ")" << std::endl <<
-    "Chassis roll angle: " << chassis_roll_angle << " (" << parameters_.roll_cost_weight * chassis_roll_angle << ")" << std::endl <<
-    "Stability cost: " << stability_cost << " (" << parameters_.stability_weight * stability_cost << ")" << std::endl <<
-    "Total cost: " << cost[0]);
-  }
-
-  if (DataLog::getInstance().loggingEnabled()) {
-    Eigen::VectorXd data(free_joints_.size() + 10);
-    for (unsigned int i = 0; i < free_joints_.size(); ++i) {
-      data[i] = flipper_angles[0][i];
-    }
-    data[free_joints_.size()] = parameters_.support_area_weight * support_area;
-    data[free_joints_.size() + 1] = parameters_.track_contact_weight * track_contact_area;
-    data[free_joints_.size() + 2] = parameters_.body_contact_weight * body_contact_area;
-    data[free_joints_.size() + 3] = parameters_.turning_resistance_weight * turning_resistance;
-    data[free_joints_.size() + 4] = parameters_.movement_cost_weight * movement_cost;
-    data[free_joints_.size() + 5] = parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle;
-    data[free_joints_.size() + 6] = parameters_.position_deviation_weight * position_deviation_cost;
-    data[free_joints_.size() + 7] = parameters_.stability_weight * stability_cost;
-    data[free_joints_.size() + 8] = parameters_.impact_weight * impact_cost;
-    data[free_joints_.size() + 9] = cost[0];
-    DataLog::getInstance().getTable("flipper_multi_objective_cost").addData(data);
-  }
+//  cost[0] /= offset_steps * 2 + 1;
 
   return true;
 }
