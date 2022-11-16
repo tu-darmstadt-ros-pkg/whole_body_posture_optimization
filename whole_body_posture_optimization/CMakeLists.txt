@@ -51,6 +51,8 @@ set(HEADERS
   include/${PROJECT_NAME}/flipper/flipper_optimization.h
   include/${PROJECT_NAME}/flipper/flipper_multi_objective_cost.h
   include/${PROJECT_NAME}/flipper/flipper_multi_objective_cost_parameters.h
+  include/${PROJECT_NAME}/solvers/optimizer_base.h
+  include/${PROJECT_NAME}/solvers/grid_search_optimizer.h
 #  include/${PROJECT_NAME}/combined/combined_optimization.h
 #  include/${PROJECT_NAME}/combined/combined_stability_cost.h
 #  include/${PROJECT_NAME}/combined/self_contact_constraint_no_gradient.h
@@ -69,7 +71,9 @@ set(SOURCES
   src/flipper/flipper_multi_objective_cost_parameters.cpp
   #  src/combined/combined_optimization.cpp
 #  src/combined/combined_stability_cost.cpp
-  src/optimization_parameters_base.cpp)
+  src/optimization_parameters_base.cpp
+  src/solvers/optimizer_base.cpp
+  src/solvers/grid_search_optimizer.cpp )
 
 include_directories(
   include
