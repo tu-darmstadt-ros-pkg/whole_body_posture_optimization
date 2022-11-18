@@ -57,7 +57,8 @@ set(HEADERS
 #  include/${PROJECT_NAME}/combined/combined_stability_cost.h
 #  include/${PROJECT_NAME}/combined/self_contact_constraint_no_gradient.h
 #  include/${PROJECT_NAME}/combined/sdf_contact_constraint_no_gradient.h
-  include/${PROJECT_NAME}/optimization_parameters_base.h)
+  include/${PROJECT_NAME}/optimization_parameters_base.h
+  include/${PROJECT_NAME}/solvers/optimizer_factory.h)
 
 set(SOURCES
   src/whole_body_posture_optimization.cpp

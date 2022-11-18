@@ -15,22 +15,25 @@ nlopt::result GridSearchOptimizer::optimize(std::vector<double>& parameters, dou
 {
   parameters = lower_bounds_;
   minf = std::numeric_limits<double>::max();
-  gridSearch(parameters, minf, 0);
+  gridSearch(lower_bounds_, parameters, minf, 0);
   return nlopt::FAILURE;
 }
 
-void GridSearchOptimizer::gridSearch(std::vector<double>& parameters, double& minf, size_t dim)
+void GridSearchOptimizer::gridSearch(const std::vector<double>& search_parameters, std::vector<double>& min_parameters, double& minf, size_t dim)
 {
-  std::vector<double> parameters_temp = parameters;
+  std::vector<double> parameters_var = search_parameters;
   for (double val = lower_bounds_[dim]; val < upper_bounds_[dim]; val += resolution_) {
-    parameters_temp[dim] = val;
+    parameters_var[dim] = val;
     if (dim+1 < dimensions_) {
-      gridSearch(parameters, minf, dim+1);
+      gridSearch(parameters_var, min_parameters, minf, dim+1);
     } else {
-      double f = evaluateCostFunction(cost_function_, parameters);
-      if (f < minf) {
+      std::vector<double> gradient;
+      double f = (*cost_function_)(parameters_var, gradient);
+      if (!std::isnan(f) && !std::isinf(f) && f < minf) {
+        ROS_WARN_STREAM("New parameters: " << vecToString(parameters_var));
+        ROS_WARN_STREAM("Previous cost: " << minf << ", new cost: " << f);
         minf = f;
-        parameters = parameters_temp;
+        min_parameters = parameters_var;
       }
     }
   }
