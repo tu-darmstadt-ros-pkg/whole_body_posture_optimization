@@ -11,6 +11,8 @@
 #include <whole_body_posture_optimization/robot_model.h>
 #include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost.h>
 
+#include <whole_body_posture_optimization/solvers/optimizer_base.h>
+
 namespace whole_body_posture_optimization {
 
 struct FlipperOptimizationResult {
@@ -43,6 +45,7 @@ private:
 
   std::shared_ptr<ceres_nlopt_wrapper::NloptParameterServer> opt_server_;
   std::shared_ptr<ceres_nlopt_wrapper::NloptParameterServer> local_opt_server_;
+  std::shared_ptr<OptimizerBase> custom_solver_;
   bool enabled_;
   unsigned int parameter_count_;
   std::vector<std::string> free_joints_;

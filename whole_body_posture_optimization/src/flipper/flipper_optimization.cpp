@@ -1,6 +1,7 @@
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
 
 #include <whole_body_posture_optimization/timing.h>
+#include <whole_body_posture_optimization/solvers/optimizer_factory.h>
 
 #include <geometry_msgs/PoseStamped.h>
 
@@ -27,6 +28,16 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   // Create nlopt optimizer
   parameter_count_ = static_cast<unsigned int>(free_joints_.size());
   opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(ros::NodeHandle(nh, "solver"), parameter_count_);
+
+  // Create custom solver
+  ros::NodeHandle custom_solver_nh(nh, "custom_solver");
+  std::string solver_name;
+  if (custom_solver_nh.getParam("algorithm", solver_name)) {
+    custom_solver_ = createSolverByName(solver_name);
+    if (custom_solver_) {
+      custom_solver_->loadParametersFromNamespace(custom_solver_nh);
+    }
+  }
 
 
   // Set local optimizer
@@ -108,6 +119,15 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   START_TIMING("Flipper optimization")
   double minf = std::nan("");
   auto start = std::chrono::high_resolution_clock::now();
+
+  // Custom solver
+  if (custom_solver_) {
+    custom_solver_->loadSettingsFromNlopt(opt);
+    custom_solver_->setMinFunction(objective);
+    custom_solver_->optimize(parameters, minf);
+  }
+
+  // Nlopt solver
   nlopt::result nlopt_result;
   try {
     if (enabled_) {

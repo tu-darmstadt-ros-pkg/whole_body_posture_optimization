@@ -1,6 +1,9 @@
 #include <whole_body_posture_optimization/solvers/grid_search_optimizer.h>
+#include <whole_body_posture_optimization/common.h>
 
 namespace whole_body_posture_optimization {
+
+const std::string GridSearchOptimizer::NAME = "grid_search";
 
 GridSearchOptimizer::GridSearchOptimizer()
  : resolution_(0.1)
@@ -37,6 +40,10 @@ void GridSearchOptimizer::gridSearch(const std::vector<double>& search_parameter
       }
     }
   }
+}
+std::string GridSearchOptimizer::solverName() const
+{
+  return GridSearchOptimizer::NAME;
 }
 
 }

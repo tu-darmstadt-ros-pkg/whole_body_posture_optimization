@@ -12,6 +12,8 @@ public:
   void loadParametersFromNamespace(const ros::NodeHandle& nh) override;
   nlopt::result optimize(std::vector<double>& parameters, double& minf) override;
   void gridSearch(const std::vector<double>& search_parameters, std::vector<double>& min_parameters, double& minf, size_t dim);
+  std::string solverName() const override;
+  static const std::string NAME;
 private:
   double resolution_;
 };
