@@ -9,11 +9,15 @@ namespace whole_body_planning_plotting_utils {
 
 class DataTable {
 public:
+  DataTable();
   void initialize(const std::vector<std::string>& data_labels);
+  void enableLogging();
+  bool enabled() const;
   void addData(const Eigen::VectorXd& data);
   bool saveToCsv(const std::string& file_name) const;
   size_t getDataSize() const;
 private:
+  bool enabled_;
   std::vector<std::string> labels_;
   Eigen::MatrixXd data_;
 };

@@ -5,6 +5,10 @@
 #include <fstream>
 
 namespace whole_body_planning_plotting_utils {
+
+DataTable::DataTable()
+: enabled_(false) {}
+
 void DataTable::initialize(const std::vector<std::string>& data_labels)
 {
   if (!labels_.empty()) {
@@ -13,6 +17,7 @@ void DataTable::initialize(const std::vector<std::string>& data_labels)
   }
   labels_ = data_labels;
 }
+
 void DataTable::addData(const Eigen::VectorXd& data)
 {
   if (labels_.empty()) {
@@ -27,6 +32,7 @@ void DataTable::addData(const Eigen::VectorXd& data)
   data_.conservativeResize(num_entries + 1, labels_.size());
   data_.row(num_entries) = data.transpose();
 }
+
 bool DataTable::saveToCsv(const std::string& file_name) const
 {
   std::ofstream file;
@@ -55,10 +61,20 @@ bool DataTable::saveToCsv(const std::string& file_name) const
   ROS_INFO_STREAM("Saved " << data_.rows() << " data points to '" << file_name << "'");
   return true;
 }
+
 size_t DataTable::getDataSize() const
 {
   return labels_.size();
 }
+bool DataTable::enabled() const
+{
+  return enabled_;
+}
+void DataTable::enableLogging()
+{
+  enabled_ = true;
+}
+
 }
 
 

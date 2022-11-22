@@ -27,7 +27,7 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
     // Compute previous support polygon
     pose_predictor_->estimateSupportPolygon(hector_math::Pose<double>(prev_pose_), prev_support_polygon_);
   }
-  if (DataLog::getInstance().loggingEnabled()) {
+  if (DataLog::getInstance().getTable("flipper_multi_objective_cost").enabled()) {
     std::vector<std::string> data_labels = free_joints;
     data_labels.emplace_back("offset_step");
     data_labels.emplace_back("support_area_cost");
@@ -244,7 +244,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
                       "Total cost: " << local_cost);
     }
 
-    if (DataLog::getInstance().loggingEnabled()) {
+    if (DataLog::getInstance().getTable("flipper_multi_objective_cost").enabled()) {
       Eigen::VectorXd data(DataLog::getInstance().getTable("flipper_multi_objective_cost").getDataSize());
       for (unsigned int i = 0; i < free_joints_.size(); ++i) {
         data[i] = flipper_angles[0][i];

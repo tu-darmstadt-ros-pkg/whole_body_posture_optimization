@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
   robot_pose.translation() = Eigen::Vector3d(requested_pose_vec[0], requested_pose_vec[1], requested_pose_vec[2]);
 
   // Optimize
-  DataLog::getInstance().enableLogging();
+  DataLog::getInstance().getTable("flipper_multi_objective_cost").enableLogging();
   PostureOptimizationResult result = po.findOptimalPosture(robot_pose, po.getDefaultJointPositions());
 
   // Save results
