@@ -33,8 +33,6 @@ void GridSearchOptimizer::gridSearch(const std::vector<double>& search_parameter
       std::vector<double> gradient;
       double f = (*cost_function_)(parameters_var, gradient);
       if (!std::isnan(f) && !std::isinf(f) && f < minf) {
-        ROS_WARN_STREAM("New parameters: " << vecToString(parameters_var));
-        ROS_WARN_STREAM("Previous cost: " << minf << ", new cost: " << f);
         minf = f;
         min_parameters = parameters_var;
       }
