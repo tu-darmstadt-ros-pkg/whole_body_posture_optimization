@@ -96,7 +96,7 @@ flipper_optimization:
   enabled: true
   #custom_solver:
     #algorithm: grid_search
-    #resolution: 0.1
+    #search_resolution: 0.78
   solver:
     algorithm: GN_DIRECT
     maxeval: 100

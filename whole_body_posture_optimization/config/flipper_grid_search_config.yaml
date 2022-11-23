@@ -2,4 +2,4 @@ flipper_optimization:
   enabled: false
   custom_solver:
     algorithm: grid_search
-    resolution: 0.1
+    search_resolution: 0.1
