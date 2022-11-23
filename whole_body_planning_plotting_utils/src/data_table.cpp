@@ -35,6 +35,9 @@ void DataTable::addData(const Eigen::VectorXd& data)
 
 bool DataTable::saveToCsv(const std::string& file_name) const
 {
+  if (data_.rows() == 0) {
+    return true;
+  }
   std::ofstream file;
   file.open(file_name, std::ios::out);
 
@@ -73,6 +76,10 @@ bool DataTable::enabled() const
 void DataTable::enableLogging()
 {
   enabled_ = true;
+}
+void DataTable::clear()
+{
+  data_ = Eigen::MatrixXd();
 }
 
 }

@@ -8,6 +8,10 @@
 #include <sdf_contact_estimation/robot_model/shape_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 
+#include <whole_body_planning_plotting_utils/data_log.h>
+
+using whole_body_planning_plotting_utils::DataLog;
+
 nav_msgs::Path path_;
 bool new_path_received_ = false;
 
@@ -120,6 +124,12 @@ int main(int argc, char** argv) {
   sdf_pose_predictor->enableVisualisation(false);
   auto pose_predictor = std::static_pointer_cast<hector_pose_prediction_interface::PosePredictor<double>>(sdf_pose_predictor);
 
+  // Initialize logging
+  std::string logging_folder = pnh.param("logging_folder", std::string(""));
+  if (!logging_folder.empty()) {
+    DataLog::getInstance().getTable("flipper_optimization").enableLogging();
+  }
+
   whole_body_posture_optimization::WholeBodyPostureOptimization po(pnh, pose_predictor, sdf_model);
 
   // Create path from parameters
@@ -138,6 +148,7 @@ int main(int argc, char** argv) {
   while (ros::ok()) {
     ros::spinOnce();
     if (new_path_received_) {
+      DataLog::getInstance().getTable("flipper_optimization").clear();
       // Compute optimal postures
       auto result = po.findOptimalPostures(path_);
       auto trajectory = po.computeTimedTrajectory(result);
@@ -146,6 +157,10 @@ int main(int argc, char** argv) {
       // Print and save results
       whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
       whole_body_posture_optimization::Timing::printTimeInfos();
+      // Save results
+      if (!logging_folder.empty()) {
+        DataLog::getInstance().saveTablesToFolder(logging_folder);
+      }
 
       new_path_received_ = false;
     }

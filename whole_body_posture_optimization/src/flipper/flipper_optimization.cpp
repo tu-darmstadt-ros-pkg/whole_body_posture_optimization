@@ -4,6 +4,9 @@
 #include <whole_body_posture_optimization/solvers/optimizer_factory.h>
 
 #include <geometry_msgs/PoseStamped.h>
+#include <whole_body_planning_plotting_utils/data_log.h>
+
+using whole_body_planning_plotting_utils::DataLog;
 
 namespace whole_body_posture_optimization {
 
@@ -37,6 +40,18 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
     if (custom_solver_) {
       custom_solver_->loadParametersFromNamespace(custom_solver_nh);
     }
+  }
+
+  // Initialize logging
+  if (DataLog::getInstance().getTable("flipper_optimization").enabled()) {
+    std::vector<std::string> data_labels = {
+      "optimization_time",
+      "iterations",
+      "cost"
+    };
+    DataLog::getInstance().getTable("flipper_optimization").initialize(data_labels);
+
+    ROS_INFO_STREAM("data size " << DataLog::getInstance().getTable("flipper_optimization").getDataSize());
   }
 
 
@@ -149,6 +164,12 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Flipper optimization took " << objective->getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                   << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
+
+  if (DataLog::getInstance().getTable("flipper_optimization").enabled()) {
+    Eigen::VectorXd data(DataLog::getInstance().getTable("flipper_optimization").getDataSize());
+    data << elapsed.count(), objective->getEvaluations(), minf;
+    DataLog::getInstance().getTable("flipper_optimization").addData(data);
+  }
 
   // Estimating again for debug output
   bool cost_function_verbosity = flipper_multi_objective_cost_parameters_.verbose;

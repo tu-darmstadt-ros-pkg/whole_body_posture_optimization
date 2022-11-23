@@ -29,6 +29,7 @@
     <param name="stepping" value="false"/>
     <param name="stepping_start" value="0"/>
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />  
+    <param name="logging_folder" value="$(find whole_body_planning_plotting_utils)/data/optimization"/>
     
     <!-- sdf contact estimation lib parameters -->
     <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="pose_predictor"/>

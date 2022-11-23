@@ -16,6 +16,7 @@ public:
   void addData(const Eigen::VectorXd& data);
   bool saveToCsv(const std::string& file_name) const;
   size_t getDataSize() const;
+  void clear();
 private:
   bool enabled_;
   std::vector<std::string> labels_;
