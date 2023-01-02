@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="map_file_path" />
+
+  <!-- Load robot description -->
+  <param name="robot_description" command="$(find xacro)/xacro $(find asterix_description)/urdf/asterix_ugv.urdf.xacro" />
+  <param name="robot_description_semantic" textfile="$(find asterix_moveit_config)/config/asterix_ugv.srdf" />
+  
+  <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen" clear_params="true" ><!--launch-prefix="gdb -args"-->
+    <!-- load scenario -->
+    <rosparam subst_value="true" ns="sdf_map">
+      voxel_size: 0.05
+      use_esdf: true
+      sdf_file_path: $(arg map_file_path)
+      truncation_distance: 0.4
+    </rosparam>
+    
+    <!-- posture optimization lib parameters -->
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
+
+    <!-- enable flipper optimization logging -->
+    <param name="flipper_optimization_logging_folder" value="$(find whole_body_planning_plotting_utils)/data/optimization"/>
+    
+    <!-- sdf contact estimation lib parameters -->
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="pose_predictor"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" ns="pose_predictor/shape_model" />
+  </node>
+
+  <!-- moveit parameters -->
+  <group ns="robot_description_planning">
+    <rosparam command="load" file="$(find asterix_moveit_config)/config/joint_limits.yaml"/>
+    <rosparam command="load" file="$(find asterix_moveit_config)/config/joint_limits_world.yaml"/>
+  </group>
+
+  <!-- rviz ui -->
+  <include file="$(find whole_body_posture_optimization)/launch/rviz.launch"/>
+</launch>

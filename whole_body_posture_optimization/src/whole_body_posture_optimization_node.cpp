@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
   auto pose_predictor = std::static_pointer_cast<hector_pose_prediction_interface::PosePredictor<double>>(sdf_pose_predictor);
 
   // Initialize logging
-  std::string logging_folder = pnh.param("logging_folder", std::string(""));
+  std::string logging_folder = pnh.param("flipper_optimization_logging_folder", std::string(""));
   if (!logging_folder.empty()) {
     DataLog::getInstance().getTable("flipper_optimization").enableLogging();
   }

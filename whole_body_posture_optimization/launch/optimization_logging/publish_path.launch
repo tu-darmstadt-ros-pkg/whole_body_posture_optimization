@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+
+<launch>
+  <arg name="start_x" default="0"/>
+  <arg name="start_y" default="0"/>
+  <arg name="start_z" default="0"/>
+  <arg name="start_qx" default="0"/>
+  <arg name="start_qy" default="0"/>
+  <arg name="start_qz" default="0"/>
+  <arg name="start_qw" default="1"/>
+
+  <arg name="end_x" default="0"/>
+  <arg name="end_y" default="0"/>
+  <arg name="end_z" default="0"/>
+  <arg name="end_qx" default="0"/>
+  <arg name="end_qy" default="0"/>
+  <arg name="end_qz" default="0"/>
+  <arg name="end_qw" default="1"/>
+
+  <arg name="frame_id" default="world"/>
+  
+  <node pkg="rostopic" type="rostopic" name="rostopic_pub_goal_path" output="screen" args="pub -1 /whole_body_posture_optimization_node/goal_path nav_msgs/Path '{header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: $(arg frame_id)}, poses: [{header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: $(arg frame_id)}, pose: {position: {x: $(arg start_x), y: $(arg start_y), z: $(arg start_z)}, orientation: {x: $(arg start_qx), y: $(arg start_qy), z: $(arg start_qz), w: $(arg start_qw)}}}, {header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: $(arg frame_id)}, pose: {position: {x: $(arg end_x), y: $(arg end_y), z: $(arg end_z)}, orientation: {x: $(arg end_qx), y: $(arg end_qy), z: $(arg end_qz), w: $(arg end_qw)}}}]}'">
+  </node>
+
+</launch>
+
+<!--
+header:
+  seq: 0
+  stamp:
+    secs: 0
+    nsecs:         0
+  frame_id: "world"
+poses:
+  -
+    header:
+      seq: 0
+      stamp:
+        secs: 0
+        nsecs:         0
+      frame_id: "world"
+    pose:
+      position:
+        x: 0.35620784759521484
+        y: 0.06029081344604492
+        z: -0.0033016204833984375
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        w: 0.0
+  -
+    header:
+      seq: 0
+      stamp:
+        secs: 0
+        nsecs:         0
+      frame_id: "world"
+    pose:
+      position:
+        x: 8.21229362487793
+        y: 0.09907674789428711
+        z: 0.00543212890625
+      orientation:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        w: 0.0
+
+-->
