@@ -5,6 +5,7 @@ import os
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import plotly
 
 
 def parse_arguments():
@@ -26,10 +27,24 @@ def load_data(data_files):
     return data
 
 
+plot_color_index = dict()
+
+
+def get_next_color(index):
+    color_index = plot_color_index.get(index, -1) + 1
+    plot_color_index[index] = color_index
+    palette = plotly.colors.DEFAULT_PLOTLY_COLORS
+    color_index = color_index % len(palette)
+    return dict(width=2, color=palette[color_index])
+
+
 def plot_data(data, label, fig, col_name, subplot_index):
     x = np.arange(0, len(data[col_name]), 1.0)
     fig.add_trace(
-        go.Scatter(x=x, y=data[col_name], name=label),
+        go.Scatter(x=x,
+                   y=data[col_name],
+                   name=label,
+                   line=get_next_color(subplot_index)),
         row=subplot_index, col=1
     )
 
