@@ -460,6 +460,9 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
 
 void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const ros::Time& start_time)
 {
+  if (robot_trajectory.empty()) {
+    return;
+  }
   robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
   trajectory_with_world.append(robot_trajectory, 0);
 
