@@ -9,7 +9,7 @@ using whole_body_planning_plotting_utils::DataLog;
 using namespace whole_body_posture_optimization;
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "optimization_logging_node");
+  ros::init(argc, argv, "cost_function_logging_node");
   ros::NodeHandle pnh("~");
 
   // Load environment

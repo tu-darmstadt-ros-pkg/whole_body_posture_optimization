@@ -97,9 +97,9 @@ add_dependencies(manual_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catki
 target_link_libraries(manual_control_node ${PROJECT_NAME})
 
 ## Declare an executable
-add_executable(optimization_logging_node src/optimization_logging_node.cpp)
-add_dependencies(optimization_logging_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(optimization_logging_node ${PROJECT_NAME})
+add_executable(cost_function_logging_node src/cost_function_logging_node.cpp)
+add_dependencies(cost_function_logging_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(cost_function_logging_node ${PROJECT_NAME})
 
 ## Declare an executable
 add_executable(com_visualisation_node src/com_visualisation_node.cpp)
@@ -122,7 +122,7 @@ install(DIRECTORY
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
-install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_node manual_control_node optimization_logging_node com_visualisation_node
+install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_node manual_control_node cost_function_logging_node com_visualisation_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
