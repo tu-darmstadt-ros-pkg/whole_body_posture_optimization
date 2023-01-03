@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="map_file_path" />
+  <arg name="rviz" default="false" />
 
   <!-- Load robot description -->
   <param name="robot_description" command="$(find xacro)/xacro $(find asterix_description)/urdf/asterix_ugv.urdf.xacro" />
@@ -33,5 +34,5 @@
   </group>
 
   <!-- rviz ui -->
-  <include file="$(find whole_body_posture_optimization)/launch/rviz.launch"/>
+  <include if="$(arg rviz)" file="$(find whole_body_posture_optimization)/launch/rviz.launch"/>
 </launch>
