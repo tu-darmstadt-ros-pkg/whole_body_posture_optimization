@@ -56,6 +56,48 @@ def plot_data(data, label, fig, col_name, subplot_index):
     ))
 
 
+def compute_statistics(label, data, fig):
+    data_points = ("cost", "optimization_time", "stability")
+    means = []
+    mins = []
+    maxs = []
+    print()
+    print(label + ":")
+    print("{:<18} {:<9} {:<9} {:<9}".format("Data", "Mean", "Min", "Max"))
+    for data_point in data_points:
+        mean, minimum, maximum = compute_data_point_statistics(data_point, data[data_point])
+        means.append(mean)
+        mins.append(minimum)
+        maxs.append(maximum)
+    print(means, mins, maxs)
+    fig.add_trace(go.Bar(
+        x=data_points,
+        y=means,
+        name=label + "-mean"
+    ), row=1, col=1)
+
+    fig.add_trace(go.Bar(
+        x=data_points,
+        y=mins,
+        name=label + "-minimum"
+    ), row=2, col=1)
+
+    fig.add_trace(go.Bar(
+        x=data_points,
+        y=maxs,
+        name=label + "-maximum"
+    ), row=3, col=1)
+
+
+def compute_data_point_statistics(data_label, data):
+    mean = np.mean(data)
+    minimum = np.min(data)
+    maximum = np.max(data)
+
+    print("{:<18} {:<9.4f} {:<9.4f} {:<9.4f}".format(data_label, mean, minimum, maximum))
+    return mean, minimum, maximum
+
+
 def main():
     args = parse_arguments()
     data_list = load_data(args.data_files)
@@ -78,12 +120,16 @@ def main():
     }
 
     fig = make_subplots(rows=len(tables.keys()), cols=1, subplot_titles=tuple(tables.keys()))
+    fig_statistics = make_subplots(rows=3, cols=1, subplot_titles=("Mean", "Minimum", "Maximum"))
+
     for label, data in data_list:
+        compute_statistics(label, data, fig_statistics)
         for index, key_value in enumerate(tables.items()):
             for data_point in key_value[1]:
                 plot_data(data, label + "-" + data_point, fig, data_point, index+1)
 
     fig.show()
+    fig_statistics.show()
 
 
 if __name__ == "__main__":
