@@ -41,6 +41,28 @@ def plot_cost_function3d(data, fig, parameters: [], cost_function: str):
         zaxis_title="cost",))
 
 
+def plot_optimization_progess(data):
+    x = np.arange(1, len(data)+1, 1.0)
+    y = np.minimum.accumulate(data)
+
+    minf_reached = np.where(y == y[-1])
+    print("Optimum reached at iteration", minf_reached[0][0] + 1)
+
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=x,
+        y=y,
+        name="Minimum cost by iteration"
+    )
+    )
+    fig.update_layout(
+        xaxis_title="Iteration",
+        yaxis_title="Minimum cost",
+    )
+    fig.show()
+
+
 def main():
     args = parse_arguments()
     data = load_data(args.data_file)
@@ -63,9 +85,9 @@ def main():
         plot_cost_function3d(data, fig, parameters, "track_contact_cost")
         plot_cost_function3d(data, fig, parameters, "stability_cost")
         plot_cost_function3d(data, fig, parameters, "total_cost")
-
-
         fig.show()
+
+        plot_optimization_progess(data["total_cost"])
     else:
         print("Could not load data")
 
