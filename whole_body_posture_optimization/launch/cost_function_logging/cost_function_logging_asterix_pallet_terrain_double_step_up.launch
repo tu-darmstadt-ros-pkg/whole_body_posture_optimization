@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>  
+  <include file="$(find whole_body_posture_optimization)/launch/cost_function_logging/cost_function_logging_asterix_common.launch">
+    <arg name="robot_pose" value="[6.08654,0,0,0,0,0]"/>
+    <arg name="map_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_oc_pallet_terrain.esdf"/>
+  </include>
+</launch>
