@@ -30,9 +30,10 @@ def load_data(data_files):
 plot_color_index = dict()
 
 
-def get_next_color(index):
-    color_index = plot_color_index.get(index, -1) + 1
-    plot_color_index[index] = color_index
+def get_next_color(fig, index):
+    key = (fig, index)
+    color_index = plot_color_index.get(key, -1) + 1
+    plot_color_index[key] = color_index
     palette = plotly.colors.DEFAULT_PLOTLY_COLORS
     color_index = color_index % len(palette)
     return dict(width=2, color=palette[color_index])
@@ -46,7 +47,7 @@ def plot_data(data, label, fig, col_name, subplot_index):
         go.Scatter(x=data["pose_x"],
                    y=data[col_name],
                    name=label,
-                   line=get_next_color(subplot_index)),
+                   line=get_next_color("lines", subplot_index)),
         row=subplot_index, col=1
     )
 
@@ -56,37 +57,18 @@ def plot_data(data, label, fig, col_name, subplot_index):
     ))
 
 
-def compute_statistics(label, data, fig):
-    data_points = ("cost", "optimization_time", "stability")
-    means = []
-    mins = []
-    maxs = []
+def compute_statistics(label, data, data_points, fig):
     print()
     print(label + ":")
     print("{:<18} {:<9} {:<9} {:<9}".format("Data", "Mean", "Min", "Max"))
-    for data_point in data_points:
+    for index, data_point in enumerate(data_points):
         mean, minimum, maximum = compute_data_point_statistics(data_point, data[data_point])
-        means.append(mean)
-        mins.append(minimum)
-        maxs.append(maximum)
-    print(means, mins, maxs)
-    fig.add_trace(go.Bar(
-        x=data_points,
-        y=means,
-        name=label + "-mean"
-    ), row=1, col=1)
-
-    fig.add_trace(go.Bar(
-        x=data_points,
-        y=mins,
-        name=label + "-minimum"
-    ), row=2, col=1)
-
-    fig.add_trace(go.Bar(
-        x=data_points,
-        y=maxs,
-        name=label + "-maximum"
-    ), row=3, col=1)
+        fig.add_trace(go.Bar(
+            x=["Mean", "Minimum", "Maximum"],
+            y=[mean, minimum, maximum],
+            name=label + "-" + data_point,
+            marker_color=get_next_color("bars", index + 1)["color"]
+        ), row=index + 1, col=1)
 
 
 def compute_data_point_statistics(data_label, data):
@@ -120,10 +102,11 @@ def main():
     }
 
     fig = make_subplots(rows=len(tables.keys()), cols=1, subplot_titles=tuple(tables.keys()))
-    fig_statistics = make_subplots(rows=3, cols=1, subplot_titles=("Mean", "Minimum", "Maximum"))
+    statistics_data_points = ("cost", "optimization_time", "stability")
+    fig_statistics = make_subplots(rows=3, cols=1, subplot_titles=statistics_data_points)
 
     for label, data in data_list:
-        compute_statistics(label, data, fig_statistics)
+        compute_statistics(label, data, statistics_data_points, fig_statistics)
         for index, key_value in enumerate(tables.items()):
             for data_point in key_value[1]:
                 plot_data(data, label + "-" + data_point, fig, data_point, index+1)
