@@ -123,7 +123,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   pose_predictor_->robotModel()->updateJointPositions(initial_joint_update);
 
   // Add objective function
-  int verbosity_level = 1;
+  int verbosity_level = 0;
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
   objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
       FlipperMultiObjectiveCost::Create(free_joints_, pose_predictor_, robot_pose, previous_state,
