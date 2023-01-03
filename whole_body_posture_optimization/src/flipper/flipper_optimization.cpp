@@ -30,12 +30,15 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
 
   // Create nlopt optimizer
   parameter_count_ = static_cast<unsigned int>(free_joints_.size());
-  opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(ros::NodeHandle(nh, "solver"), parameter_count_);
+  ros::NodeHandle solver_nh(nh, "solver");
+  opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(solver_nh, parameter_count_);
+  solver_nh.param("enabled", enabled_, enabled_);
 
   // Create custom solver
   ros::NodeHandle custom_solver_nh(nh, "custom_solver");
   std::string solver_name;
-  if (custom_solver_nh.getParam("algorithm", solver_name)) {
+  bool custom_solver_enabled = custom_solver_nh.param("enabled", false);
+  if (custom_solver_enabled && custom_solver_nh.getParam("algorithm", solver_name)) {
     custom_solver_ = createSolverByName(solver_name);
     if (custom_solver_) {
       custom_solver_->loadParametersFromNamespace(custom_solver_nh);
@@ -75,11 +78,8 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
     return false;
   }
 
-  nh.param("enabled", enabled_, enabled_);
-
   flipper_multi_objective_cost_parameters_.loadParametersFromNamespace(ros::NodeHandle(nh, "cost_parameters"));
   ROS_INFO_STREAM(flipper_multi_objective_cost_parameters_.toString());
-
 
   return true;
 }

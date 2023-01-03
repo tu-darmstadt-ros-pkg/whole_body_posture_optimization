@@ -15,6 +15,53 @@ trajectory_planner: ompl_interface/OMPLPlanner  # [chomp_interface/CHOMPPlanner,
 joint_limits:
   flipper_front_joint: [-3.054, 0]
   flipper_back_joint: [-3.054, 0]
+
+flipper_optimization:
+  custom_solver:
+    enabled: false
+    algorithm: grid_search
+    search_resolution: 0.087 #0.78
+  solver:
+    enabled: true
+    algorithm: GN_DIRECT
+    maxeval: 100
+    stopval: -1.1
+    #ftol_abs: 1e-3
+    #ftol_rel: 9e-1
+    #xtol_rel: 1e-1
+    #ftol_abs: 1-e2
+
+  #local_algorithm: LN_NELDERMEAD
+  #local_stopping_criteria:
+    #maxeval: 10
+    #ftol_rel: 1e-3
+    #xtol_rel: 1e-3
+
+  joints:
+    - flipper_front_joint
+    - flipper_back_joint
+
+  cost_parameters:
+    verbose: false
+    # state costs
+    stability_weight: 1.0
+    stability_nominal_value: 1.5
+    stability_exp_parameters_a: 14.0
+    stability_exp_parameters_b: -2.6
+    stability_exp_parameters_c: 0.3
+    support_area_weight: 0
+    track_contact_weight: 8
+    track_contact_nominal_value: 0.2
+    body_contact_weight: 50
+    roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
+    position_deviation_weight: 0
+    # transition costs
+    lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
+    movement_cost_weight: 0.1 #0.05  #0.2  #0.5
+    turning_resistance_weight: 10
+    # uncertainty
+    num_offset_steps_x: 0
+    offset_step_size: 0.05
   
 arm_optimization:
   enabled: false
@@ -92,48 +139,6 @@ arm_optimization:
     - sensor_head_yaw_link
     - tracker_link
 
-flipper_optimization:
-  enabled: true
-  #custom_solver:
-    #algorithm: grid_search
-    #search_resolution: 0.78
-  solver:
-    algorithm: GN_DIRECT
-    maxeval: 100
-    stopval: -1.1
-    #ftol_abs: 1e-3
-    #ftol_rel: 9e-1
-    #xtol_rel: 1e-1
-    #ftol_abs: 1-e2
-    
-  #local_algorithm: LN_NELDERMEAD
-  #local_stopping_criteria:
-    #maxeval: 10
-    #ftol_rel: 1e-3
-    #xtol_rel: 1e-3
-    
-  joints:
-    - flipper_front_joint
-    - flipper_back_joint
-
-  cost_parameters:
-    verbose: false
-    lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
-    movement_cost_weight: 0.1 #0.05  #0.2  #0.5
-    support_area_weight: 0
-    track_contact_weight: 8
-    track_contact_nominal_value: 0.2
-    body_contact_weight: 50
-    turning_resistance_weight: 10
-    roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
-    position_deviation_weight: 0
-    stability_weight: 1.0
-    stability_nominal_value: 1.5
-    stability_exp_parameters_a: 14.0
-    stability_exp_parameters_b: -2.6
-    stability_exp_parameters_c: 0.3
-    num_offset_steps_x: 0
-    offset_step_size: 0.05
 
   
 ## Debug
