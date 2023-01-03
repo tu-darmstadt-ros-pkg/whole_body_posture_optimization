@@ -40,6 +40,8 @@ def get_next_color(index):
 
 def plot_data(data, label, fig, col_name, subplot_index):
     # x = np.arange(0, len(data[col_name]), 1.0)
+    if np.isnan(data[col_name]).any() or (data[col_name] == 0).all():
+        return
     fig.add_trace(
         go.Scatter(x=data["pose_x"],
                    y=data[col_name],
@@ -49,7 +51,7 @@ def plot_data(data, label, fig, col_name, subplot_index):
     )
 
     fig.update_layout(scene=dict(
-        xaxis_title="Index",
+        xaxis_title="x",
         yaxis_title=col_name,
     ))
 
@@ -58,11 +60,28 @@ def main():
     args = parse_arguments()
     data_list = load_data(args.data_files)
 
-    data_points = ("cost", "iterations", "optimization_time", "stability")
-    fig = make_subplots(rows=len(data_points), cols=1, subplot_titles=data_points)
+    tables = {
+        "cost": [
+            # "custom_solver_cost",
+            "cost"
+        ],
+        "iterations": [
+            # "custom_solver_iterations",
+            "iterations"
+        ],
+        "optimization_time": [
+            "optimization_time"
+        ],
+        "stability": [
+            "stability"
+        ]
+    }
+
+    fig = make_subplots(rows=len(tables.keys()), cols=1, subplot_titles=tuple(tables.keys()))
     for label, data in data_list:
-        for index, data_point in enumerate(data_points):
-            plot_data(data, label + "-" + data_point, fig, data_point, index+1)
+        for index, key_value in enumerate(tables.items()):
+            for data_point in key_value[1]:
+                plot_data(data, label + "-" + data_point, fig, data_point, index+1)
 
     fig.show()
 
