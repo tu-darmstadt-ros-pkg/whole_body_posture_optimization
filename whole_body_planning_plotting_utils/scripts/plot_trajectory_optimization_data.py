@@ -39,9 +39,9 @@ def get_next_color(index):
 
 
 def plot_data(data, label, fig, col_name, subplot_index):
-    x = np.arange(0, len(data[col_name]), 1.0)
+    # x = np.arange(0, len(data[col_name]), 1.0)
     fig.add_trace(
-        go.Scatter(x=x,
+        go.Scatter(x=data["pose_x"],
                    y=data[col_name],
                    name=label,
                    line=get_next_color(subplot_index)),
@@ -58,7 +58,7 @@ def main():
     args = parse_arguments()
     data_list = load_data(args.data_files)
 
-    data_points = ("cost", "iterations", "optimization_time")
+    data_points = ("cost", "iterations", "optimization_time", "stability")
     fig = make_subplots(rows=len(data_points), cols=1, subplot_titles=data_points)
     for label, data in data_list:
         for index, data_point in enumerate(data_points):

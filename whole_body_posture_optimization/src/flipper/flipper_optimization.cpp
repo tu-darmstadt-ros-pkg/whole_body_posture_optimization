@@ -48,9 +48,18 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   // Initialize logging
   if (DataLog::getInstance().getTable("flipper_optimization").enabled()) {
     std::vector<std::string> data_labels = {
+      "pose_x",
+      "pose_y",
+      "pose_z",
       "optimization_time",
+      "custom_solver_iterations",
+      "custom_solver_cost",
       "iterations",
-      "cost"
+      "cost",
+      "result_pose_x",
+      "result_pose_y",
+      "result_pose_z",
+      "stability"
     };
     DataLog::getInstance().getTable("flipper_optimization").initialize(data_labels);
 
@@ -114,7 +123,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   pose_predictor_->robotModel()->updateJointPositions(initial_joint_update);
 
   // Add objective function
-  int verbosity_level = 0;
+  int verbosity_level = 1;
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
   objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
       FlipperMultiObjectiveCost::Create(free_joints_, pose_predictor_, robot_pose, previous_state,
@@ -132,15 +141,17 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   std::vector<double> parameters = mapListToSubset(init_joint_angles, param_idx_to_jnt_idx_);
   ceres_nlopt_wrapper::applyBounds(lower_bounds_, upper_bounds_, parameters);
   START_TIMING("Flipper optimization")
-  double minf = std::nan("");
   auto start = std::chrono::high_resolution_clock::now();
 
   // Custom solver
+  double custom_solver_minf = std::nan("");
   if (custom_solver_) {
     custom_solver_->loadSettingsFromNlopt(opt);
     custom_solver_->setMinFunction(objective);
-    custom_solver_->optimize(parameters, minf);
+    custom_solver_->optimize(parameters, custom_solver_minf);
   }
+  unsigned int custom_solver_iterations = objective->getEvaluations();
+  double minf = custom_solver_minf;
 
   // Nlopt solver
   nlopt::result nlopt_result;
@@ -164,12 +175,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   ROS_INFO_STREAM("Flipper optimization took " << objective->getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                   << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
-
-  if (DataLog::getInstance().getTable("flipper_optimization").enabled()) {
-    Eigen::VectorXd data(DataLog::getInstance().getTable("flipper_optimization").getDataSize());
-    data << elapsed.count(), objective->getEvaluations(), minf;
-    DataLog::getInstance().getTable("flipper_optimization").addData(data);
-  }
 
   // Estimating again for debug output
   bool cost_function_verbosity = flipper_multi_objective_cost_parameters_.verbose;
@@ -202,6 +207,25 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   result.pose = result_pose.asTransform();
 
   ROS_INFO("New robot position: [%f, %f, %f]", result.pose.translation()(0), result.pose.translation()(1), result.pose.translation()(2));
+
+  // Logging
+  if (DataLog::getInstance().getTable("flipper_optimization").enabled()) {
+    Eigen::VectorXd data(DataLog::getInstance().getTable("flipper_optimization").getDataSize());
+    data << robot_pose.translation().x(),
+        robot_pose.translation().y(),
+        robot_pose.translation().z(),
+        elapsed.count(),
+        custom_solver_iterations,
+        custom_solver_minf,
+        objective->getEvaluations(),
+        minf,
+        result.pose.translation().x(),
+        result.pose.translation().y(),
+        result.pose.translation().z(),
+        result.stability;
+
+    DataLog::getInstance().getTable("flipper_optimization").addData(data);
+  }
 
   // Publish result
   // Final robot shape
