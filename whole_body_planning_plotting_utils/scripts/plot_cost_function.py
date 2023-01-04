@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import os
@@ -50,13 +49,26 @@ def plot_cost_function3d(data, fig, parameters: [], cost_function: str):
         zaxis_title="cost",))
 
 
-def plot_optimization_progess(data):
-    x = np.arange(1, len(data)+1, 1.0)
-    y = np.minimum.accumulate(data)
+def plot_minimum(data, parameters, fig):
+    minf = np.minimum.accumulate(data["total_cost"])
+    minf_reached = np.where(minf == minf[-1])
+    fig.add_trace(go.Scatter3d(
+        x=[data[parameters[0]][minf_reached[0][0]]],
+        y=[data[parameters[1]][minf_reached[0][0]]],
+        z=[minf[-1]],
+        name="Minimum",
+        mode='markers',
+        marker_color="rgb(255, 0, 0)"
+    ))
 
-    minf_reached = np.where(y == y[-1])
-    print("Optimum reached at iteration", minf_reached[0][0] + 1)
+    print("Optimum", minf[-1], "reached at iteration", minf_reached[0][0] + 1)
+    for parameter in parameters:
+        print(parameter, data[parameter][minf_reached[0][0]])
 
+
+def plot_optimization_progess(data_cost):
+    x = np.arange(1, len(data_cost) + 1, 1.0)
+    y = np.minimum.accumulate(data_cost)
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -94,6 +106,7 @@ def main():
         plot_cost_function3d(data, fig, parameters, "track_contact_cost")
         plot_cost_function3d(data, fig, parameters, "stability_cost")
         plot_cost_function3d(data, fig, parameters, "total_cost")
+        plot_minimum(data, parameters, fig)
         fig.show()
 
         plot_optimization_progess(data["total_cost"])
