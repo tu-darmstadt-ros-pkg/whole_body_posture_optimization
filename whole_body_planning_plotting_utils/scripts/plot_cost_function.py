@@ -33,7 +33,16 @@ def plot_cost_function(data, fig, parameter: str, cost_function: str):
 
 
 def plot_cost_function3d(data, fig, parameters: [], cost_function: str):
-    fig.add_trace(go.Scatter3d(x=data[parameters[0]], y=data[parameters[1]], z=data[cost_function], name=cost_function, mode='markers'))
+    # fig.add_trace(go.Scatter3d(x=data[parameters[0]], y=data[parameters[1]], z=data[cost_function], name=cost_function, mode='markers'))
+    fig.add_trace(go.Mesh3d(x=data[parameters[0]],
+                            y=data[parameters[1]],
+                            z=data[cost_function],
+                            name=cost_function,
+                            showlegend=True,
+                            intensity=data[cost_function],
+                            colorscale="Viridis",
+                            opacity=0.8
+                            ))
 
     fig.update_layout(scene=dict(
         xaxis_title=parameters[0],
