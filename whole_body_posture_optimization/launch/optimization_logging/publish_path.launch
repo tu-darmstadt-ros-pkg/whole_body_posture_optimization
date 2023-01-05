@@ -7,7 +7,7 @@
   <arg name="start_qx" default="0"/>
   <arg name="start_qy" default="0"/>
   <arg name="start_qz" default="0"/>
-  <arg name="start_qw" default="1"/>
+  <arg name="start_qw" default="0"/>
 
   <arg name="end_x" default="0"/>
   <arg name="end_y" default="0"/>
@@ -15,7 +15,7 @@
   <arg name="end_qx" default="0"/>
   <arg name="end_qy" default="0"/>
   <arg name="end_qz" default="0"/>
-  <arg name="end_qw" default="1"/>
+  <arg name="end_qw" default="0"/>
 
   <arg name="frame_id" default="world"/>
   
