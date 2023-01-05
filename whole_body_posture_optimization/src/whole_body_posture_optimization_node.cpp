@@ -40,7 +40,7 @@ bool isNullQuaternion(const geometry_msgs::Quaternion& quat) {
   return quat.x == 0.0 && quat.y == 0.0 && quat.z == 0.0 && quat.w == 0.0;
 }
 
-nav_msgs::Path createPath(const geometry_msgs::PoseStamped& start, const geometry_msgs::PoseStamped& goal, double step) {
+nav_msgs::Path createStraightPath(const geometry_msgs::PoseStamped& start, const geometry_msgs::PoseStamped& goal, double step) {
   // Compute steps
   Eigen::Vector3d start_position, goal_position;
   tf::pointMsgToEigen(start.pose.position, start_position);
@@ -83,6 +83,41 @@ nav_msgs::Path createPath(const geometry_msgs::PoseStamped& start, const geometr
   return path;
 }
 
+// This function assumes, that the last pose of the base path matches the first pose of the path to append
+void appendPath(nav_msgs::Path& base_path, const nav_msgs::Path& to_append) {
+  // Paths should at least contain start and goal
+  if (to_append.poses.size() < 2) {
+    ROS_WARN_STREAM("Path is shorter than 2");
+    return;
+  }
+  if (base_path.poses.empty()) {
+    base_path.poses = to_append.poses;
+  } else {
+    base_path.poses.reserve(base_path.poses.size() + to_append.poses.size() - 1);
+    // Skip first pose because we assume it is identical to the last pose of the base path
+    for (size_t i = 1; i < to_append.poses.size(); ++i) {
+      base_path.poses.emplace_back(to_append.poses[i]);
+    }
+  }
+
+}
+
+nav_msgs::Path createPath(const nav_msgs::Path& sparse_path) {
+  // Just return short paths
+  if (sparse_path.poses.size() < 2) {
+    return sparse_path;
+  }
+
+  // Connect the given points with straight paths
+  nav_msgs::Path dense_path;
+  dense_path.header = sparse_path.header;
+  for (size_t i = 0; i < sparse_path.poses.size() - 1; ++i) {
+    nav_msgs::Path path_part = createStraightPath(sparse_path.poses[i], sparse_path.poses[i + 1], 0.05);
+    appendPath(dense_path, path_part);
+  }
+  return dense_path;
+}
+
 nav_msgs::Path createPathFromParameters(const ros::NodeHandle& nh) {
   double path_start, path_stop, path_step;
   if (nh.getParam("path_start", path_start) &&
@@ -95,11 +130,12 @@ nav_msgs::Path createPathFromParameters(const ros::NodeHandle& nh) {
 }
 
 void pathReceivedCallback(const nav_msgs::PathConstPtr& path_msg) {
-  if (path_msg->poses.size() == 2) {
-    path_ = createPath(path_msg->poses[0], path_msg->poses[1], 0.05);
-  } else {
-    path_ = *path_msg;
-  }
+  path_ = *path_msg;
+  new_path_received_ = true;
+}
+
+void sparsePathReceivedCallback(const nav_msgs::PathConstPtr& path_msg) {
+  path_ = createPath(*path_msg);
   new_path_received_ = true;
 }
 
@@ -108,6 +144,7 @@ int main(int argc, char** argv) {
   ros::NodeHandle pnh("~");
 
   // Subscribers
+  ros::Subscriber sparse_path_sub = pnh.subscribe("sparse_goal_path", 10, &sparsePathReceivedCallback);
   ros::Subscriber path_sub = pnh.subscribe("goal_path", 10, &pathReceivedCallback);
 
   // Load environment

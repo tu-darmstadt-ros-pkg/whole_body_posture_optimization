@@ -755,7 +755,7 @@ Visualization Manager:
               parallel: false
               params: "var waypointTool = null;\nfor (var tool of rviz.toolManager.tools) {\n  if (tool.classId  != \"hector_user_interface/WaypointTool\") continue;\n  waypointTool = tool;\n  break;\n}\nvar poses = [];\nfor (var pose of waypointTool.tool.waypoints) {\n  poses.push({\n    header: {frame_id: waypointTool.tool.frame},\n    pose: {\n      position: pose.position,\n      orientation: {x: pose.orientation.x, \n                    y: pose.orientation.y,\n                    z: pose.orientation.z,\n                    w: pose.orientation.scalar}\n    }\n  });\n}\nreturn ({\n  \"header\": {\n    \"frame_id\": waypointTool.tool.frame,\n    \"seq\": 0,\n    \"stamp\": {\n      \"sec\": 0,\n      \"nsec\": 0\n    }\n  },\n  \"poses\": poses\n});"
               subactions: ""
-              topic: /whole_body_posture_optimization_node/goal_path
+              topic: /whole_body_posture_optimization_node/sparse_goal_path
               type: topic
               uuid: 7b2bb842-c3a2-4b52-8118-0a30805600a3
               value: ""
