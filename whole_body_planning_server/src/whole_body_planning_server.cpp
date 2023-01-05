@@ -87,6 +87,8 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
   nav_msgs::Path path_slice = slicePath(path_smoothed, path_slice_length_);
+
+  // Plan trajectory
   auto start = std::chrono::steady_clock::now();
   if(!generatePlan(path_slice, trajectory_)) {
     ROS_ERROR_STREAM("Planning failed.");
@@ -265,14 +267,25 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
 
   move_base_lite_msgs::FollowPathGoal follow_path_goal;
   follow_path_goal.target_path = path;
+  // Fill parameters
   follow_path_goal.follow_path_options.desired_speed = 0.0; // Implicitly given by pose time stamps
-  follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = follow_path_goal_.getGoal()->follow_path_options.rotate_front_to_goal_pose_orientation;
-  follow_path_goal.follow_path_options.reverse_allowed = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
   follow_path_goal.follow_path_options.use_path_orientation = true; // Drive path as planned
   follow_path_goal.follow_path_options.is_fixed = true; // No smoothing
-  follow_path_goal.follow_path_options.reset_stuck_history = follow_path_goal_.getGoal()->follow_path_options.reset_stuck_history;
-  follow_path_goal.follow_path_options.goal_pose_position_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_position_tolerance;
-  follow_path_goal.follow_path_options.goal_pose_angle_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance;
+
+  // Use values from goal of available
+  if (followPathServerIsActive()) {
+    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = follow_path_goal_.getGoal()->follow_path_options.rotate_front_to_goal_pose_orientation;
+    follow_path_goal.follow_path_options.reverse_allowed = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
+    follow_path_goal.follow_path_options.reset_stuck_history = follow_path_goal_.getGoal()->follow_path_options.reset_stuck_history;
+    follow_path_goal.follow_path_options.goal_pose_position_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_position_tolerance;
+    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance;
+  } else {
+    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
+    follow_path_goal.follow_path_options.reverse_allowed = true;
+    follow_path_goal.follow_path_options.reset_stuck_history = true;
+    follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.1;
+    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
+  }
 
   ROS_INFO_STREAM("Executing planned trajectory");
 
