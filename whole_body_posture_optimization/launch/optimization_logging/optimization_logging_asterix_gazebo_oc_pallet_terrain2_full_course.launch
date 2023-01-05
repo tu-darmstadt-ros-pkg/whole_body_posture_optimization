@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<launch>  
+  <arg name="frame_id" default="world"/>
+
+  <include file="$(find whole_body_posture_optimization)/launch/optimization_logging/optimization_logging_asterix_common.launch">
+    <arg name="map_file_path" value="$(find sdf_contact_estimation)/sdf/gazebo_oc_pallet_terrain2.esdf"/>
+  </include>
+
+  <node pkg="rostopic" type="rostopic" name="rostopic_pub_goal_path" output="screen" args="pub -1 /whole_body_posture_optimization_node/sparse_goal_path nav_msgs/Path
+        '{header:
+          {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: $(arg frame_id)},
+        poses: [
+          {header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: $(arg frame_id)}, pose: {position: {x: 0, y: 0, z: 0}, orientation: {x: 0, y: 0, z: 0, w: 0}}},
+          {header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: $(arg frame_id)}, pose: {position: {x: 8.2, y: 0, z: 0}, orientation: {x: 0, y: 0, z: 0, w: 0}}},
+          {header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: $(arg frame_id)}, pose: {position: {x: 8.2, y: 3, z: 0}, orientation: {x: 0, y: 0, z: 0, w: 0}}},
+          {header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: $(arg frame_id)}, pose: {position: {x: -9, y: 3, z: 0}, orientation: {x: 0, y: 0, z: 0, w: 0}}},
+          {header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: $(arg frame_id)}, pose: {position: {x: -9, y: 0, z: 0}, orientation: {x: 0, y: 0, z: 0, w: 0}}},
+          {header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: $(arg frame_id)}, pose: {position: {x: 0, y: 0, z: 0}, orientation: {x: 0, y: 0, z: 0, w: 0}}},
+        ]}'">
+  </node>
+</launch>
