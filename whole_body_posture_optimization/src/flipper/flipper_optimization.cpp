@@ -176,15 +176,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   ROS_INFO_STREAM("Flipper optimization took " << objective->getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                   << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
 
-  // Estimating again for debug output
-  bool cost_function_verbosity = flipper_multi_objective_cost_parameters_.verbose;
-  flipper_multi_objective_cost_parameters_.verbose = true;
-  if (flipper_multi_objective_cost_parameters_.verbose) {
-    std::vector<double> gradient;
-    ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
-  }
-  flipper_multi_objective_cost_parameters_.verbose = cost_function_verbosity;
-
   // Compose result
   FlipperOptimizationResult result;
   result.final_cost = minf;
@@ -226,6 +217,15 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
 
     DataLog::getInstance().getTable("flipper_optimization").addData(data);
   }
+
+  // Estimating again for debug output
+  bool cost_function_verbosity = flipper_multi_objective_cost_parameters_.verbose;
+  flipper_multi_objective_cost_parameters_.verbose = true;
+  if (flipper_multi_objective_cost_parameters_.verbose) {
+    std::vector<double> gradient;
+    ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
+  }
+  flipper_multi_objective_cost_parameters_.verbose = cost_function_verbosity;
 
   // Publish result
   // Final robot shape
