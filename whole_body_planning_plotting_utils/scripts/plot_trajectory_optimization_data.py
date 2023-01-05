@@ -40,11 +40,11 @@ def get_next_color(fig, index):
 
 
 def plot_data(data, label, fig, col_name, subplot_index):
-    # x = np.arange(0, len(data[col_name]), 1.0)
+    x = np.arange(0, len(data[col_name]), 1.0)
     if np.isnan(data[col_name]).any() or (data[col_name] == 0).all():
         return
     fig.add_trace(
-        go.Scatter(x=data["pose_x"],
+        go.Scatter(x=x,
                    y=data[col_name],
                    name=label,
                    line=get_next_color("lines", subplot_index)),
