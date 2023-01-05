@@ -87,9 +87,10 @@ def plot_optimization_progess(data_cost):
 def main():
     args = parse_arguments()
     data = load_data(args.data_file)
+    filename = os.path.basename(args.data_file)
     if data is not None:
         fig = go.Figure()
-        fig.update_layout(title="Cost function", scene=dict(
+        fig.update_layout(title="Cost function - " + filename, scene=dict(
             camera=dict(
                 projection=dict(
                     type="orthographic"
@@ -108,6 +109,7 @@ def main():
         plot_cost_function3d(data, fig, parameters, "total_cost")
         plot_minimum(data, parameters, fig)
         fig.show()
+        # fig.write_image("fig1.jpeg")
 
         plot_optimization_progess(data["total_cost"])
     else:
