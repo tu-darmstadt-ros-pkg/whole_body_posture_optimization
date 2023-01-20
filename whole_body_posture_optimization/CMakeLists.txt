@@ -87,22 +87,24 @@ add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EX
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 
 ## Declare an executable
-add_executable(${PROJECT_NAME}_node src/whole_body_posture_optimization_node.cpp)
+add_executable(${PROJECT_NAME}_node src/nodes/whole_body_posture_optimization_node.cpp)
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
 
 ## Declare an executable
-add_executable(manual_control_node src/manual_control_node.cpp)
+add_executable(manual_control_node src/nodes/manual_control_node.cpp)
 add_dependencies(manual_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(manual_control_node ${PROJECT_NAME})
 
 ## Declare an executable
-add_executable(cost_function_logging_node src/cost_function_logging_node.cpp)
+add_executable(cost_function_logging_node src/nodes/cost_function_logging_node.cpp)
 add_dependencies(cost_function_logging_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cost_function_logging_node ${PROJECT_NAME})
 
 ## Declare an executable
 add_executable(com_visualisation_node src/com_visualisation_node.cpp)
+## Declare an executable
+add_executable(com_visualisation_node src/nodes/com_visualisation_node.cpp)
 add_dependencies(com_visualisation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(com_visualisation_node ${PROJECT_NAME})
 
