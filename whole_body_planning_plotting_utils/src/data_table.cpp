@@ -69,14 +69,22 @@ size_t DataTable::getDataSize() const
 {
   return labels_.size();
 }
+
 bool DataTable::enabled() const
 {
   return enabled_;
 }
+
 void DataTable::enableLogging()
 {
   enabled_ = true;
 }
+
+void DataTable::enableLogging(bool enabled)
+{
+  enabled_ = enabled;
+}
+
 void DataTable::clear()
 {
   data_ = Eigen::MatrixXd();
