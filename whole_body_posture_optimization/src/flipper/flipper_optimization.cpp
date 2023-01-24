@@ -66,7 +66,6 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
     ROS_INFO_STREAM("data size " << DataLog::getInstance().getTable("flipper_optimization").getDataSize());
   }
 
-
   // Set local optimizer
 //  std::string local_algorithm;
 //  if (nh.getParam("local_algorithm", local_algorithm)) {
@@ -217,6 +216,32 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
 
     DataLog::getInstance().getTable("flipper_optimization").addData(data);
   }
+
+  // Write out probability distribution
+  if (DataLog::getInstance().getTable("_" + PROBABILITY_DISTRIBUTION_TABLE_NAME).enabled()) {
+    const double range = 0.3;
+    const double resolution = 0.001;
+    const int num_samples = std::floor(range / resolution);
+
+    double orig_samples = flipper_multi_objective_cost_parameters_.num_offset_steps_x;
+    double orig_resolution = flipper_multi_objective_cost_parameters_.offset_step_size;
+
+    flipper_multi_objective_cost_parameters_.num_offset_steps_x = num_samples / 2.0 - 1.0;
+    flipper_multi_objective_cost_parameters_.offset_step_size = resolution;
+
+    DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).enableLogging();
+    DataLog::getInstance().getTable("flipper_multi_objective_cost").enableLogging(false);
+
+    std::vector<double> gradient;
+    (*objective)(parameters, gradient);
+
+    DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).enableLogging(false);
+    DataLog::getInstance().getTable("flipper_multi_objective_cost").enableLogging();
+
+    flipper_multi_objective_cost_parameters_.num_offset_steps_x = orig_samples;
+    flipper_multi_objective_cost_parameters_.offset_step_size = orig_resolution;
+  }
+
 
   // Estimating again for debug output
   bool cost_function_verbosity = flipper_multi_objective_cost_parameters_.verbose;

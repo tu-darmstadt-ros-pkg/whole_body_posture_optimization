@@ -8,6 +8,7 @@
 using whole_body_planning_plotting_utils::DataLog;
 
 namespace whole_body_posture_optimization {
+
 FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                          const Eigen::Isometry3d &pose,
                                          const robot_state::RobotStateConstPtr& previous_state,
@@ -43,6 +44,16 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
 
     DataLog::getInstance().getTable("flipper_multi_objective_cost").initialize(data_labels);
   }
+
+  if (DataLog::getInstance().getTable("_" + PROBABILITY_DISTRIBUTION_TABLE_NAME).enabled()) {
+    DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).initialize({
+        "pose_x",
+        "pose_y",
+        "pose_yaw",
+        "flipper_cost",
+        "rel_probability"
+    });
+  }
 }
 
 bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, double* cost) const
@@ -58,12 +69,14 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
   for (int offset_counter = 0; offset_counter < num_offset_steps * 2 + 1; ++offset_counter) {
     double offset = (offset_counter - num_offset_steps) * parameters_.offset_step_size;
     Eigen::Translation3d offset_trans(offset, 0, 0);
+    Eigen::Isometry3d pose_sample = pose_ * offset_trans;
+
 
     // Simulate contact
     hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
     hector_pose_prediction_interface::ContactInformation<double> contact_information;
 
-    hector_math::Pose<double> result_pose = hector_math::Pose<double>(pose_ * offset_trans);
+    hector_math::Pose<double> result_pose = hector_math::Pose<double>(pose_sample);
     double stability = pose_predictor_->predictPoseAndContactInformation(result_pose, support_polygon, contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
     Eigen::Isometry3d result_pose_eigen = result_pose.asTransform();
 
@@ -263,9 +276,20 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
       data[++index] = local_cost;
       DataLog::getInstance().getTable("flipper_multi_objective_cost").addData(data);
     }
-  }
 
-//  cost[0] /= offset_steps * 2 + 1;
+    if (DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).enabled()) {
+      double rel_prob = gaussianDistribution(offset, 0.0, 0.03);
+
+      Eigen::VectorXd data(DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).getDataSize());
+      data <<
+          pose_sample.translation().x(),
+          pose_sample.translation().y(),
+          0.0,
+          local_cost,
+          rel_prob;
+      DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).addData(data);
+    }
+  }
 
   return true;
 }

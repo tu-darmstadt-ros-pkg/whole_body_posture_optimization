@@ -12,6 +12,8 @@
 
 namespace whole_body_posture_optimization {
 
+const std::string PROBABILITY_DISTRIBUTION_TABLE_NAME = "probability_distribution";
+
 class FlipperMultiObjectiveCost
 {
 public:

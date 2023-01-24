@@ -41,6 +41,7 @@ int main(int argc, char** argv) {
 
   // Optimize
   DataLog::getInstance().getTable("flipper_multi_objective_cost").enableLogging();
+  DataLog::getInstance().getTable("_" + whole_body_posture_optimization::PROBABILITY_DISTRIBUTION_TABLE_NAME).enableLogging();
   PostureOptimizationResult result = po.findOptimalPosture(robot_pose, po.getDefaultJointPositions());
 
   // Save results

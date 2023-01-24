@@ -102,11 +102,6 @@ add_dependencies(cost_function_logging_node ${${PROJECT_NAME}_EXPORTED_TARGETS} 
 target_link_libraries(cost_function_logging_node ${PROJECT_NAME})
 
 ## Declare an executable
-add_executable(probability_distribution_logging_node src/nodes/probability_distribution_logging_node.cpp)
-add_dependencies(probability_distribution_logging_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(probability_distribution_logging_node ${PROJECT_NAME})
-
-## Declare an executable
 add_executable(com_visualisation_node src/nodes/com_visualisation_node.cpp)
 add_dependencies(com_visualisation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(com_visualisation_node ${PROJECT_NAME})
