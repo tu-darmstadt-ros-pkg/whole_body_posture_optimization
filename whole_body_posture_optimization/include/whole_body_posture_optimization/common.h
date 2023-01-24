@@ -46,8 +46,9 @@ template <typename T> T lorentzian(const T& x, const T& sigma) {
 }
 
 template <typename T> T gaussianDistribution(T x, T mean, T s) {
-  T e2 = (x - mean) / T(2.0);
-  return T(1.0) / (s * std::sqrt(T(2 * M_PI))) * std::exp(T(-0.5) * e2 * e2);
+  T e2 = (x - mean) / s;
+  T frac = (s * std::sqrt(T(2 * M_PI)));
+  return  std::exp(T(-0.5) * e2 * e2) / frac;
 }
 
 struct CollisionObject {
