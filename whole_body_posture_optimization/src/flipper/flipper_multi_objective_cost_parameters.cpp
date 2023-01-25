@@ -9,6 +9,7 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
   lorentzian_sigma(0.0),
   track_contact_weight(0.0),
   track_contact_nominal_value(0.0),
+  impact_weight(1.0),
   body_contact_weight(0.0),
   turning_resistance_weight(0.0),
   position_deviation_weight(0.0),
@@ -16,8 +17,10 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
   stability_weight(0.0),
   stability_nominal_value(0.0),
   stability_exp_parameters{0, 0, 0},
-  num_offset_steps_x(0.0),
-  offset_step_size(0.05)
+  num_pose_x_samples(0.0),
+  sample_step_pose_x(0.05),
+  pose_x_sigma(0.03),
+  risk_level(0.5)
 {}
 
 bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) {
@@ -36,8 +39,10 @@ bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const 
   registerParameter(nh, "stability_exp_parameters_a", stability_exp_parameters[0], 1.6, "Stability EXP parameter (a)", 0.0, 100);
   registerParameter(nh, "stability_exp_parameters_b", stability_exp_parameters[1], -1.7, "Stability EXP parameter (b)", -100.0, 0);
   registerParameter(nh, "stability_exp_parameters_c", stability_exp_parameters[2], 0.0, "Stability EXP parameter (c)", 0.0, 10);
-  registerParameter(nh, "num_offset_steps_x", num_offset_steps_x, 0.0, "Number of offset steps in robot x-direction", -10, 10);
-  registerParameter(nh, "offset_step_size", offset_step_size, 0.0, "Length of offset steps", -1, 1);
+  registerParameter(nh, "num_pose_x_samples", num_pose_x_samples, 0.0, "Number of samples for the probability distribution of the position in x-direction", 0, 1000);
+  registerParameter(nh, "sample_step_pose_x", sample_step_pose_x, 0.0, "Step size (in m) between samples", 0, 1);
+  registerParameter(nh, "pose_x_sigma", pose_x_sigma, 0.03, "Standard deviation of the normal distribution used for sampling the x position", 0, 1);
+  registerParameter(nh, "risk_level", risk_level, 0.5, "Risk level for CVaR (Conditional Value at Risk) computation", 0, 1);
   return true;
 }
 

@@ -60,8 +60,10 @@ flipper_optimization:
     movement_cost_weight: 0.1 #0.05  #0.2  #0.5
     turning_resistance_weight: 10
     # uncertainty
-    num_offset_steps_x: 0
-    offset_step_size: 0.05
+    num_pose_x_samples: 5
+    sample_step_pose_x: 0.01
+    pose_x_sigma: 0.03
+    risk_level: 0.5
   
 arm_optimization:
   enabled: false

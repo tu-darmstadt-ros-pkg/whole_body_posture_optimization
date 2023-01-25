@@ -21,8 +21,10 @@ public:
   double stability_nominal_value;
   double stability_exp_parameters[3];
   double impact_weight;
-  double num_offset_steps_x;
-  double offset_step_size;
+  double num_pose_x_samples;
+  double sample_step_pose_x;
+  double pose_x_sigma;
+  double risk_level;
 protected:
   bool loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) override;
 private:

@@ -223,11 +223,11 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
     const double resolution = 0.001;
     const int num_samples = std::floor(range / resolution);
 
-    double orig_samples = flipper_multi_objective_cost_parameters_.num_offset_steps_x;
-    double orig_resolution = flipper_multi_objective_cost_parameters_.offset_step_size;
+    double orig_samples = flipper_multi_objective_cost_parameters_.num_pose_x_samples;
+    double orig_resolution = flipper_multi_objective_cost_parameters_.sample_step_pose_x;
 
-    flipper_multi_objective_cost_parameters_.num_offset_steps_x = num_samples / 2.0 - 1.0;
-    flipper_multi_objective_cost_parameters_.offset_step_size = resolution;
+    flipper_multi_objective_cost_parameters_.num_pose_x_samples = num_samples;
+    flipper_multi_objective_cost_parameters_.sample_step_pose_x = resolution;
 
     DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).enableLogging();
     DataLog::getInstance().getTable("flipper_multi_objective_cost").enableLogging(false);
@@ -238,8 +238,8 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
     DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).enableLogging(false);
     DataLog::getInstance().getTable("flipper_multi_objective_cost").enableLogging();
 
-    flipper_multi_objective_cost_parameters_.num_offset_steps_x = orig_samples;
-    flipper_multi_objective_cost_parameters_.offset_step_size = orig_resolution;
+    flipper_multi_objective_cost_parameters_.num_pose_x_samples = orig_samples;
+    flipper_multi_objective_cost_parameters_.sample_step_pose_x = orig_resolution;
   }
 
 
