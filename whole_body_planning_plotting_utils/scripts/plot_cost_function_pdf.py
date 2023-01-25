@@ -70,7 +70,7 @@ def plot_cost_over_pose(data, fig):
                name="Cost")
     )
 
-    scaling = np.max(data["flipper_cost"]) / np.max(data["rel_probability"])
+    scaling = np.abs(np.max(data["flipper_cost"]) / np.max(data["rel_probability"]))
     fig.add_trace(
         go.Scatter(x=data[x_column],
                    y=data["rel_probability"] * scaling,
@@ -96,7 +96,7 @@ def compute_statistics(data, fig):
     print("Mean cost", mean)
 
     # Var and cVar
-    compute_cvar(data, 0.9, fig)
+    compute_cvar(data, 0.5, fig)
 
 
 def compute_cvar(data_sorted, risk_level, fig):
