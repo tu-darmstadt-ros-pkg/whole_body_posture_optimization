@@ -45,6 +45,13 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
     DataLog::getInstance().getTable("flipper_multi_objective_cost").initialize(data_labels);
   }
 
+  if (DataLog::getInstance().getTable("flipper_multi_objective_total_cost").enabled()) {
+    std::vector<std::string> data_labels = free_joints;
+    data_labels.emplace_back("total_cost");
+
+    DataLog::getInstance().getTable("flipper_multi_objective_total_cost").initialize(data_labels);
+  }
+
   if (DataLog::getInstance().getTable("_" + PROBABILITY_DISTRIBUTION_TABLE_NAME).enabled()) {
     DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).initialize({
         "pose_x",
@@ -294,10 +301,21 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     }
   }
 
+  // Compute final cost
   if (samples.size() == 1) {
     cost[0] = samples[0].cost;
   } else {
     cost[0] = computeCVaR(samples, parameters_.risk_level);
+  }
+
+  if (DataLog::getInstance().getTable("flipper_multi_objective_total_cost").enabled()) {
+    Eigen::VectorXd data(DataLog::getInstance().getTable("flipper_multi_objective_total_cost").getDataSize());
+    for (unsigned int i = 0; i < free_joints_.size(); ++i) {
+      data[i] = flipper_angles[0][i];
+    }
+    Eigen::Index index = static_cast<Eigen::Index>(free_joints_.size()) - 1;
+    data[++index] = cost[0];
+    DataLog::getInstance().getTable("flipper_multi_objective_total_cost").addData(data);
   }
 
   return true;
