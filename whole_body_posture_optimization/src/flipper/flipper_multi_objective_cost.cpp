@@ -344,7 +344,6 @@ double FlipperMultiObjectiveCost::computeCVaR(std::vector<CostSample> samples, d
               return lhs.cost < rhs.cost;
             }
   );
-//  ROS_INFO_STREAM("Samples:" << sdf_contact_estimation::vectorToString(samples));
   // Cumulative probability density
   std::vector<double> cum_sum_rel_prob;
   cum_sum_rel_prob.reserve(samples.size());
@@ -352,19 +351,12 @@ double FlipperMultiObjectiveCost::computeCVaR(std::vector<CostSample> samples, d
   for (unsigned int i = 1; i < samples.size(); ++i) {
     cum_sum_rel_prob.push_back(cum_sum_rel_prob[i - 1] + samples[i].relative_probability);
   }
-//  ROS_INFO_STREAM("Cum sum:" << sdf_contact_estimation::vectorToString(cum_sum_rel_prob));
-//    std::partial_sum(samples.begin(), samples.end(), cum_sum_rel_prob.begin(),
-//                     [ ]( const CostSample& lhs, const CostSample& rhs ) {
-//                       return lhs.relative_probability + rhs.relative_probability;
-//                     });
 
   // Part, that we risk
   double part = risk_level * cum_sum_rel_prob.back();
-//  ROS_INFO_STREAM("Part: " << part);
   // Value at risk
   auto it = std::upper_bound(cum_sum_rel_prob.begin(), cum_sum_rel_prob.end(), part);
   size_t start_index = it - cum_sum_rel_prob.begin();
-//  ROS_INFO_STREAM("Index" << start_index);
   // Calculate weighted mean
   double sum = 0;
   double cvar = 0;
@@ -373,7 +365,6 @@ double FlipperMultiObjectiveCost::computeCVaR(std::vector<CostSample> samples, d
     sum += samples[i].relative_probability;
   }
   cvar /= sum;
-//  ROS_INFO_STREAM("CVaR: " << cvar);
   return cvar;
 }
 
