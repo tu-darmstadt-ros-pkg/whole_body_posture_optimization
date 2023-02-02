@@ -20,16 +20,23 @@ flipper_optimization:
   custom_solver:
     enabled: false
     algorithm: grid_search
-    search_resolution: 0.087 #0.78
+    search_resolution: 0.087 # 5 deg steps
+    #search_resolution: 0.78 # 45 deg steps
   solver:
     enabled: true
     algorithm: GN_DIRECT
+    #algorithm: GN_AGS
+    #algorithm: GN_CRS2_LM
+    #algorithm: GN_DIRECT_L
+    #algorithm: GN_ESCH
+    #algorithm: GN_ISRES
+    #algorithm: LN_COBYLA
+    #algorithm: LN_BOBYQA
+    #algorithm: LN_PRAXIS
+    #algorithm: LN_NELDERMEAD
+    #algorithm: LN_SBPLX
     maxeval: 100
-    stopval: -1.1
-    #ftol_abs: 1e-3
-    #ftol_rel: 9e-1
-    #xtol_rel: 1e-1
-    #ftol_abs: 1-e2
+    stopval: -1.0
 
   #local_algorithm: LN_NELDERMEAD
   #local_stopping_criteria:
@@ -59,8 +66,9 @@ flipper_optimization:
     lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
     movement_cost_weight: 0.1 #0.05  #0.2  #0.5
     turning_resistance_weight: 10
+    impact_weight: 3.0
     # uncertainty
-    num_pose_x_samples: 5
+    num_pose_x_samples: 0
     sample_step_pose_x: 0.01
     pose_x_sigma: 0.03
     risk_level: 0.5
