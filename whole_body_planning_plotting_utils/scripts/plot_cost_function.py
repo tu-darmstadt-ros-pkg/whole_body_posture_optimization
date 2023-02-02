@@ -32,6 +32,8 @@ def plot_cost_function(data, fig, parameter: str, cost_function: str):
 
 
 def plot_cost_function3d(data, fig, parameters: [], cost_function: str):
+    if cost_function not in data.dtype.fields:
+        return
     # fig.add_trace(go.Scatter3d(x=data[parameters[0]], y=data[parameters[1]], z=data[cost_function], name=cost_function, mode='markers'))
     fig.add_trace(go.Mesh3d(x=data[parameters[0]],
                             y=data[parameters[1]],
@@ -94,7 +96,8 @@ def main():
             camera=dict(
                 projection=dict(
                     type="orthographic"
-                )
+                ),
+                eye=dict(x=0., y=0, z=2.5)
             )
         ))
 
