@@ -45,6 +45,12 @@ template <typename T> T lorentzian(const T& x, const T& sigma) {
   return log(T(1) + (x*x)/(T(2) * sigma * sigma));
 }
 
+template <typename T> T gaussianDistribution(T x, T mean, T s) {
+  T e2 = (x - mean) / s;
+  T frac = (s * std::sqrt(T(2 * M_PI)));
+  return  std::exp(T(-0.5) * e2 * e2) / frac;
+}
+
 struct CollisionObject {
   CollisionObject(const collision_detection::CollisionSphere& _collision_sphere, std::string _link_name, double _padding)
     : collision_sphere(_collision_sphere), link_name(_link_name), padding(_padding) {}

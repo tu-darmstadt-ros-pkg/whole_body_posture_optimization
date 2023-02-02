@@ -9,8 +9,11 @@
 #include <moveit/robot_state/robot_state.h>
 
 #include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost_parameters.h>
+#include <numeric>
 
 namespace whole_body_posture_optimization {
+
+const std::string PROBABILITY_DISTRIBUTION_TABLE_NAME = "probability_distribution";
 
 class FlipperMultiObjectiveCost
 {
@@ -29,6 +32,17 @@ public:
                                      const robot_state::RobotStateConstPtr& previous_state,
                                      const FlipperMultiObjectiveCostParameters&parameters);
 private:
+  struct CostSample {
+    double cost;
+    double relative_probability;
+    friend std::ostream& operator<<(std::ostream& os, const CostSample& s)
+    {
+      os << "{" << s.cost << "," << s.relative_probability << "}";
+      return os;
+    }
+  };
+  double computeCVaR(std::vector<CostSample> samples, double risk_level) const;
+
   const std::vector<std::string>& free_joints_;
   const hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
   Eigen::Isometry3d pose_;

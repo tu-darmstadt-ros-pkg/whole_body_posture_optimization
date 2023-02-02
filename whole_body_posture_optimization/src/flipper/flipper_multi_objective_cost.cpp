@@ -8,6 +8,7 @@
 using whole_body_planning_plotting_utils::DataLog;
 
 namespace whole_body_posture_optimization {
+
 FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                          const Eigen::Isometry3d &pose,
                                          const robot_state::RobotStateConstPtr& previous_state,
@@ -43,6 +44,23 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
 
     DataLog::getInstance().getTable("flipper_multi_objective_cost").initialize(data_labels);
   }
+
+  if (DataLog::getInstance().getTable("flipper_multi_objective_total_cost").enabled()) {
+    std::vector<std::string> data_labels = free_joints;
+    data_labels.emplace_back("total_cost");
+
+    DataLog::getInstance().getTable("flipper_multi_objective_total_cost").initialize(data_labels);
+  }
+
+  if (DataLog::getInstance().getTable("_" + PROBABILITY_DISTRIBUTION_TABLE_NAME).enabled()) {
+    DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).initialize({
+        "pose_x",
+        "pose_y",
+        "pose_yaw",
+        "flipper_cost",
+        "rel_probability"
+    });
+  }
 }
 
 bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, double* cost) const
@@ -54,16 +72,21 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
   }
 
   cost[0] = -std::numeric_limits<double>::max();
-  const int num_offset_steps = std::floor(parameters_.num_offset_steps_x);
-  for (int offset_counter = 0; offset_counter < num_offset_steps * 2 + 1; ++offset_counter) {
-    double offset = (offset_counter - num_offset_steps) * parameters_.offset_step_size;
+  int num_pose_x_samples = std::floor(parameters_.num_pose_x_samples);
+  num_pose_x_samples = (num_pose_x_samples < 1) ? 1 : num_pose_x_samples;
+  std::vector<CostSample> samples;
+  samples.reserve(num_pose_x_samples);
+  for (int offset_counter = 0; offset_counter < num_pose_x_samples; ++offset_counter) {
+    double offset = (offset_counter - std::floor(num_pose_x_samples/2.0)) * parameters_.sample_step_pose_x;
     Eigen::Translation3d offset_trans(offset, 0, 0);
+    Eigen::Isometry3d pose_sample = pose_ * offset_trans;
+
 
     // Simulate contact
     hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
     hector_pose_prediction_interface::ContactInformation<double> contact_information;
 
-    hector_math::Pose<double> result_pose = hector_math::Pose<double>(pose_ * offset_trans);
+    hector_math::Pose<double> result_pose = hector_math::Pose<double>(pose_sample);
     double stability = pose_predictor_->predictPoseAndContactInformation(result_pose, support_polygon, contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
     Eigen::Isometry3d result_pose_eigen = result_pose.asTransform();
 
@@ -228,7 +251,8 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
               + parameters_.position_deviation_weight * position_deviation_cost
               + parameters_.stability_weight * stability_cost
               + parameters_.impact_weight * impact_cost;
-    cost[0] = std::max(cost[0], local_cost);
+    double rel_prob = gaussianDistribution(offset, 0.0, parameters_.pose_x_sigma);
+    samples.emplace_back(CostSample{local_cost, rel_prob});
 
     if (parameters_.verbose) {
       ROS_INFO_STREAM("Flipper cost function (weighted value in brackets): " << std::endl <<
@@ -263,9 +287,36 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
       data[++index] = local_cost;
       DataLog::getInstance().getTable("flipper_multi_objective_cost").addData(data);
     }
+
+    if (DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).enabled()) {
+
+      Eigen::VectorXd data(DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).getDataSize());
+      data <<
+          pose_sample.translation().x(),
+          pose_sample.translation().y(),
+          0.0,
+          local_cost,
+          rel_prob;
+      DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).addData(data);
+    }
   }
 
-//  cost[0] /= offset_steps * 2 + 1;
+  // Compute final cost
+  if (samples.size() == 1) {
+    cost[0] = samples[0].cost;
+  } else {
+    cost[0] = computeCVaR(samples, parameters_.risk_level);
+  }
+
+  if (DataLog::getInstance().getTable("flipper_multi_objective_total_cost").enabled()) {
+    Eigen::VectorXd data(DataLog::getInstance().getTable("flipper_multi_objective_total_cost").getDataSize());
+    for (unsigned int i = 0; i < free_joints_.size(); ++i) {
+      data[i] = flipper_angles[0][i];
+    }
+    Eigen::Index index = static_cast<Eigen::Index>(free_joints_.size()) - 1;
+    data[++index] = cost[0];
+    DataLog::getInstance().getTable("flipper_multi_objective_total_cost").addData(data);
+  }
 
   return true;
 }
@@ -283,6 +334,47 @@ ceres::CostFunction* FlipperMultiObjectiveCost::Create(const std::vector<std::st
   cost_function->SetNumResiduals(1);
 
   return static_cast<ceres::CostFunction*>(cost_function);
+}
+
+double FlipperMultiObjectiveCost::computeCVaR(std::vector<CostSample> samples, double risk_level) const
+{
+  // Sort by cost
+  std::sort(samples.begin( ), samples.end( ),
+            [ ]( const CostSample& lhs, const CostSample& rhs ) {
+              return lhs.cost < rhs.cost;
+            }
+  );
+//  ROS_INFO_STREAM("Samples:" << sdf_contact_estimation::vectorToString(samples));
+  // Cumulative probability density
+  std::vector<double> cum_sum_rel_prob;
+  cum_sum_rel_prob.reserve(samples.size());
+  cum_sum_rel_prob.push_back(samples.front().relative_probability);
+  for (unsigned int i = 1; i < samples.size(); ++i) {
+    cum_sum_rel_prob.push_back(cum_sum_rel_prob[i - 1] + samples[i].relative_probability);
+  }
+//  ROS_INFO_STREAM("Cum sum:" << sdf_contact_estimation::vectorToString(cum_sum_rel_prob));
+//    std::partial_sum(samples.begin(), samples.end(), cum_sum_rel_prob.begin(),
+//                     [ ]( const CostSample& lhs, const CostSample& rhs ) {
+//                       return lhs.relative_probability + rhs.relative_probability;
+//                     });
+
+  // Part, that we risk
+  double part = risk_level * cum_sum_rel_prob.back();
+//  ROS_INFO_STREAM("Part: " << part);
+  // Value at risk
+  auto it = std::upper_bound(cum_sum_rel_prob.begin(), cum_sum_rel_prob.end(), part);
+  size_t start_index = it - cum_sum_rel_prob.begin();
+//  ROS_INFO_STREAM("Index" << start_index);
+  // Calculate weighted mean
+  double sum = 0;
+  double cvar = 0;
+  for (size_t i = start_index; i < samples.size(); ++i) {
+    cvar += samples[i].cost * samples[i].relative_probability;
+    sum += samples[i].relative_probability;
+  }
+  cvar /= sum;
+//  ROS_INFO_STREAM("CVaR: " << cvar);
+  return cvar;
 }
 
 }

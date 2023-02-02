@@ -12,6 +12,7 @@ public:
   DataTable();
   void initialize(const std::vector<std::string>& data_labels);
   void enableLogging();
+  void enableLogging(bool enabled);
   bool enabled() const;
   void addData(const Eigen::VectorXd& data);
   bool saveToCsv(const std::string& file_name) const;
