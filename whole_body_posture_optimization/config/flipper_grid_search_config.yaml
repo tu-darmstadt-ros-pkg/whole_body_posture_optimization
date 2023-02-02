@@ -1,5 +1,7 @@
 flipper_optimization:
-  enabled: false
+  solver:
+    enabled: false
   custom_solver:
+    enabled: true
     algorithm: grid_search
-    search_resolution: 0.1
+    search_resolution: 0.087 # 5 deg steps
