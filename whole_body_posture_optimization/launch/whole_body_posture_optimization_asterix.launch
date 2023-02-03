@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
-<launch>    
+<launch>
+  <arg name="rviz" default="false"/>
   <!-- Load robot description -->
   <param name="robot_description" command="$(find xacro)/xacro $(find asterix_description)/urdf/asterix_ugv.urdf.xacro" />
   <param name="robot_description_semantic" textfile="$(find asterix_moveit_config)/config/asterix_ugv.srdf" />
@@ -40,5 +41,8 @@
     <rosparam command="load" file="$(find asterix_moveit_config)/config/joint_limits.yaml"/>
     <rosparam command="load" file="$(find asterix_moveit_config)/config/joint_limits_world.yaml"/>
   </group>
+
+  <!-- rviz ui -->
+  <include if="$(arg rviz)" file="$(find whole_body_posture_optimization)/launch/rviz.launch"/>
 
 </launch>

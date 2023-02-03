@@ -5,10 +5,13 @@
 
 #include <geometry_msgs/PoseStamped.h>
 #include <whole_body_planning_plotting_utils/data_log.h>
+#include <hector_pose_prediction_ros/visualization.h>
 
 using whole_body_planning_plotting_utils::DataLog;
 
 namespace whole_body_posture_optimization {
+
+using namespace hector_pose_prediction_interface;
 
 FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel> &robot_model,
                                          const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor)
@@ -23,10 +26,7 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   param_idx_to_jnt_idx_ = getIndexMap(robot_model_->getActuatedJointNames(), free_joints_);
 
   // Publisher
-  start_state_pub_ = nh.advertise<visualization_msgs::MarkerArray>("start_state", 10, true);
-  result_state_pub_ = nh.advertise<visualization_msgs::MarkerArray>("result_state", 10, true);
-  contact_points_pub_ = nh.advertise<visualization_msgs::MarkerArray>("contact_points", 10, true);
-  result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com_pose", 10, true);
+  support_polygon_pub_ = nh.advertise<visualization_msgs::MarkerArray>("support_polygon", 10, true);
 
   // Create nlopt optimizer
   parameter_count_ = static_cast<unsigned int>(free_joints_.size());
@@ -193,7 +193,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   pose_predictor_->robotModel()->updateJointPositions(final_joint_update);
 
   hector_math::Pose<double> result_pose(robot_pose);
-  result.stability = pose_predictor_->predictPoseAndSupportPolygon(result_pose, result.support_polygon);
+  result.stability = pose_predictor_->predictPoseAndContactInformation(result_pose, result.support_polygon, result.contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
   result.pose = result_pose.asTransform();
 
   ROS_INFO("New robot position: [%f, %f, %f]", result.pose.translation()(0), result.pose.translation()(1), result.pose.translation()(2));
@@ -252,21 +252,11 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   }
   flipper_multi_objective_cost_parameters_.verbose = cost_function_verbosity;
 
-  // Publish result
-  // Final robot shape
-//  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), result_state_pub_, result_pose, "world", Eigen::Vector3d(1, 1, 0));
-  // COM pose
-//  Eigen::Isometry3d result_com_pose = result.pose * base_to_com;
-//  sdf_contact_estimation::publishPose(result_com_pub_, result_com_pose, "world");
-  // Contact points and support polygon
-//  visualization_msgs::MarkerArray contact_points_array_msg;
-//  sdf_contact_estimation::createPointMarkerArray(result.contact_result.contact_points, contact_points_array_msg, "world", "contact_points", Eigen::Vector3d(1, 0.5, 0), 0.03);
-//  sdf_contact_estimation::createPointMarkerArray(result.contact_result.convex_hull_points, contact_points_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
-//  sdf_contact_estimation::createNormalsMarkers(result.contact_result.contact_points, contact_estimation_->getSdf(), contact_points_array_msg, "contact_normals");
-//  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(result.contact_result.convex_hull_points, result_com_pose.translation());
-//  createConvexHullMarkerArray(result.contact_result.convex_hull_points, stabilities, contact_points_array_msg);
-//  sdf_contact_estimation::deleteAllMarkers(contact_points_pub_);
-//  contact_points_pub_.publish(contact_points_array_msg);
+  // Publish support polygon and contact information
+  visualization_msgs::MarkerArray support_polygon_marker_array;
+  deleteAllMarkers(support_polygon_pub_);
+  visualization::addSupportPolygonWithContactInformationToMarkerArray(support_polygon_marker_array, result.support_polygon, result.contact_information, "world");
+  support_polygon_pub_.publish(support_polygon_marker_array);
 
   return result;
 }

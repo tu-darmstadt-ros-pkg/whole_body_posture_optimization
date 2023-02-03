@@ -35,7 +35,7 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
 
   //Publisher
   result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com", 10, true);
-  convex_hull_pub_ = nh.advertise<visualization_msgs::MarkerArray>("convex_hull", 10, true);
+  support_polygon_pub_ = nh.advertise<visualization_msgs::MarkerArray>("support_polygon", 10, true);
   robot_tsdf_pub_ = nh.advertise<pcl::PointCloud<pcl::PointXYZI>>("robot_tsdf", 10, true);
 
   // Create nlopt optimizer
@@ -426,24 +426,25 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     result.final_cost = minf;
   }
 
-  // Compute COM
+  // Compute and publish COM
   robot_model_->computeCenterOfMass(result.joint_angles, result.center_of_mass);
   Eigen::Isometry3d com_pose = Eigen::Isometry3d::Identity();
   com_pose.translation() = robot_pose * result.center_of_mass;
-  // Compute stability
+  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
+
+  // Compute stability and publish support polygon
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_hull_points, com_pose.translation());
 //  std::vector<double> stabilities;
 //  hector_stability_metrics::computeNormalizedEnergyStabilityMargin<double>(contact_hull_points, stabilities, com_pose.translation());
   result.stability = *std::min_element(stabilities.begin(), stabilities.end());
 
-  // Publish result com
-  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
-  // Publish result stabilities
   visualization_msgs::MarkerArray convex_hull_array_msg;
-  sdf_contact_estimation::createPointMarkerArray(contact_hull_points, convex_hull_array_msg, "world", "convex_hull", Eigen::Vector3d(0, 1, 0), 0.04);
-  sdf_contact_estimation::createConvexHullMarkerArrayWithStabilities(contact_hull_points, stabilities, convex_hull_array_msg, 6.0);
-  sdf_contact_estimation::deleteAllMarkers(convex_hull_pub_);
-  convex_hull_pub_.publish(convex_hull_array_msg);
+  visualization::addSupportPolygonEdgesWithStabilityToMarkerArray(convex_hull_array_msg, contact_hull_points, stabilities, 6.0, "world",
+                                                 "support_polygon");
+  visualization::addContactPointsToMarkerArray(convex_hull_array_msg, contact_hull_points,
+                                   Eigen::Vector4f(0, 1, 0, 1), "world", "support_polygon_points", 0.04);
+  deleteAllMarkers(support_polygon_pub_);
+  support_polygon_pub_.publish(convex_hull_array_msg);
 
   return result;
 }

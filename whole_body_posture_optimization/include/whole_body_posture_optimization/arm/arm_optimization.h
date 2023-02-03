@@ -72,7 +72,7 @@ private:
   collision_detection::AllowedCollisionMatrix acm_;
 
   ros::Publisher result_com_pub_;
-  ros::Publisher convex_hull_pub_;
+  ros::Publisher support_polygon_pub_;
   ros::Publisher robot_tsdf_pub_;
 };
 

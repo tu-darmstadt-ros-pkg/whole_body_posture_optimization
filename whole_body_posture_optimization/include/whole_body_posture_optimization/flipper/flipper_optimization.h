@@ -19,6 +19,7 @@ struct FlipperOptimizationResult {
   std::vector<double> joint_state;
   double stability;
   hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
+  hector_pose_prediction_interface::ContactInformation<double> contact_information;
   Eigen::Isometry3d pose;
   double final_cost;
 };
@@ -54,10 +55,7 @@ private:
 
   FlipperMultiObjectiveCostParameters flipper_multi_objective_cost_parameters_;
 
-  ros::Publisher start_state_pub_;
-  ros::Publisher result_state_pub_;
-  ros::Publisher contact_points_pub_;
-  ros::Publisher result_com_pub_;
+  ros::Publisher support_polygon_pub_;
 };
 
 }

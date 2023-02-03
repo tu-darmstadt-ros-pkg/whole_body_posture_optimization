@@ -25,6 +25,8 @@ using Affine3 = Eigen::Transform<T, 3, Eigen::Affine>;
 template<typename T>
 using Matrix3 = Eigen::Matrix<T, 3, 3>;
 
+void deleteAllMarkers(const ros::Publisher& pub);
+
 template<typename T>
 std::string vecToString(const std::vector<T>& vec) {
   std::stringstream ss;
