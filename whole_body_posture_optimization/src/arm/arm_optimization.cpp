@@ -11,8 +11,11 @@
 #include <ceres_nlopt_wrapper/optimization_history.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <hector_stability_metrics/metrics/normalized_energy_stability_margin.h>
+#include <hector_pose_prediction_ros/visualization.h>
 
 namespace whole_body_posture_optimization {
+
+using namespace hector_pose_prediction_interface;
 
 ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model,
                                  const sdf_contact_estimation::SdfModelPtr& sdf_model)
