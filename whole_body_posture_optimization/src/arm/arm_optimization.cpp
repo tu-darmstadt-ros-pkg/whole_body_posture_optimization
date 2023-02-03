@@ -34,7 +34,7 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   acm_ = planning_scene->getAllowedCollisionMatrix();
 
   // Precompute partial robot tsdf
-  partial_robot_tsdf_ = robot_model_->computeTsdfFromRobotModel(static_link_names_, self_collision_tsdf_truncation_distance_, self_collision_tsdf_voxel_size_);
+  partial_robot_tsdf_ = robot_model_->computeTsdfFromRobotModel(static_link_names_, static_cast<float>(self_collision_tsdf_truncation_distance_), static_cast<float>(self_collision_tsdf_voxel_size_));
 
   //Publisher
   result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com", 10, true);
