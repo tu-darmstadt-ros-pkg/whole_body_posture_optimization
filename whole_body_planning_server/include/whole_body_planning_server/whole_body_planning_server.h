@@ -90,6 +90,7 @@ private:
   std::vector<double> joint_states_;
   robot_state::RobotStatePtr current_robot_state_;
   robot_trajectory::RobotTrajectoryPtr trajectory_;
+  bool end_of_path_reached_;
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;

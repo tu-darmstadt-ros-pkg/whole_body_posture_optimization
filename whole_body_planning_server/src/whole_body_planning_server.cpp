@@ -13,7 +13,7 @@
 namespace whole_body_planning_server {
 
 WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, const ros::NodeHandle& pnh)
-  : nh_(nh), pnh_(pnh), tf_listener_(tf_buffer_), esdf_server_(nh, ros::NodeHandle(pnh, "esdf_server")), auto_start_(false), path_sampling_resolution_(0.02)
+  : nh_(nh), pnh_(pnh), end_of_path_reached_(false), tf_listener_(tf_buffer_), esdf_server_(nh, ros::NodeHandle(pnh, "esdf_server")), auto_start_(false), path_sampling_resolution_(0.02)
 {
   // Parameters
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
@@ -87,6 +87,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
   nav_msgs::Path path_slice = slicePath(path_smoothed, path_slice_length_);
+  end_of_path_reached_ = (path_slice.poses.size() == path_smoothed.poses.size());
 
   // Plan trajectory
   auto start = std::chrono::steady_clock::now();
@@ -650,7 +651,7 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const actionlib::Simp
 }
 void WholeBodyPlanningServer::setFollowPathGoalSuccessful()
 {
-  if (followPathServerIsActive()) {
+  if (followPathServerIsActive() && end_of_path_reached_) {
     move_base_lite_msgs::FollowPathResult result_server;
     result_server.result.val = move_base_lite_msgs::ErrorCodes::SUCCESS;
     follow_path_goal_.setSucceeded(result_server, "successful");
