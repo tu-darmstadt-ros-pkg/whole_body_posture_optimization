@@ -216,7 +216,7 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot
   // *** Compute plan ***
   updateRobotPose(path_msg);
   auto trajectory = optimizer_->computeOptimalTrajectory(path_msg, current_robot_state_);
-  if (trajectory.empty()) {
+  if (trajectory.empty() || trajectory.getDuration() == 0.0) {
     return false;
   }
   trajectory_out = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory);
