@@ -288,6 +288,13 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
     follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
   }
 
+  if (!end_of_path_reached_) {
+    // Set low tolerances because the current end of the path is not the goal pose
+    follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.0001;
+    // Do not care about final orientation inside path
+    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
+  }
+
   ROS_INFO_STREAM("Executing planned trajectory");
 
   // Send goals simultaneously
