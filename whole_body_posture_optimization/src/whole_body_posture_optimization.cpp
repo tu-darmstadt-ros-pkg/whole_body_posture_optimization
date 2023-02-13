@@ -278,8 +278,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 //}
 
 robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result,
-                                                                                       std::vector<size_t>& trajectory_start_indices,
-                                                                                       const robot_state::RobotStateConstPtr& trajectory_start_state)
+                                                                                       std::vector<size_t>& trajectory_start_indices)
 {
   START_TIMING("Trajectory planning")
   robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
@@ -326,24 +325,15 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
     planning_interface::MotionPlanRequest req;
     req.group_name = complete_robot_group_;
     req.allowed_planning_time = 2.0;
-    // set start state
-    if (i == 0 && trajectory_start_state) {
-      moveit::core::robotStateToRobotStateMsg(*trajectory_start_state, req.start_state);
-      planning_scene->setCurrentState(*trajectory_start_state);
-    } else {
-      robot_model_->updateJointAngles(opt_result[i].result_joint_angles);
-      robot_state::RobotState start_state = robot_model_->getMoveitRobotState();
-      planning_scene->setCurrentState(start_state);
-      moveit::core::robotStateToRobotStateMsg(start_state, req.start_state);
-    }
+
+    // Set start state
+    planning_scene->setCurrentState(*opt_result[i].result_state);
+    moveit::core::robotStateToRobotStateMsg(*opt_result[i].result_state, req.start_state);
 
     // set goal state
-    robot_model_->updateJointAngles(opt_result[i+1].result_joint_angles);
-    robot_state::RobotState goal_state = robot_model_->getMoveitRobotState();
-    moveit_msgs::Constraints goal_constraint = kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
+    moveit_msgs::Constraints goal_constraint = kinematic_constraints::constructGoalConstraints(*opt_result[i+1].result_state, joint_model_group);
     req.goal_constraints.clear();
     req.goal_constraints.push_back(goal_constraint);
-
 
     // compute trajectory from start to goal
     planning_interface::MotionPlanResponse res;
@@ -361,13 +351,8 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
 
     // The moveit trajectory planner can't handle/interpolate the virtual world joint
     // So we do it ourselves and add the world virtual joint to all states
-    Eigen::Isometry3d start_pose;
-    if (i == 0 && trajectory_start_state) {
-      start_pose = trajectory_start_state->getJointTransform("world_virtual_joint");
-    } else {
-      start_pose = opt_result[i].result_pose;
-    }
-    Eigen::Isometry3d end_pose = opt_result[i+1].result_pose;
+    Eigen::Isometry3d start_pose = opt_result[i].result_state->getJointTransform("world_virtual_joint");
+    Eigen::Isometry3d end_pose = opt_result[i+1].result_state->getJointTransform("world_virtual_joint");
 
     Eigen::Vector3d start_position = start_pose.translation();
     Eigen::Vector3d end_position = end_pose.translation();
@@ -448,11 +433,10 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
   return trajectory;
 }
 
-robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result,
-                                                                                       const robot_state::RobotStateConstPtr& start_state)
+robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
 {
   std::vector<size_t> trajectory_start_indices;
-  return computeTimedTrajectory(opt_result, trajectory_start_indices, start_state);
+  return computeTimedTrajectory(opt_result, trajectory_start_indices);
 }
 
 void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const ros::Time& start_time)
@@ -507,7 +491,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeOptimalTr
     const nav_msgs::Path& path, const moveit::core::RobotStateConstPtr& start_state)
 {
   auto result = findOptimalPostures(path, start_state);
-  auto trajectory = computeTimedTrajectory(result, start_state);
+  auto trajectory = computeTimedTrajectory(result);
   return trajectory;
 }
 
