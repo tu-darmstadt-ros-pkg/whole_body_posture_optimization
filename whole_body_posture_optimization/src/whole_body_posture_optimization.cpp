@@ -416,7 +416,10 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
 
   // Perform time parameterization
   trajectory_processing::IterativeSplineParameterization time_parameterization(false);
-  time_parameterization.computeTimeStamps(trajectory_with_world);
+  if (!time_parameterization.computeTimeStamps(trajectory_with_world)) {
+    ROS_ERROR_STREAM("Time parameterization failed.");
+    return trajectory;
+  }
 
   // Write back world poses
   for (unsigned int i = 0; i < trajectory_with_world.getWayPointCount(); ++i) {
