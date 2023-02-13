@@ -86,8 +86,6 @@ private:
 
   std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
-  std::vector<std::string> joint_names_;
-  std::vector<double> joint_states_;
   robot_state::RobotStatePtr current_robot_state_;
   robot_trajectory::RobotTrajectoryPtr trajectory_;
   bool end_of_path_reached_;

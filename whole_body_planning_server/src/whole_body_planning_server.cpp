@@ -39,8 +39,6 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   auto pose_predictor = std::static_pointer_cast<hector_pose_prediction_interface::PosePredictor<double>>(sdf_pose_predictor);
 
   optimizer_ = std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(pnh, pose_predictor, sdf_model_);
-  joint_names_ = optimizer_->getRobotModel()->getActuatedJointNames();
-  joint_states_ = optimizer_->getDefaultJointPositions();
   current_robot_state_ = std::make_shared<robot_state::RobotState>(optimizer_->getRobotModel()->getMoveitRobotState());
 
   // Create moveit planner instance
