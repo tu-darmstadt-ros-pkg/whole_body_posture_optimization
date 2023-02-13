@@ -1,6 +1,7 @@
 #include <whole_body_planning_server/whole_body_planning_server.h>
 
 #include <chrono>
+#include <thread>
 
 #include <sdf_contact_estimation/robot_model/shape_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
@@ -13,7 +14,16 @@
 namespace whole_body_planning_server {
 
 WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, const ros::NodeHandle& pnh)
-  : nh_(nh), pnh_(pnh), end_of_path_reached_(false), tf_listener_(tf_buffer_), esdf_server_(nh, ros::NodeHandle(pnh, "esdf_server")), auto_start_(false), path_sampling_resolution_(0.02)
+  : nh_(nh),
+  pnh_(pnh),
+  end_of_path_reached_(false),
+  execution_completed_(true),
+  tf_listener_(tf_buffer_),
+  esdf_server_(nh, ros::NodeHandle(pnh, "esdf_server")),
+  auto_start_(false),
+  path_slice_length_(-1),
+  path_sampling_resolution_(0.02),
+  override_path_time_(false), continuous_planning_(false)
 {
   // Parameters
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
@@ -86,6 +96,9 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
   nav_msgs::Path path_slice = slicePath(path_smoothed, path_slice_length_);
   end_of_path_reached_ = (path_slice.poses.size() == path_smoothed.poses.size());
+  if (end_of_path_reached_) {
+    ROS_INFO_STREAM("Slice reaches end of path");
+  }
 
   // Plan trajectory
   auto start = std::chrono::steady_clock::now();
@@ -135,6 +148,105 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
 
   return true;
 }
+
+void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path& path_msg, bool replanning)
+{
+  ROS_INFO_STREAM("Received new path, planning continuously..");
+  map_frame_ = path_msg.header.frame_id;
+
+  // Path pre-processing
+  nav_msgs::Path path_smoothed = preprocessPath(path_msg);
+  if (path_smoothed.poses.size() < 4) {
+    ROS_WARN_STREAM("Path too short.");
+  }
+
+//  std::vector<robot_trajectory::RobotTrajectoryPtr> trajectories;
+  std::vector<whole_body_posture_optimization::PostureOptimizationResult> results;
+
+  // Add start state
+  updateRobotPose(path_smoothed);
+  whole_body_posture_optimization::PostureOptimizationResult start_result;
+  start_result.result_state = current_robot_state_;
+  results.push_back(start_result);
+
+  ros::Time start_time;
+  bool first_execution = true;
+  for (int current_traj_index = 0; current_traj_index < path_smoothed.poses.size() -1; ++current_traj_index) {
+    if (execution_completed_) {
+      ROS_INFO_STREAM("Execution completed");
+      return;
+    }
+    ROS_INFO_STREAM("Computing pose " << current_traj_index);
+
+    sdf_model_->publishSdfMesh();
+
+    // Compute optimized postures
+    nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
+    auto optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
+    results.push_back(optimization_results.back());
+
+    if (results.size() < 4) {
+      ROS_INFO_STREAM("Not enough results yet.");
+      continue;
+    }
+
+    // Compute timed trajectory
+    std::vector<size_t> trajectory_start_indices;
+    auto trajectory = optimizer_->computeTimedTrajectory(results, trajectory_start_indices);
+    if (trajectory.empty() || trajectory.getDuration() == 0.0) {
+      if (followPathServerIsActive()) {
+        move_base_lite_msgs::FollowPathResult result;
+        result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
+        follow_path_goal_.setAborted(result, "Planning failed.");
+      }
+      execution_completed_ = true;
+      return;
+    }
+    trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory);
+
+
+    // Set start time once after the first trajectory part has been computed
+    end_of_path_reached_ = current_traj_index == path_smoothed.poses.size() - 2;
+    if (end_of_path_reached_) {
+      ROS_INFO_STREAM("End of path reached");
+    }
+    if (first_execution) {
+      first_execution = false;
+      if (replanning) {
+        // Trajectory has to start here in time, because planning takes time and robot might not be at the start state anymore
+        start_time = path_msg.header.stamp;
+      } else {
+        // If this is the first trajectory, future-date the starting time, so we do not miss the first waypoint
+        start_time = ros::Time::now() + ros::Duration(0.1);
+      }
+    }
+
+    // Check if trajectory end time is in the past
+    ros::Duration trajectory_duration(trajectory_->getDuration());
+    ros::Time trajectory_end = start_time + trajectory_duration;
+    ros::Time now = ros::Time::now();
+    if (now > trajectory_end) {
+      ROS_WARN_STREAM("Trajectory end time is in the past by " << (now - trajectory_end).toSec() <<
+                      " s. Planning time takes too long.");
+      first_execution = true; // Reset execution timing
+    } else {
+      // Send trajectory
+      if (!executeTrajectory(*trajectory_, start_time)) {
+        ROS_ERROR_STREAM("Trajectory execution failed");
+        if (followPathServerIsActive()) {
+          move_base_lite_msgs::FollowPathResult result;
+          result.result.val = move_base_lite_msgs::ErrorCodes::FAILURE;
+          follow_path_goal_.setAborted(result, "Trajectory execution failed.");
+        }
+        execution_completed_ = true;
+        return;
+      }
+    }
+
+
+  }
+}
+
 
 nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& path) const
 {
@@ -198,6 +310,17 @@ nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, do
       path_slice.poses.push_back(pose);
     }
   }
+  return path_slice;
+}
+
+nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, int start_index, int end_index)
+{
+  if (end_index < start_index) {
+    throw std::invalid_argument("end_index (" + std::to_string(end_index) + ") is smaller than start_index (" + std::to_string(start_index) + ").");
+  }
+  nav_msgs::Path path_slice;
+  path_slice.header = path.header;
+  path_slice.poses.assign(path.poses.begin() + start_index, path.poses.begin() + end_index);
   return path_slice;
 }
 
@@ -349,7 +472,16 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
 
   // Plan and execute
   if (enabled_) {
-    planAndExecutePath(target_path, auto_start_, goal_preempted);
+    if (!continuous_planning_) {
+      planAndExecutePath(target_path, auto_start_, goal_preempted);
+    } else {
+      if (execution_thread_) {
+        stopExecutionThread();
+      }
+      execution_completed_ = false;
+//      execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, target_path, goal_preempted);
+      planAndExecutePathContinuous(target_path, goal_preempted);
+    }
   } else {
     driving_client_->sendGoal(*goal.getGoal(),
                               std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
@@ -361,6 +493,7 @@ void WholeBodyPlanningServer::followPathPreemptCallback(const actionlib::ActionS
 {
   if (preempt == follow_path_goal_) {
     // Cancel vehicle controller and stop moveit execution
+    stopExecutionThread();
     driving_client_->cancelAllGoals();
     moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
 
@@ -640,6 +773,7 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const actionlib::Simp
   ROS_INFO_STREAM("Follow path client finished.");
   // If successful, wait for moveit to finish
   if (result->result.val == move_base_lite_msgs::ErrorCodes::SUCCESS) {
+    stopExecutionThread();
     setFollowPathGoalSuccessful();
   } else {
     // Path following failed
@@ -670,6 +804,7 @@ void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planni
   path_sampling_resolution_ = config.path_sampling_resolution;
   path_slice_length_ = config.path_slice_length;
   auto_start_ = config.auto_start;
+  continuous_planning_ = config.continuous_planning;
 }
 void WholeBodyPlanningServer::updateRobotPose(const nav_msgs::Path& path)
 {
@@ -678,6 +813,15 @@ void WholeBodyPlanningServer::updateRobotPose(const nav_msgs::Path& path)
   const geometry_msgs::PoseStamped& robot_pose_msg = path.poses.front();
   tf::poseMsgToEigen(robot_pose_msg.pose, robot_pose_eigen);
   whole_body_posture_optimization::updateMoveitRobotState(*current_robot_state_, robot_pose_eigen);
+}
+
+void WholeBodyPlanningServer::stopExecutionThread()
+{
+  execution_completed_ = true;
+  if (execution_thread_) {
+    execution_thread_->join();
+    execution_thread_.reset();
+  }
 }
 
 }

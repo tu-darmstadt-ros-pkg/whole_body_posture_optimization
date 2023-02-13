@@ -41,10 +41,12 @@ public:
    * @param path_msg Path to drive
    */
   bool planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start=true, bool replanning=false);
+  void planAndExecutePathContinuous(const nav_msgs::Path& path_msg, bool replanning=false);
 private:
   void updateRobotPose(const nav_msgs::Path& path);
   nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance);
+  static nav_msgs::Path slicePath(const nav_msgs::Path& path, int start_index, int end_index);
   bool generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out);
 //  bool moveToStartAndExecute(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
   bool executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time);
@@ -81,14 +83,19 @@ private:
 
   void dynamicReconfigureCallback(const whole_body_planning_server::PlanningServerConfig &config, uint32_t level);
 
+  void stopExecutionThread();
+
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
 
   std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
+
   robot_state::RobotStatePtr current_robot_state_;
   robot_trajectory::RobotTrajectoryPtr trajectory_;
   bool end_of_path_reached_;
+  std::atomic<bool> execution_completed_;
+  std::unique_ptr<std::thread> execution_thread_;
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
@@ -104,6 +111,7 @@ private:
   std::string stability_info_save_folder_;
   double path_sampling_resolution_;
   bool override_path_time_;
+  bool continuous_planning_;
 
   // Subscribers
   ros::Subscriber path_sub_;
