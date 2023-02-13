@@ -154,13 +154,15 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   ROS_INFO_STREAM("Received new path, planning continuously..");
   map_frame_ = path_msg.header.frame_id;
 
+  sdf_model_->publishSdfMesh();
+
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
-  if (path_smoothed.poses.size() < 4) {
+  const int trajectory_minimum_size = 4;
+  if (path_smoothed.poses.size() < trajectory_minimum_size) {
     ROS_WARN_STREAM("Path too short.");
   }
 
-//  std::vector<robot_trajectory::RobotTrajectoryPtr> trajectories;
   std::vector<whole_body_posture_optimization::PostureOptimizationResult> results;
 
   // Add start state
@@ -171,6 +173,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
 
   ros::Time start_time;
   bool first_execution = true;
+  trajectory_.reset();
   for (int current_traj_index = 0; current_traj_index < path_smoothed.poses.size() -1; ++current_traj_index) {
     if (execution_completed_) {
       ROS_INFO_STREAM("Execution completed");
@@ -178,22 +181,23 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     }
     ROS_INFO_STREAM("Computing pose " << current_traj_index);
 
-    sdf_model_->publishSdfMesh();
+    end_of_path_reached_ = current_traj_index == path_smoothed.poses.size() - 2;
 
     // Compute optimized postures
     nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
     auto optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
     results.push_back(optimization_results.back());
 
-    if (results.size() < 4) {
+    if (results.size() < trajectory_minimum_size) {
       ROS_INFO_STREAM("Not enough results yet.");
       continue;
     }
 
     // Compute timed trajectory
+    std::vector<whole_body_posture_optimization::PostureOptimizationResult> results_slice(results.end() - trajectory_minimum_size, results.end());
     std::vector<size_t> trajectory_start_indices;
-    auto trajectory = optimizer_->computeTimedTrajectory(results, trajectory_start_indices);
-    if (trajectory.empty() || trajectory.getDuration() == 0.0) {
+    auto trajectory_part = optimizer_->computeTimedTrajectory(results_slice, trajectory_start_indices);
+    if (trajectory_part.empty() || trajectory_part.getDuration() == 0.0) {
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
         result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
@@ -202,14 +206,20 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       execution_completed_ = true;
       return;
     }
-    trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory);
 
-
-    // Set start time once after the first trajectory part has been computed
-    end_of_path_reached_ = current_traj_index == path_smoothed.poses.size() - 2;
+    // Append new trajectory points, that do not change anymore
+    if (!trajectory_) {
+      trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory_part.getRobotModel(), trajectory_part.getGroup());
+      trajectory_->append(trajectory_part, 0.0, 0, trajectory_start_indices[2]);
+    } else {
+      trajectory_->append(trajectory_part, 0.0, trajectory_start_indices[1], trajectory_start_indices[2]);
+    }
     if (end_of_path_reached_) {
       ROS_INFO_STREAM("End of path reached");
+      trajectory_->append(trajectory_part, 0.0, trajectory_start_indices[2]); // Add rest of new trajectory
     }
+
+    // Set start time once after the first trajectory part has been computed
     if (first_execution) {
       first_execution = false;
       if (replanning) {
@@ -771,8 +781,7 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const actionlib::Simp
                                                            const move_base_lite_msgs::FollowPathResultConstPtr& result)
 {
   ROS_INFO_STREAM("Follow path client finished.");
-  // If successful, wait for moveit to finish
-  if (result->result.val == move_base_lite_msgs::ErrorCodes::SUCCESS) {
+  if (result->result.val == move_base_lite_msgs::ErrorCodes::SUCCESS && end_of_path_reached_) {
     stopExecutionThread();
     setFollowPathGoalSuccessful();
   } else {
@@ -790,7 +799,7 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const actionlib::Simp
 }
 void WholeBodyPlanningServer::setFollowPathGoalSuccessful()
 {
-  if (followPathServerIsActive() && end_of_path_reached_) {
+  if (followPathServerIsActive()) {
     move_base_lite_msgs::FollowPathResult result_server;
     result_server.result.val = move_base_lite_msgs::ErrorCodes::SUCCESS;
     follow_path_goal_.setSucceeded(result_server, "successful");
