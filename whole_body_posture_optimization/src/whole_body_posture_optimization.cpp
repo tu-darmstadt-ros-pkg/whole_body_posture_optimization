@@ -111,7 +111,6 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     return results;
   }
   PostureOptimizationResult last_result;
-  robot_state::RobotStatePtr previous_state;
   bool first = true;
   int counter = 0;
   for (const geometry_msgs::PoseStamped& pose_msg: path.poses) {
@@ -119,7 +118,6 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     counter++;
     Eigen::Isometry3d pose;
     tf::poseMsgToEigen(pose_msg.pose, pose);
-
     if (first && start_state) {
       // We received a start state. The first pose of the path is the current pose,
       // so the state does not need to be optimized
@@ -216,7 +214,6 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   // Publish results
   robot_model_->publishRobotState();
   robot_model_->publishCollisionSpheres();
-
   ROS_INFO_STREAM("Stability: " << result.stability_arm_opt);
 
   STOP_TIMING_AVG
@@ -353,7 +350,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
     planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
     if (!context) {
       ROS_ERROR_STREAM("Failed to construct planning context. Error: " << res.error_code_);
-      return trajectory_with_world;
+      return trajectory;
     }
     context->solve(res);
     if (res.error_code_.val != res.error_code_.SUCCESS)
@@ -386,14 +383,15 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
     world_poses.reserve(res.trajectory_->getWayPointCount());
     for (unsigned int j = 0; j < res.trajectory_->getWayPointCount()-1; j++) {
       double t = static_cast<double>(j) / (res.trajectory_->getWayPointCount()-1);
+      // Compute interpolated world pose
       Eigen::Quaterniond interpolated_orientation = start_orientation.slerp(t, end_orientation);
       Eigen::Isometry3d interpolated_pose(interpolated_orientation);
       Eigen::Vector3d interpolated_position = start_position + t * position_diff;
       interpolated_pose.translation() = interpolated_position;
       world_poses.push_back(interpolated_pose);
 
+      // Compute accumulated distance in x and yaw to properly limit linear and rotational speed of the robot base
       double distance = (t * position_diff).norm();
-
       Eigen::Quaterniond rotation_diff = start_orientation.inverse() * interpolated_orientation;
       Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
       double yaw_distance = euler_angles(0);
