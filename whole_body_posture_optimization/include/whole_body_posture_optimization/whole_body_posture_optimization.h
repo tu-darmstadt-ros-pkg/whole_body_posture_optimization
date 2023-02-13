@@ -25,6 +25,8 @@ struct PostureOptimizationResult {
   std::vector<double> init_joint_angles;
   std::vector<double> result_joint_angles;
 
+  robot_state::RobotStatePtr result_state;
+
   hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
 
   Eigen::Vector3d init_com;

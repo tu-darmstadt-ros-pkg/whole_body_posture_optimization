@@ -123,15 +123,11 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
     if (first && start_state) {
       // We received a start state. The first pose of the path is the current pose,
       // so the state does not need to be optimized
-      results.emplace_back();
-      previous_state = std::make_shared<robot_state::RobotState>(*start_state);
+      last_result.result_state = std::make_shared<robot_state::RobotState>(*start_state);
+      results.push_back(last_result);
       first = false;
     } else {
-      last_result = findOptimalPosture(pose, getDefaultJointPositions(), previous_state);
-      robot_model_->updateJointAngles(last_result.result_joint_angles);
-      previous_state = std::make_shared<robot_state::RobotState>(robot_model_->getMoveitRobotState());
-      updateMoveitRobotState(*previous_state, last_result.result_pose);
-
+      last_result = findOptimalPosture(pose, getDefaultJointPositions(), last_result.result_state);
       results.push_back(last_result);
       if (!last_result.success) {
         ROS_ERROR_STREAM("Posture optimization failed.");
@@ -213,8 +209,11 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 
   result.success = result.stability_arm_opt > 0;
 
-  // Publish results
+  // Save to full state
   robot_model_->updateRobotState(result.result_pose, result.result_joint_angles);
+  result.result_state = std::make_shared<robot_state::RobotState>(robot_model_->getMoveitRobotState());
+
+  // Publish results
   robot_model_->publishRobotState();
   robot_model_->publishCollisionSpheres();
 
