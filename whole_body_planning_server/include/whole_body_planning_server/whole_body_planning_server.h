@@ -45,8 +45,6 @@ public:
 private:
   void updateRobotPose(const nav_msgs::Path& path);
   nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
-  static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance);
-  static nav_msgs::Path slicePath(const nav_msgs::Path& path, int start_index, int end_index);
   bool generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out);
 //  bool moveToStartAndExecute(const std::vector<robot_trajectory::RobotTrajectory>& trajectory);
   bool executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time);
@@ -62,7 +60,11 @@ private:
 //  bool continuousReplanning(const nav_msgs::Path& path_msg);
 
   /// Util
+  static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance);
+  static nav_msgs::Path slicePath(const nav_msgs::Path& path, int start_index, int end_index);
   nav_msgs::Path extractPathFromTrajectories(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const;
+  std::vector<robot_trajectory::RobotTrajectory> sliceTrajectoryByIndex(const robot_trajectory::RobotTrajectory& trajectory,
+                                                                        const std::vector<size_t>& trajectory_start_indices);
   std::string pathToString(const nav_msgs::Path& path) const;
   bool followPathServerIsActive() const;
 
