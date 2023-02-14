@@ -431,6 +431,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
     }
     trajectory_world_poses.insert(trajectory_world_poses.end(), world_poses.begin(), world_poses.end());
   }
+  trajectory_start_indices.push_back(trajectory_with_world.getWayPointCount()); // last index is size of trajectory
   // Debug: print out trajectories
   //  ROS_INFO_STREAM(vecToString(trajectory_start_index));
   //  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(trajectory_with_world));
@@ -444,6 +445,10 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::addTimeParameter
     robot_trajectory::RobotTrajectory& trajectory_with_world,
     const std::vector<Eigen::Isometry3d>& trajectory_world_poses)
 {
+  if (trajectory_with_world.getWayPointCount() != trajectory_world_poses.size()) {
+    throw std::invalid_argument("trajectory_with_world size (" + std::to_string(trajectory_with_world.getWayPointCount())
+                                + ") does not match trajectory_world_poses size(" + std::to_string(trajectory_world_poses.size()) + ").");
+  }
   robot_trajectory::RobotTrajectory trajectory_out(robot_model_->getMoveitRobotModel(), complete_robot_group_);
 
   // Perform time parameterization
