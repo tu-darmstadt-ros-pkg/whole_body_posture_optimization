@@ -100,6 +100,14 @@ const std::vector<double> &WholeBodyPostureOptimization::getDefaultJointPosition
   return default_joint_state_;
 }
 
+robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeOptimalTrajectory(
+    const nav_msgs::Path& path, const moveit::core::RobotStateConstPtr& start_state)
+{
+  auto result = findOptimalPostures(path, start_state);
+  auto trajectory = computeTimedTrajectory(result);
+  return trajectory;
+}
+
 std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimalPostures(const nav_msgs::Path& path,
                                                                                          const robot_state::RobotStateConstPtr& start_state)
 {
@@ -280,16 +288,30 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result,
                                                                                        std::vector<size_t>& trajectory_start_indices)
 {
+  std::vector<Eigen::Isometry3d> trajectory_world_poses;
+  robot_trajectory::RobotTrajectory trajectory_with_world = computeTrajectory(opt_result,trajectory_world_poses, trajectory_start_indices);
+  return addTimeParameterization(trajectory_with_world, trajectory_world_poses);
+}
+
+robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
+{
+  std::vector<size_t> trajectory_start_indices;
+  return computeTimedTrajectory(opt_result, trajectory_start_indices);
+}
+
+robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajectory(const std::vector<PostureOptimizationResult>& opt_result,
+                                                                                  std::vector<Eigen::Isometry3d>& trajectory_world_poses,
+                                                                                  std::vector<size_t>& trajectory_start_indices)
+{
   START_TIMING("Trajectory planning")
   robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
-  robot_trajectory::RobotTrajectory trajectory(robot_model_->getMoveitRobotModel(), complete_robot_group_);
   if (opt_result.size() < 2) {
     ROS_WARN_STREAM("Can't compute timed trajectory, path is empty.");
-    return trajectory;
+    return trajectory_with_world;
   }
   if (!opt_result.back().success) {
     ROS_WARN_STREAM("Posture optimization failed, can't compute trajectory");
-    return trajectory;
+    return trajectory_with_world;
   }
 
   const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(complete_robot_group_);
@@ -307,17 +329,16 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
       ROS_ERROR_STREAM("Using planner '" << trajectory_planner_name_ << "' instead.");
     } else {
       ROS_ERROR_STREAM("No planners found.");
-      return trajectory;
+      return trajectory_with_world;
     }
   }
   planning_interface::PlannerManagerPtr planner_instance(planner_plugin_loader.createUnmanagedInstance(trajectory_planner_name_));
   if (!planner_instance->initialize(robot_model_->getMoveitRobotModel(), nh_.getNamespace())) {
     ROS_FATAL_STREAM("Could not initialize planner instance");
-    return trajectory;
+    return trajectory_with_world;
   }
   ROS_INFO_STREAM("Using planning interface '" << planner_instance->getDescription() << "'");
 
-  std::vector<Eigen::Isometry3d> full_world_poses;
   std::vector<size_t> trajectory_start_index;
   double total_distance = 0;
   double total_rotation = 0;
@@ -340,7 +361,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
     planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
     if (!context) {
       ROS_ERROR_STREAM("Failed to construct planning context. Error: " << res.error_code_);
-      return trajectory;
+      return trajectory_with_world;
     }
     context->solve(res);
     if (res.error_code_.val != res.error_code_.SUCCESS)
@@ -356,10 +377,10 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
 
     Eigen::Vector3d start_position = start_pose.translation();
     Eigen::Vector3d end_position = end_pose.translation();
-//    Eigen::Vector3d start_position = opt_result[i].requested_pose.translation();
-//    start_position.z() = opt_result[i].result_contact.estimated_pose.translation().z();
-//    Eigen::Vector3d end_position = opt_result[i+1].requested_pose.translation();
-//    end_position.z() = opt_result[i+1].result_contact.estimated_pose.translation().z();
+    //    Eigen::Vector3d start_position = opt_result[i].requested_pose.translation();
+    //    start_position.z() = opt_result[i].result_contact.estimated_pose.translation().z();
+    //    Eigen::Vector3d end_position = opt_result[i+1].requested_pose.translation();
+    //    end_position.z() = opt_result[i+1].result_contact.estimated_pose.translation().z();
     Eigen::Vector3d position_diff = end_position - start_position;
     Eigen::Quaterniond start_orientation(start_pose.linear());
     Eigen::Quaterniond end_orientation(end_pose.linear());
@@ -400,7 +421,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
       trajectory_with_world.append(*res.trajectory_, 0, 0, res.trajectory_->getWayPointCount()-1);
     } else {
       // Keep end point on last trajectory
-//      updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), opt_result[i+1].result_pose);
+      //      updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), opt_result[i+1].result_pose);
       Eigen::Isometry3d odom_fake_pose = Eigen::Isometry3d::Identity();
       odom_fake_pose.translation().x() = total_distance;
       odom_fake_pose.translation().z() = total_rotation;
@@ -408,38 +429,41 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTraj
       world_poses.push_back(end_pose);
       trajectory_with_world.append(*res.trajectory_, 0);
     }
-    full_world_poses.insert(full_world_poses.end(), world_poses.begin(), world_poses.end());
+    trajectory_world_poses.insert(trajectory_world_poses.end(), world_poses.begin(), world_poses.end());
   }
   // Debug: print out trajectories
   //  ROS_INFO_STREAM(vecToString(trajectory_start_index));
-//  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(trajectory_with_world));
+  //  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(trajectory_with_world));
+  STOP_TIMING_AVG
+
+
+  return trajectory_with_world;
+}
+
+robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::addTimeParameterization(
+    robot_trajectory::RobotTrajectory& trajectory_with_world,
+    const std::vector<Eigen::Isometry3d>& trajectory_world_poses)
+{
+  robot_trajectory::RobotTrajectory trajectory_out(robot_model_->getMoveitRobotModel(), complete_robot_group_);
 
   // Perform time parameterization
   trajectory_processing::IterativeSplineParameterization time_parameterization(false);
   if (!time_parameterization.computeTimeStamps(trajectory_with_world)) {
     ROS_ERROR_STREAM("Time parameterization failed.");
-    return trajectory;
+    return trajectory_out;
   }
 
   // Write back world poses
   for (unsigned int i = 0; i < trajectory_with_world.getWayPointCount(); ++i) {
-    updateMoveitRobotState(*trajectory_with_world.getWayPointPtr(i), full_world_poses[i]);
+    updateMoveitRobotState(*trajectory_with_world.getWayPointPtr(i), trajectory_world_poses[i]);
   }
 
-//  publishTrajectory(trajectory_with_world);
-
-  STOP_TIMING_AVG
-
   ROS_INFO_STREAM("Trajectory duration: " << trajectory_with_world.getDuration() << " s.");
-  // Planning group must not contain world, because otherwise moveit wants a controller for floating joints
-  trajectory.append(trajectory_with_world, 0);
-  return trajectory;
-}
 
-robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTimedTrajectory(const std::vector<PostureOptimizationResult> &opt_result)
-{
-  std::vector<size_t> trajectory_start_indices;
-  return computeTimedTrajectory(opt_result, trajectory_start_indices);
+  // Planning group must not contain world, because otherwise moveit wants a controller for floating joints
+  trajectory_out.append(trajectory_with_world, 0);
+
+  return trajectory_out;
 }
 
 void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const ros::Time& start_time)
@@ -490,13 +514,7 @@ void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOpti
   }
   ROS_INFO_STREAM(ss.str());
 }
-robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeOptimalTrajectory(
-    const nav_msgs::Path& path, const moveit::core::RobotStateConstPtr& start_state)
-{
-  auto result = findOptimalPostures(path, start_state);
-  auto trajectory = computeTimedTrajectory(result);
-  return trajectory;
-}
+
 
 //void WholeBodyPostureOptimization::saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories,
 //                                                  std::string save_path)

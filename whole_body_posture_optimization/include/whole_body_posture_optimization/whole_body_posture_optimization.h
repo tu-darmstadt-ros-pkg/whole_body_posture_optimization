@@ -64,6 +64,12 @@ public:
   robot_trajectory::RobotTrajectory computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
   robot_trajectory::RobotTrajectory computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result,
                                                            std::vector<size_t>& trajectory_start_indices);
+  robot_trajectory::RobotTrajectory computeTrajectory(const std::vector<PostureOptimizationResult>& opt_result,
+                                                      std::vector<Eigen::Isometry3d>& trajectory_world_poses,
+                                                      std::vector<size_t>& trajectory_start_indices);
+  robot_trajectory::RobotTrajectory addTimeParameterization(robot_trajectory::RobotTrajectory& trajectory_with_world,
+                                                      const std::vector<Eigen::Isometry3d>& trajectory_world_poses);
+
   void publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const ros::Time& start_time=ros::Time(0));
 
   static void printResultInfo(const std::vector<PostureOptimizationResult>& results);
