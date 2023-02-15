@@ -340,8 +340,9 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
   ROS_INFO_STREAM("Using planning interface '" << planner_instance->getDescription() << "'");
 
   std::vector<size_t> trajectory_start_index;
-  double total_distance = 0;
-  double total_rotation = 0;
+  // We use x/y position fields to track distance / rotation for time parameterization
+  double total_distance = opt_result.front().result_state->getVariablePosition("world_virtual_joint/trans_x");
+  double total_rotation = opt_result.front().result_state->getVariablePosition("world_virtual_joint/trans_z");
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     planning_interface::MotionPlanRequest req;
     req.group_name = complete_robot_group_;
