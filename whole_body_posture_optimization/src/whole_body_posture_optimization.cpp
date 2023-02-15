@@ -449,6 +449,8 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::addTimeParameter
     throw std::invalid_argument("trajectory_with_world size (" + std::to_string(trajectory_with_world.getWayPointCount())
                                 + ") does not match trajectory_world_poses size(" + std::to_string(trajectory_world_poses.size()) + ").");
   }
+
+  // Planning group of output trajectory must not contain world, because otherwise moveit wants a controller for floating joints
   robot_trajectory::RobotTrajectory trajectory_out(robot_model_->getMoveitRobotModel(), complete_robot_group_);
 
   // Perform time parameterization
@@ -458,15 +460,17 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::addTimeParameter
     return trajectory_out;
   }
 
-  // Write back world poses
-  for (unsigned int i = 0; i < trajectory_with_world.getWayPointCount(); ++i) {
-    updateMoveitRobotState(*trajectory_with_world.getWayPointPtr(i), trajectory_world_poses[i]);
+  // Perform a deep copy before overwriting the world poses
+  robot_trajectory::RobotTrajectory deep_copy(trajectory_with_world, true);
+
+  // Replace fake world-poses used for time-parameterization with actual world poses
+  for (unsigned int i = 0; i < deep_copy.getWayPointCount(); ++i) {
+    updateMoveitRobotState(*deep_copy.getWayPointPtr(i), trajectory_world_poses[i]);
   }
 
-  ROS_INFO_STREAM("Trajectory duration: " << trajectory_with_world.getDuration() << " s.");
+  ROS_INFO_STREAM("Trajectory duration: " << deep_copy.getDuration() << " s.");
 
-  // Planning group must not contain world, because otherwise moveit wants a controller for floating joints
-  trajectory_out.append(trajectory_with_world, 0);
+  trajectory_out.append(deep_copy, 0);
 
   return trajectory_out;
 }
