@@ -193,11 +193,11 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
     auto optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
     results.push_back(optimization_results.back());
-    for (unsigned int i = 0; i < results.size(); ++i) {
-      auto& result = results[i];
-      ROS_INFO_STREAM("Result " << i << " has velocities: " << result.result_state->hasVelocities());
-      ROS_INFO_STREAM("Result " << i << " has accelerations: " << result.result_state->hasAccelerations());
-    }
+//    for (unsigned int i = 0; i < results.size(); ++i) {
+//      auto& result = results[i];
+//      ROS_INFO_STREAM("Result " << i << " has velocities: " << result.result_state->hasVelocities());
+//      ROS_INFO_STREAM("Result " << i << " has accelerations: " << result.result_state->hasAccelerations());
+//    }
 
     // Compute trajectories
     std::vector<Eigen::Isometry3d> trajectory_world_poses_tmp;
@@ -216,10 +216,12 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     }
     trajectory_start_indices.push_back(trajectory_with_world->getWayPointCount());
 
-    for (unsigned int i = 0; i < trajectory_with_world->getWayPointCount(); ++i) {
-      ROS_INFO_STREAM("Waypoint " << i << " has velocities: " << trajectory_with_world->getWayPoint(i).hasVelocities());
-      ROS_INFO_STREAM("Waypoint " << i << " has accelerations: " << trajectory_with_world->getWayPoint(i).hasAccelerations());
-    }
+//    for (unsigned int i = 0; i < trajectory_with_world->getWayPointCount(); ++i) {
+//      ROS_INFO_STREAM("Waypoint " << i << " has velocities: " << trajectory_with_world->getWayPoint(i).hasVelocities());
+//      ROS_INFO_STREAM("Waypoint " << i << " has accelerations: " << trajectory_with_world->getWayPoint(i).hasAccelerations());
+//    }
+
+//    ROS_INFO_STREAM(whole_body_posture_optimization::robotTrajectoryToString(*trajectory_with_world));
 
     if (results.size() < trajectory_minimum_size) {
       ROS_INFO_STREAM("Not enough results yet.");
@@ -285,7 +287,6 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     if (now > trajectory_end) {
       ROS_WARN_STREAM("Trajectory end time is in the past by " << (now - trajectory_end).toSec() <<
                       " s. Planning time takes too long.");
-      first_execution = true; // Reset execution timing
     } else {
       // Send trajectory
       if (!executeTrajectory(*trajectory_, start_time)) {
