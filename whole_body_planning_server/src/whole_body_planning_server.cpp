@@ -158,7 +158,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
 
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
-  const int trajectory_minimum_size = 5;
+  const int trajectory_minimum_size = 4; // limited by time parameterization
   if (path_smoothed.poses.size() < trajectory_minimum_size) {
     ROS_WARN_STREAM("Path too short.");
   }
