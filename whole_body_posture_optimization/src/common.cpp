@@ -87,13 +87,31 @@ std::string poseToString(const Eigen::Isometry3d& pose)
 std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& trajectory)
 {
   std::stringstream ss;
+  ss << "[";
+  for (unsigned int j = 0; j < trajectory.getRobotModel()->getVariableCount(); ++j) {
+    ss << trajectory.getRobotModel()->getVariableNames()[j] << ", ";
+  }
+  ss << "]" << std::endl;
   for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
     const robot_state::RobotState& state = trajectory.getWayPoint(i);
     ss << i << ": ";
     ss << "t = " << trajectory.getWayPointDurationFromStart(i);
+    // Position
     ss << " [";
     for (size_t j = 0; j < state.getVariableCount(); ++j) {
       ss << state.getVariablePosition(static_cast<int>(j)) << ", ";
+    }
+    ss << "]" << std::endl;
+    // Velocity
+    ss << " [";
+    for (size_t j = 0; j < state.getVariableCount(); ++j) {
+      ss << state.getVariableVelocity(static_cast<int>(j)) << ", ";
+    }
+    ss << "]" << std::endl;
+    // Acceleration
+    ss << " [";
+    for (size_t j = 0; j < state.getVariableCount(); ++j) {
+      ss << state.getVariableAcceleration(static_cast<int>(j)) << ", ";
     }
     ss << "]" << std::endl;
   }
