@@ -159,10 +159,12 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
   const int trajectory_minimum_size = 4; // limited by time parameterization
+  const int trajectory_overlap = 2;
   if (path_smoothed.poses.size() < trajectory_minimum_size) {
     ROS_WARN_STREAM("Path too short.");
   }
 
+  // Collect results
   std::vector<whole_body_posture_optimization::PostureOptimizationResult> results;
   robot_trajectory::RobotTrajectoryPtr trajectory_with_world;
   std::vector<Eigen::Isometry3d> trajectory_world_poses;
@@ -173,7 +175,6 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   start_result.result_state = current_robot_state_;
   results.push_back(start_result);
 
-
   ros::Time start_time;
   bool first_execution = true;
   trajectory_.reset();
@@ -183,14 +184,14 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       ROS_INFO_STREAM("Execution completed");
       return;
     }
-    ROS_INFO_STREAM("Computing pose " << current_traj_index);
+    ROS_INFO_STREAM("Waypoint " << current_traj_index);
 
     end_of_path_reached_ = current_traj_index == path_smoothed.poses.size() - 2;
 
     // Compute optimized postures
     nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
     auto optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
-    results.push_back(optimization_results.back());
+    results.push_back(optimization_results.back()); // Use only the second (and last) result, first one is the start state
 
     // Compute trajectories
     std::vector<Eigen::Isometry3d> trajectory_world_poses_tmp;
@@ -208,18 +209,12 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       trajectory_with_world->append(trajectory_with_world_tmp, 0.0);
     }
 
-//    ROS_INFO_STREAM(whole_body_posture_optimization::robotTrajectoryToString(*trajectory_with_world));
-
     if (trajectory_with_world->getWayPointCount() < trajectory_minimum_size) {
-      ROS_INFO_STREAM("Not enough results yet.");
       continue;
     }
 
-    // Compute timed trajectory
-
-    // Index first trajectory waypoint without time parameterization
+    // Find index of slice start for time parameterization
     int time_parameterization_start_index = time_parameterization_count;
-    const int trajectory_overlap = 2;
     time_parameterization_start_index = std::max(0, time_parameterization_start_index - trajectory_overlap);
     // Check against minimum trajectory length
     if (trajectory_with_world->getWayPointCount() - time_parameterization_start_index < trajectory_minimum_size) {
@@ -227,30 +222,22 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     }
 
     // Slice trajectory and world poses
-//    ROS_INFO_STREAM("Start index: " << time_parameterization_start_index << " / " << trajectory_with_world->getWayPointCount());
     robot_trajectory::RobotTrajectory trajectory_slice(trajectory_with_world->getRobotModel(), trajectory_with_world->getGroupName());
     trajectory_slice.append(*trajectory_with_world, 0.0, time_parameterization_start_index);
     std::vector<Eigen::Isometry3d> trajectory_world_poses_slice(std::next(trajectory_world_poses.begin(), time_parameterization_start_index), trajectory_world_poses.end());
-
-//    ROS_INFO_STREAM("trajectory slice before t/p " << std::endl << whole_body_posture_optimization::robotTrajectoryToString(trajectory_slice));
-
-
-    // Enforce bounds (position, velocity, acceleration)
+    // Enforce bounds in slice (position, velocity, acceleration)
     for (size_t i = 0; i < trajectory_slice.getWayPointCount(); ++i) {
       trajectory_slice.getWayPointPtr(i)->enforceBounds();
       enforceAccelerationBounds(trajectory_slice.getWayPointPtr(i));
     }
-//    ROS_INFO_STREAM("trajectory before t/p: " << std::endl << whole_body_posture_optimization::robotTrajectoryToString(trajectory_slice));
     // Compute time parameterization for the slice (outputs a deep copy)
-    auto timed_trajectory_part = optimizer_->addTimeParameterization(trajectory_slice, trajectory_world_poses_slice);
-//    ROS_INFO_STREAM("trajectory after t/p: " << std::endl << whole_body_posture_optimization::robotTrajectoryToString(trajectory_slice));
-    if (timed_trajectory_part.empty() || timed_trajectory_part.getDuration() == 0.0) {
+    auto timed_trajectory_slice = optimizer_->addTimeParameterization(trajectory_slice, trajectory_world_poses_slice);
+    if (timed_trajectory_slice.empty() || timed_trajectory_slice.getDuration() == 0.0) {
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
         result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
-        follow_path_goal_.setAborted(result, "Planning failed.");
+        follow_path_goal_.setAborted(result, "Time parameterization failed.");
       }
-      ROS_ERROR_STREAM("Time parameterization failed.");
       execution_completed_ = true;
       return;
     }
@@ -260,13 +247,13 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
 
     // Slice unchanged part from previous trajectory and append new part
     if (!trajectory_) {
-      trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(timed_trajectory_part.getRobotModel(), timed_trajectory_part.getGroup());
+      trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(timed_trajectory_slice.getRobotModel(),
+                                                                        timed_trajectory_slice.getGroup());
     }
-
     robot_trajectory::RobotTrajectory trajectory_copy(*trajectory_); // shallow copy
     trajectory_->clear(); // Unfortunately, we can not delete waypoints, so we have to rebuild the trajectory
-    trajectory_->append(trajectory_copy, 0.0, 0, time_parameterization_start_index);
-    trajectory_->append(timed_trajectory_part, trajectory_copy.getWayPointDurationFromPrevious(time_parameterization_start_index));
+    trajectory_->append(trajectory_copy, 0.0, 0, time_parameterization_start_index); // old part
+    trajectory_->append(timed_trajectory_slice, trajectory_copy.getWayPointDurationFromPrevious(time_parameterization_start_index)); // new part
 
     ROS_INFO_STREAM("Total trajectory duration: " << trajectory_->getDuration() << " s");
 
@@ -289,6 +276,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     if (now > trajectory_end) {
       ROS_WARN_STREAM("Trajectory end time is in the past by " << (now - trajectory_end).toSec() <<
                       " s. Planning time takes too long.");
+      // TODO: how can we recover from this?
     } else {
       // Send trajectory
       if (!executeTrajectory(*trajectory_, start_time)) {
