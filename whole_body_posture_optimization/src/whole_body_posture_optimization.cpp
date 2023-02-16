@@ -8,6 +8,7 @@
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit/trajectory_processing/iterative_spline_parameterization.h>
+//#include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit/robot_state/conversions.h>
 
@@ -456,6 +457,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::addTimeParameter
 
   // Perform time parameterization
   trajectory_processing::IterativeSplineParameterization time_parameterization(false);
+//  trajectory_processing::TimeOptimalTrajectoryGeneration time_parameterization; // TOTP uses resampling, so can't use that easily
   if (!time_parameterization.computeTimeStamps(trajectory_with_world)) {
     ROS_ERROR_STREAM("Time parameterization failed.");
     return trajectory_out;
