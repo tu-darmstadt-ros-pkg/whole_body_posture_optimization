@@ -235,15 +235,15 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
 //    ROS_INFO_STREAM("trajectory slice before t/p " << std::endl << whole_body_posture_optimization::robotTrajectoryToString(trajectory_slice));
 
 
+    // Enforce bounds (position, velocity, acceleration)
+    for (size_t i = 0; i < trajectory_slice.getWayPointCount(); ++i) {
+      trajectory_slice.getWayPointPtr(i)->enforceBounds();
+      enforceAccelerationBounds(trajectory_slice.getWayPointPtr(i));
+    }
+//    ROS_INFO_STREAM("trajectory before t/p: " << std::endl << whole_body_posture_optimization::robotTrajectoryToString(trajectory_slice));
     // Compute time parameterization for the slice (outputs a deep copy)
-//    for (size_t i = 0; i < trajectory_slice.getWayPointCount(); ++i) {
-//      if (!trajectory_slice.getWayPoint(i).satisfiesBounds()) {
-//        ROS_WARN_STREAM("Bounds not satisfied. Enforcing bounds.");
-//        trajectory_slice.getWayPointPtr(i)->enforceBounds();
-//      }
-//    }
     auto timed_trajectory_part = optimizer_->addTimeParameterization(trajectory_slice, trajectory_world_poses_slice);
-//    ROS_INFO_STREAM("timed_trajectory_part " << std::endl << whole_body_posture_optimization::robotTrajectoryToString(trajectory_slice));
+//    ROS_INFO_STREAM("trajectory after t/p: " << std::endl << whole_body_posture_optimization::robotTrajectoryToString(trajectory_slice));
     if (timed_trajectory_part.empty() || timed_trajectory_part.getDuration() == 0.0) {
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
@@ -891,6 +891,22 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPlanningServer::sliceTra
     trajectories.push_back(trajectory_part);
   }
   return trajectories;
+}
+void WholeBodyPlanningServer::enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr)
+{
+  const std::vector<std::string>& variable_names = robot_state_ptr->getVariableNames();
+  const moveit::core::RobotModelConstPtr& robot_model = robot_state_ptr->getRobotModel();
+  for (int j = 0; j < robot_state_ptr->getVariableCount(); ++j) {
+    const moveit::core::VariableBounds& bounds = robot_model->getVariableBounds(variable_names[j]);
+    if (bounds.acceleration_bounded_) {
+      double acceleration = robot_state_ptr->getVariableAcceleration(j);
+      if (acceleration > bounds.max_acceleration_) {
+        robot_state_ptr->setVariableAcceleration(j, bounds.max_acceleration_);
+      } else if (acceleration < bounds.min_acceleration_) {
+        robot_state_ptr->setVariableAcceleration(j, bounds.min_acceleration_);
+      }
+    }
+  }
 }
 
 }

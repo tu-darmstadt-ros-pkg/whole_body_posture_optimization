@@ -65,6 +65,7 @@ private:
   nav_msgs::Path extractPathFromTrajectories(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const;
   std::vector<robot_trajectory::RobotTrajectory> sliceTrajectoryByIndex(const robot_trajectory::RobotTrajectory& trajectory,
                                                                         const std::vector<size_t>& trajectory_start_indices);
+  void enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr);
   std::string pathToString(const nav_msgs::Path& path) const;
   bool followPathServerIsActive() const;
 
