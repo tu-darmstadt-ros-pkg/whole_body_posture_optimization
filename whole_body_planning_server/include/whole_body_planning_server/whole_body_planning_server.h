@@ -36,6 +36,7 @@ namespace whole_body_planning_server {
 class WholeBodyPlanningServer {
 public:
   WholeBodyPlanningServer(const ros::NodeHandle& nh, const ros::NodeHandle& pnh);
+  ~WholeBodyPlanningServer();
   bool loadTsdfFromPath(const std::string& tsdf_path);
   /**
    * @brief planAndExecutePath Plan and execute a whole-body plan along the given path
@@ -88,6 +89,9 @@ private:
 
   void stopExecutionThread();
 
+  void spinMapUpdate();
+  void stopMapUpdateThread();
+
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
 
@@ -103,10 +107,15 @@ private:
   std::unique_ptr<std::thread> execution_thread_;
   std::atomic<bool> execution_completed_;
 
+  std::unique_ptr<std::thread> map_update_thread;
+  std::atomic<bool> map_update_running_;
+
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
 
-  voxblox::EsdfServer esdf_server_;
+  std::shared_ptr<voxblox::EsdfServer> esdf_server_;
+  ros::CallbackQueue esdf_server_queue_;
+  mutable std::mutex esdf_update_mutex_;
 
   // Parameters
   bool enabled_;

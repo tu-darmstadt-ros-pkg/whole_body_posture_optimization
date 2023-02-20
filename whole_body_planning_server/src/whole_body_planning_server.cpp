@@ -18,12 +18,14 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   pnh_(pnh),
   end_of_path_reached_(false),
   execution_completed_(true),
+  map_update_running_(true),
   tf_listener_(tf_buffer_),
-  esdf_server_(nh, ros::NodeHandle(pnh, "esdf_server")),
+  enabled_(true),
   auto_start_(false),
   path_slice_length_(-1),
   path_sampling_resolution_(0.02),
-  override_path_time_(false), continuous_planning_(false)
+  override_path_time_(false),
+  continuous_planning_(false)
 {
   // Parameters
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
@@ -36,8 +38,16 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
                                             this, std::placeholders::_1, std::placeholders::_2));
 
   // Create SDF Model
+  ros::NodeHandle esdf_server_nh(nh);
+  esdf_server_nh.setCallbackQueue(&esdf_server_queue_);
+  ros::NodeHandle esdf_server_pnh(pnh, "esdf_server");
+  esdf_server_pnh.setCallbackQueue(&esdf_server_queue_);
+  esdf_server_ = std::make_shared<voxblox::EsdfServer>(esdf_server_nh, esdf_server_pnh);
   sdf_model_ = std::make_shared<sdf_contact_estimation::SdfModel>(pnh);
-  sdf_model_->loadEsdf(esdf_server_.getEsdfMapPtr(), esdf_server_.getEsdfMaxDistance(), true);
+  sdf_model_->loadEsdf(esdf_server_->getEsdfMapPtr(), esdf_server_->getEsdfMaxDistance(), true);
+
+  map_update_thread = std::make_unique<std::thread>(&WholeBodyPlanningServer::spinMapUpdate, this);
+
 
   // Create pose predictor
   // Create robot model
@@ -77,10 +87,16 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   ROS_INFO_STREAM("Initialization finished");
 }
 
+WholeBodyPlanningServer::~WholeBodyPlanningServer()
+{
+  stopExecutionThread();
+  stopMapUpdateThread();
+}
+
 bool WholeBodyPlanningServer::loadTsdfFromPath(const std::string& tsdf_path)
 {
   ROS_INFO_STREAM("Loading sdf from path '" << tsdf_path << "'.");
-  if (!esdf_server_.loadMap(tsdf_path)) {
+  if (!esdf_server_->loadMap(tsdf_path)) {
     ROS_ERROR_STREAM("Failed to load tsdf from file.");
     return false;
   }
@@ -154,7 +170,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   ROS_INFO_STREAM("Received new path, planning continuously..");
   map_frame_ = path_msg.header.frame_id;
 
-  sdf_model_->publishSdfMesh(); // TODO find solution to synchronize map update from subscriber
+//  sdf_model_->publishSdfMesh();
 
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
@@ -193,7 +209,11 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
 
     // Compute optimized postures
     nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
-    auto optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
+    std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimization_results;
+    {
+      std::lock_guard<std::mutex>lock (esdf_update_mutex_);
+      optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
+    }
     results.push_back(optimization_results.back()); // Use only the second (and last) result, first one is the start state
     // TODO handle optimization failure
 
@@ -386,7 +406,6 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot
     ROS_WARN_STREAM("Path is empty. Can't plan.");
     return true; // Executing an empty plan is always successful
   }
-
   sdf_model_->publishSdfMesh();
 
   // *** Compute plan ***
@@ -671,6 +690,7 @@ void WholeBodyPlanningServer::stopExecutionThread()
     execution_thread_.reset();
   }
 }
+
 std::vector<robot_trajectory::RobotTrajectory> WholeBodyPlanningServer::sliceTrajectoryByIndex(
     const robot_trajectory::RobotTrajectory& trajectory,
     const std::vector<size_t>& trajectory_start_indices)
@@ -697,6 +717,27 @@ void WholeBodyPlanningServer::enforceAccelerationBounds(const moveit::core::Robo
         robot_state_ptr->setVariableAcceleration(j, bounds.min_acceleration_);
       }
     }
+  }
+}
+
+void WholeBodyPlanningServer::spinMapUpdate()
+{
+  ros::NodeHandle nh;
+  ros::WallRate rate(0.1);
+  while (nh.ok() && map_update_running_) {
+    {
+      std::lock_guard<std::mutex> lock(esdf_update_mutex_);
+      esdf_server_queue_.callAvailable();
+    }
+    rate.sleep();
+  }
+}
+void WholeBodyPlanningServer::stopMapUpdateThread()
+{
+  map_update_running_ = false;
+  if (map_update_thread) {
+    map_update_thread->join();
+    map_update_thread.reset();
   }
 }
 
