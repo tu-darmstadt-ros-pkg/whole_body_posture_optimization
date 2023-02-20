@@ -1,6 +1,7 @@
 #ifndef WHOLE_BODY_PLANNING_SERVER_WHOLE_BODY_PLANNING_SERVER_H
 #define WHOLE_BODY_PLANNING_SERVER_WHOLE_BODY_PLANNING_SERVER_H
 
+#include <mutex>
 #include <nav_msgs/Path.h>
 #include <std_msgs/Empty.h>
 #include <sensor_msgs/JointState.h>
@@ -73,7 +74,6 @@ private:
   ///! Path following action server interface
   void followPathGoalCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle goal);
   void followPathPreemptCallback(const actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle& preempt);
-  void setFollowPathGoalSuccessful();
 
   ///! Simple path goal via topic
   void pathCb(const nav_msgs::PathConstPtr& path_msg);
@@ -95,10 +95,13 @@ private:
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
 
   robot_state::RobotStatePtr current_robot_state_;
+  mutable std::mutex current_robot_state_mutex_;
+
   robot_trajectory::RobotTrajectoryPtr trajectory_;
-  bool end_of_path_reached_;
-  std::atomic<bool> execution_completed_;
+  std::atomic<bool> end_of_path_reached_;
+
   std::unique_ptr<std::thread> execution_thread_;
+  std::atomic<bool> execution_completed_;
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
@@ -122,7 +125,7 @@ private:
   ros::Subscriber joint_state_sub_;
 
   // action interface
-  std::shared_ptr<actionlib::ActionServer<move_base_lite_msgs::FollowPathAction> > follow_path_server_;
+  std::shared_ptr<actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>> follow_path_server_;
   actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle follow_path_goal_;
 
   // Clients
@@ -131,6 +134,7 @@ private:
 
   // Dynamic reconfigure
   dynamic_reconfigure::Server<whole_body_planning_server::PlanningServerConfig> reconfigure_server_;
+  mutable std::mutex reconfigure_mutex_;
 };
 
 }

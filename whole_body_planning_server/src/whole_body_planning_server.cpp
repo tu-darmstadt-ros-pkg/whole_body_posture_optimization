@@ -154,7 +154,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   ROS_INFO_STREAM("Received new path, planning continuously..");
   map_frame_ = path_msg.header.frame_id;
 
-  sdf_model_->publishSdfMesh();
+  sdf_model_->publishSdfMesh(); // TODO find solution to synchronize map update from subscriber
 
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
@@ -170,14 +170,17 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   std::vector<Eigen::Isometry3d> trajectory_world_poses;
 
   // Add start state
-  updateRobotPose(path_smoothed);
   whole_body_posture_optimization::PostureOptimizationResult start_result;
-  start_result.result_state = current_robot_state_;
+  {
+    std::lock_guard<std::mutex> lock(current_robot_state_mutex_);
+    updateRobotPose(path_smoothed);
+    start_result.result_state = current_robot_state_;
+  }
   results.push_back(start_result);
 
   ros::Time start_time;
   bool first_execution = true;
-  trajectory_.reset();
+  robot_trajectory::RobotTrajectoryPtr trajectory;
   int time_parameterization_count = 0; // Number of waypoints with time parameterization attached (index of the first waypoint without t/p)
   for (int current_traj_index = 0; current_traj_index < path_smoothed.poses.size() -1; ++current_traj_index) {
     if (execution_completed_) {
@@ -192,6 +195,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
     auto optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
     results.push_back(optimization_results.back()); // Use only the second (and last) result, first one is the start state
+    // TODO handle optimization failure
 
     // Compute trajectories
     std::vector<Eigen::Isometry3d> trajectory_world_poses_tmp;
@@ -233,6 +237,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     // Compute time parameterization for the slice (outputs a deep copy)
     auto timed_trajectory_slice = optimizer_->addTimeParameterization(trajectory_slice, trajectory_world_poses_slice);
     if (timed_trajectory_slice.empty() || timed_trajectory_slice.getDuration() == 0.0) {
+      // TODO Stop execution
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
         result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
@@ -246,16 +251,16 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     time_parameterization_count = static_cast<int>(trajectory_with_world->getWayPointCount());
 
     // Slice unchanged part from previous trajectory and append new part
-    if (!trajectory_) {
-      trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(timed_trajectory_slice.getRobotModel(),
+    if (!trajectory) {
+      trajectory = std::make_shared<robot_trajectory::RobotTrajectory>(timed_trajectory_slice.getRobotModel(),
                                                                         timed_trajectory_slice.getGroup());
     }
-    robot_trajectory::RobotTrajectory trajectory_copy(*trajectory_); // shallow copy
-    trajectory_->clear(); // Unfortunately, we can not delete waypoints, so we have to rebuild the trajectory
-    trajectory_->append(trajectory_copy, 0.0, 0, time_parameterization_start_index); // old part
-    trajectory_->append(timed_trajectory_slice, trajectory_copy.getWayPointDurationFromPrevious(time_parameterization_start_index)); // new part
+    robot_trajectory::RobotTrajectory trajectory_copy(*trajectory); // shallow copy
+    trajectory->clear(); // Unfortunately, we can not delete waypoints, so we have to rebuild the trajectory
+    trajectory->append(trajectory_copy, 0.0, 0, time_parameterization_start_index); // old part
+    trajectory->append(timed_trajectory_slice, trajectory_copy.getWayPointDurationFromPrevious(time_parameterization_start_index)); // new part
 
-    ROS_INFO_STREAM("Total trajectory duration: " << trajectory_->getDuration() << " s");
+    ROS_INFO_STREAM("Total trajectory duration: " << trajectory->getDuration() << " s");
 
     // Set start time once after the first trajectory part has been computed
     if (first_execution) {
@@ -270,7 +275,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     }
 
     // Check if trajectory end time is in the past
-    ros::Duration trajectory_duration(trajectory_->getDuration());
+    ros::Duration trajectory_duration(trajectory->getDuration());
     ros::Time trajectory_end = start_time + trajectory_duration;
     ros::Time now = ros::Time::now();
     if (now > trajectory_end) {
@@ -279,8 +284,9 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       // TODO: how can we recover from this?
     } else {
       // Send trajectory
-      if (!executeTrajectory(*trajectory_, start_time)) {
+      if (!executeTrajectory(*trajectory, start_time)) {
         ROS_ERROR_STREAM("Trajectory execution failed");
+        // TODO Stop execution
         if (followPathServerIsActive()) {
           move_base_lite_msgs::FollowPathResult result;
           result.result.val = move_base_lite_msgs::ErrorCodes::FAILURE;
@@ -323,7 +329,10 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
   }
 
   Pathsmoother3D path_smoother(allow_reverse_paths, ignore_goal_orientation);
-  path_smoother.setSmoothedPathDiscretization(path_sampling_resolution_);
+  {
+    std::lock_guard<std::mutex> lock(reconfigure_mutex_);
+    path_smoother.setSmoothedPathDiscretization(path_sampling_resolution_);
+  }
   path_copy = path_smoother.smooth(path_copy, true);
 
 
@@ -388,39 +397,8 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot
   }
   trajectory_out = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory);
 
-
-  // Statistics
-//  whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
-//  if (stability_info_save_folder_.empty()) {
-//    std::string time_stamp = whole_body_posture_optimization::getTimestamp();
-//    std::string save_path = stability_info_save_folder_ + "/stability_" + time_stamp + ".dat";
-//    whole_body_posture_optimization::WholeBodyPostureOptimization::saveResultInfo(result, trajectory_out, save_path);
-//  }
   return true;
 }
-
-//bool WholeBodyPlanningServer::moveToStartAndExecute(const std::vector<robot_trajectory::RobotTrajectory> &trajectories) {
-//  ROS_INFO_STREAM("Executing trajectory now.");
-//  if (trajectories.empty()) {
-//    ROS_WARN_STREAM("[executeTrajectory] Trajectory is empty.");
-//    return true;
-//  }
-//
-//  // *** Drive to starting pose ***
-//  ROS_INFO_STREAM("Moving to starting pose");
-//  if (!planAndMoveToState(trajectories[0].getFirstWayPoint(), move_group_)) {
-//    ROS_WARN_STREAM("Moving to initial state failed.");
-//    return false;
-//  }
-//
-//  // *** Execute whole body trajectory ***
-//  ros::Time starting_time = ros::Time::now() + ros::Duration(2);
-//  if (executeTrajectory(trajectories, starting_time, true)) {
-//    ROS_INFO_STREAM("Trajectory execution successful!");
-//    return true;
-//  }
-//  return false;
-//}
 
 bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time)
 {
@@ -440,13 +418,14 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
   follow_path_goal.follow_path_options.use_path_orientation = true; // Drive path as planned
   follow_path_goal.follow_path_options.is_fixed = true; // No smoothing
 
-  // Use values from goal of available
+  // Use values from goal if available
   if (followPathServerIsActive()) {
     follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = follow_path_goal_.getGoal()->follow_path_options.rotate_front_to_goal_pose_orientation;
     follow_path_goal.follow_path_options.reverse_allowed = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
-    follow_path_goal.follow_path_options.reset_stuck_history = !continuous_planning_ && follow_path_goal_.getGoal()->follow_path_options.reset_stuck_history;
     follow_path_goal.follow_path_options.goal_pose_position_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_position_tolerance;
     follow_path_goal.follow_path_options.goal_pose_angle_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance;
+    std::lock_guard<std::mutex> lock2(reconfigure_mutex_);
+    follow_path_goal.follow_path_options.reset_stuck_history = !continuous_planning_ && follow_path_goal_.getGoal()->follow_path_options.reset_stuck_history;
   } else {
     follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
     follow_path_goal.follow_path_options.reverse_allowed = true;
@@ -454,6 +433,7 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
     follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.1;
     follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
   }
+
 
   if (!end_of_path_reached_) {
     // Set low tolerances because the current end of the path is not the goal pose
@@ -465,14 +445,14 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
   ROS_INFO_STREAM("Executing planned trajectory");
 
   // Send goals simultaneously
+  if (!executeJointTrajectory(trajectory, false, start_time)) {
+    return false;
+  }
   driving_client_->sendGoal(follow_path_goal,
                             std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
                             FollowPathClient::SimpleActiveCallback(),
                             FollowPathClient::SimpleFeedbackCallback());
-  if (!executeJointTrajectory(trajectory, false, start_time)) {
-    driving_client_->cancelAllGoals();
-    return false;
-  }
+
 
   // Wait until start time to publish trajectory
   ros::Time now = ros::Time::now();
@@ -490,26 +470,30 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
   ROS_INFO_STREAM("New goal received.");
   // Check if another goal exists
   bool goal_preempted = false;
-  if (followPathServerIsActive()) {
-    // Check if incoming one is newer
-    if (goal.getGoalID().stamp >= follow_path_goal_.getGoalID().stamp) {
-      // Cancel previous goal
-      move_base_lite_msgs::FollowPathResult result;
-      result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
-      follow_path_goal_.setCanceled(result, "This goal has been preempted by a newer goal.");
-      goal_preempted = true;
-    } else {
-      // Cancel incoming goal
-      move_base_lite_msgs::FollowPathResult result;
-      result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
-      goal.setCanceled(result, "This goal has been preempted by a newer goal.");
-      return;
+  {
+    if (followPathServerIsActive()) {
+      // Check if incoming one is newer
+      if (goal.getGoalID().stamp >= follow_path_goal_.getGoalID().stamp) {
+        // Cancel previous goal
+        stopExecutionThread();
+        move_base_lite_msgs::FollowPathResult result;
+        result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
+        follow_path_goal_.setCanceled(result, "This goal has been preempted by a newer goal.");
+        goal_preempted = true;
+      } else {
+        // Cancel incoming goal
+        move_base_lite_msgs::FollowPathResult result;
+        result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
+        goal.setCanceled(result, "This goal has been preempted by a newer goal.");
+        return;
+      }
     }
+
+    // Accept new goal
+    goal.setAccepted();
+    follow_path_goal_ = goal;
   }
 
-  // Accept new goal
-  goal.setAccepted();
-  follow_path_goal_ = goal;
 
   // Override path time with receive time
   nav_msgs::Path target_path = goal.getGoal()->target_path;
@@ -521,14 +505,12 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
     if (!continuous_planning_) {
       planAndExecutePath(target_path, auto_start_, goal_preempted);
     } else {
-      if (execution_thread_) {
-        stopExecutionThread();
-      }
       execution_completed_ = false;
-//      execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, target_path, goal_preempted);
-      planAndExecutePathContinuous(target_path, goal_preempted);
+      execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, target_path, goal_preempted);
+//      planAndExecutePathContinuous(target_path, goal_preempted);
     }
   } else {
+    end_of_path_reached_ = true;
     driving_client_->sendGoal(*goal.getGoal(),
                               std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
                               FollowPathClient::SimpleActiveCallback(),
@@ -552,69 +534,6 @@ void WholeBodyPlanningServer::followPathPreemptCallback(const actionlib::ActionS
   }
 }
 
-//bool WholeBodyPlanningServer::planAndMoveToState(const moveit::core::RobotState &goal_state, std::string group_name)
-//{
-//  const robot_model::JointModelGroup* jmg = moveit_cpp_ptr_->getRobotModel()->getJointModelGroup(group_name);
-//  if (jmg == nullptr) {
-//    ROS_ERROR_STREAM("Could not find group '" << group_name << "'");
-//    return false;
-//  }
-//  // First, drive to pose in goal state
-//  geometry_msgs::PoseStamped goal_pose_msg;
-//  goal_pose_msg.header.frame_id = map_frame_;
-//  Eigen::Affine3d goal_pose = goal_state.getJointTransform("world_virtual_joint");
-//  tf::poseEigenToMsg(goal_pose, goal_pose_msg.pose);
-//
-//  move_base_lite_msgs::FollowPathGoal follow_path_goal;
-//  follow_path_goal.target_path.header.frame_id = map_frame_;
-//  follow_path_goal.target_path.header.stamp = ros::Time::now();
-//  follow_path_goal.target_path.poses.push_back(goal_pose_msg);
-//  follow_path_goal.follow_path_options.reset_stuck_history = true;
-//  follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
-//  follow_path_goal.follow_path_options.reverse_allowed = true;
-////  follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.01;
-////  follow_path_goal.follow_path_options.goal_pose_angle_tolerance = 0.01;
-//
-//  driving_client_->sendGoal(follow_path_goal);
-//  if (!driving_client_->waitForResult()) {
-//    ROS_ERROR_STREAM("Follow path action timed out.");
-//    return false;
-//  }
-//  move_base_lite_msgs::FollowPathResultConstPtr follow_path_result = driving_client_->getResult();
-//  if (follow_path_result->result.val != move_base_lite_msgs::ErrorCodes::SUCCESS) {
-//    ROS_ERROR_STREAM("Follow path action failed with error code: " << follow_path_result->result.val);
-//    return false;
-//  }
-//
-//  // Plan and execute joint motion from current to goal state
-//  moveit_msgs::MoveGroupGoal move_group_goal;
-//  move_group_goal.request.group_name = jmg->getName();
-//  move_group_goal.request.num_planning_attempts = 3;
-//  move_group_goal.request.allowed_planning_time = 5;
-//  moveit_msgs::Constraints goal_constraint = kinematic_constraints::constructGoalConstraints(goal_state, jmg);
-//  move_group_goal.request.goal_constraints.push_back(goal_constraint);
-//
-//  move_group_goal.planning_options.plan_only = false;
-//
-//  // all diffs?
-//  //  move_group_goal.request.start_state.is_diff = true;
-//  //  move_group_goal.planning_options.planning_scene_diff = true;
-//
-//  move_group_client_->sendGoal(move_group_goal);
-//  if (!move_group_client_->waitForResult()) {
-//    ROS_ERROR_STREAM("Move group action timed out.");
-//    return false;
-//  }
-//
-//  moveit_msgs::MoveGroupResultConstPtr move_group_result = move_group_client_->getResult();
-//  if (move_group_result->error_code.val != moveit_msgs::MoveItErrorCodes::SUCCESS) {
-//    ROS_ERROR_STREAM("Move group action failed with error code: " << move_group_result->error_code.val);
-//    return false;
-//  }
-//
-//  return true;
-//}
-
 bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking, ros::Time start_time)
 {
   // Check if there are controllers that can handle the execution
@@ -636,114 +555,6 @@ bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::Rob
   }
   return moveit_cpp_ptr_->getTrajectoryExecutionManager()->pushAndExecute(robot_trajectory_msg);
 }
-
-//bool WholeBodyPlanningServer::continuousReplanning(const nav_msgs::Path& path_msg)
-//{
-//  ROS_INFO_STREAM("Input path: " << pathToString(path_msg));
-//  // Parameters
-////  double min_distance_from_robot = 0.3; // Distance where plan starts
-//  double planning_horizon = 0.3; // Distance where plan ends
-//  unsigned int max_consecutive_planning_failures = 5;
-//
-//  whole_body_posture_optimization::PostureOptimizationResult last_opt_result;
-//  std::vector<robot_trajectory::RobotTrajectory> full_trajectory;
-//  std::vector<ros::Time> start_times;
-//  std::vector<double> accumulated_distances;
-//  bool first_cycle = true;
-//  unsigned int consecutive_planning_failures = 0;
-//  size_t current_path_index = 0;
-//  size_t planning_index = 0;
-//  // Iterate until path finished or planning failure
-//  ROS_INFO_STREAM("Starting replanning");
-//  ROS_INFO_STREAM("------------------------------");
-//  while (consecutive_planning_failures < max_consecutive_planning_failures && planning_index < path_msg.poses.size()) {
-//    // Compute new path slice
-//    nav_msgs::Path path_slice;
-//    path_slice.header.frame_id = path_msg.header.frame_id;
-//
-//    if (first_cycle) {
-//      auto end_it = std::upper_bound(accumulated_distances.begin(), accumulated_distances.end(), planning_horizon);
-//      size_t end_index;
-//      if (end_it != accumulated_distances.end()) {
-//        end_index = static_cast<size_t>(end_it - accumulated_distances.begin()) -1;
-//      } else {
-//        ROS_WARN_STREAM("Planning horizon has reached end of path.");
-//        end_index = accumulated_distances.size() - 1;
-//      }
-//      path_slice.poses = std::vector<geometry_msgs::PoseStamped>(path_msg.poses.begin(), path_msg.poses.begin() + end_index +1);
-//      planning_index = end_index;
-//    } else {
-//      path_slice.poses = std::vector<geometry_msgs::PoseStamped>(1, path_msg.poses[planning_index]);
-//    }
-//    ROS_INFO_STREAM("path index: " << current_path_index << ", planning index: " << planning_index);
-//    ROS_INFO_STREAM("Planning for path: " << pathToString(path_slice));
-//
-//    // Compute plan for path slice
-//    auto result = optimizer_->findOptimalPostures(path_slice); // TODO give previous solution
-//
-//    if (!first_cycle) {
-//      // Append previous result to front so a trajectory is created from the previous slice to the new one
-//      result.insert(result.begin(), last_opt_result);
-//    }
-//    trajectory_ = optimizer_->computeTimedTrajectory(result); // trajectory.size() == result.size() - 1
-//    if (trajectory_.empty()) {
-//      ROS_ERROR_STREAM("Trajectory generation failed. Skipping planning.");
-//      ++consecutive_planning_failures;
-//      continue;
-//    }
-//    last_opt_result = result.back();
-//    full_trajectory.insert(full_trajectory.end(), trajectory_.begin(), trajectory_.end());
-//
-//    // TODO: Re-compute time-parameterization on full trajectory
-//
-//    // Update the start times of each trajectory
-//    if (first_cycle) {
-//      start_times.resize(1, ros::Time::now());
-//    }
-//    ros::Time next_start_time = start_times[start_times.size()-1];
-//    start_times.reserve(start_times.size() + trajectory_.size());
-//    for (unsigned int i = 0; i < trajectory_.size(); ++i) {
-//      start_times.push_back(start_times[start_times.size()-1] + ros::Duration(trajectory_[i].getDuration()));
-//    }
-//
-//    // Reset failure count
-//    consecutive_planning_failures = 0;
-//
-//    // Send plan
-//    if (first_cycle) {
-//      ROS_INFO_STREAM("Moving to starting pose");
-//      if (!planAndMoveToState(trajectory_[0].getFirstWayPoint(), move_group_)) {
-//        ROS_WARN_STREAM("Moving to initial state failed.");
-//        continue;
-//      }
-//      first_cycle = false;
-//    }
-//    executeTrajectory(trajectory_, next_start_time, false);
-//
-//    // Sleep until one trajectory is finished
-//    ros::Time time_of_next_cycle = start_times[current_path_index + 1];
-//    ros::Time now = ros::Time::now();
-//    if (time_of_next_cycle >= now) {
-//      ros::Duration time_to_sleep = time_of_next_cycle - now;
-//      ROS_INFO_STREAM("Next cycle in " << time_to_sleep.toSec() << " s.");
-//      time_to_sleep.sleep();
-//    } else {
-//      ros::Duration late = now - time_of_next_cycle;
-//      ROS_WARN_STREAM("Next cycle is starting late (" << late.toSec() << " s)");
-//    }
-//    ros::spinOnce();
-//
-//    ++planning_index;
-//    ++current_path_index; // We should be at the next path index after sleep time
-//  }
-//
-//  if (consecutive_planning_failures >= max_consecutive_planning_failures) {
-//    ROS_ERROR_STREAM("Continuous planning aborted. Maximum consecutive planning failures reached (" << max_consecutive_planning_failures << ").");
-//    return false;
-//  }
-//
-//  return true;
-//}
 
 nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const
 {
@@ -819,32 +630,24 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const actionlib::Simp
   ROS_INFO_STREAM("Follow path client finished.");
   if (result->result.val == move_base_lite_msgs::ErrorCodes::SUCCESS && end_of_path_reached_) {
     stopExecutionThread();
-    setFollowPathGoalSuccessful();
+    if (followPathServerIsActive()) {
+      follow_path_goal_.setSucceeded(*result, "successful");
+    }
   } else {
+    stopExecutionThread();
     // Path following failed
     // Stop moveit
     moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
-
     if (followPathServerIsActive()) {
-      // Abort goal
-      move_base_lite_msgs::FollowPathResult result_server;
-      result_server.result.val = result->result.val;
-      follow_path_goal_.setCanceled(result_server, "Following path failed");
+      follow_path_goal_.setCanceled(*result, "Following path failed");
     }
-  }
-}
-void WholeBodyPlanningServer::setFollowPathGoalSuccessful()
-{
-  if (followPathServerIsActive()) {
-    move_base_lite_msgs::FollowPathResult result_server;
-    result_server.result.val = move_base_lite_msgs::ErrorCodes::SUCCESS;
-    follow_path_goal_.setSucceeded(result_server, "successful");
   }
 }
 
 void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planning_server::PlanningServerConfig &config, uint32_t level)
 {
   ROS_INFO_STREAM("Reconfigure request received.");
+  std::lock_guard<std::mutex> lock(reconfigure_mutex_);
   enabled_ = config.enabled;
   path_sampling_resolution_ = config.path_sampling_resolution;
   path_slice_length_ = config.path_slice_length;
