@@ -444,13 +444,13 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
   if (followPathServerIsActive()) {
     follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = follow_path_goal_.getGoal()->follow_path_options.rotate_front_to_goal_pose_orientation;
     follow_path_goal.follow_path_options.reverse_allowed = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
-    follow_path_goal.follow_path_options.reset_stuck_history = follow_path_goal_.getGoal()->follow_path_options.reset_stuck_history;
+    follow_path_goal.follow_path_options.reset_stuck_history = !continuous_planning_ && follow_path_goal_.getGoal()->follow_path_options.reset_stuck_history;
     follow_path_goal.follow_path_options.goal_pose_position_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_position_tolerance;
     follow_path_goal.follow_path_options.goal_pose_angle_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance;
   } else {
     follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
     follow_path_goal.follow_path_options.reverse_allowed = true;
-    follow_path_goal.follow_path_options.reset_stuck_history = true;
+    follow_path_goal.follow_path_options.reset_stuck_history = false;
     follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.1;
     follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
   }
