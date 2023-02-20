@@ -326,7 +326,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
     std::stringstream ss;
     ROS_ERROR_STREAM("Can't find moveit trajectory planner with the name '" << trajectory_planner_name_ << "'. Available planners are: " << sdf_contact_estimation::vectorToString(available_planners));
     if (!available_planners.empty()) {
-      trajectory_planner_name_ = available_planners[0];
+      trajectory_planner_name_ = available_planners.front();
       ROS_ERROR_STREAM("Using planner '" << trajectory_planner_name_ << "' instead.");
     } else {
       ROS_ERROR_STREAM("No planners found.");
