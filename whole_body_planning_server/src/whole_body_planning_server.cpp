@@ -706,19 +706,6 @@ void WholeBodyPlanningServer::stopExecutionThread()
   }
 }
 
-std::vector<robot_trajectory::RobotTrajectory> WholeBodyPlanningServer::sliceTrajectoryByIndex(
-    const robot_trajectory::RobotTrajectory& trajectory,
-    const std::vector<size_t>& trajectory_start_indices)
-{
-  std::vector<robot_trajectory::RobotTrajectory> trajectories;
-  for (unsigned int i = 0; i < trajectory_start_indices.size() - 1; ++i) {
-    robot_trajectory::RobotTrajectory trajectory_part(trajectory.getRobotModel(), trajectory.getGroupName());
-    trajectory_part.append(trajectory, 0.0, trajectory_start_indices[i], trajectory_start_indices[i + 1]);
-    trajectories.push_back(trajectory_part);
-  }
-  return trajectories;
-}
-
 void WholeBodyPlanningServer::enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr)
 {
   const std::vector<std::string>& variable_names = robot_state_ptr->getVariableNames();
