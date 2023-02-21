@@ -566,7 +566,6 @@ void WholeBodyPlanningServer::followPathPreemptCallback(const actionlib::ActionS
     move_base_lite_msgs::FollowPathResult result;
     result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
     follow_path_goal_.setCanceled(result, "Preempt from incoming message to server");
-    ROS_INFO_STREAM("Goal preempted, stopping vehicle");
   } else {
     ROS_WARN_STREAM("Received preempt for unknown goal");
   }
