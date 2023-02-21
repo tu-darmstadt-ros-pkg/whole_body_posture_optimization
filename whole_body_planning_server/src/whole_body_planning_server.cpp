@@ -456,6 +456,7 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
   follow_path_goal.follow_path_options.desired_speed = 0.0; // Implicitly given by pose time stamps
   follow_path_goal.follow_path_options.use_path_orientation = true; // Drive path as planned
   follow_path_goal.follow_path_options.is_fixed = true; // No smoothing
+  follow_path_goal.follow_path_options.reset_stuck_history = false;
 
   // Use values from goal if available
   if (followPathServerIsActive()) {
@@ -470,14 +471,12 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
     follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
   }
 
-  follow_path_goal.follow_path_options.reset_stuck_history = false;
-
-
   if (!end_of_path_reached_) {
     // Set low tolerances because the current end of the path is not the goal pose
     follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.0001;
     // Do not care about final orientation inside path
     follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
+    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = false;
   }
 
   ROS_INFO_STREAM("Executing planned trajectory");
@@ -665,12 +664,16 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const actionlib::Simp
                                                            const move_base_lite_msgs::FollowPathResultConstPtr& result)
 {
   ROS_INFO_STREAM("Follow path client finished.");
-  if (result->result.val == move_base_lite_msgs::ErrorCodes::SUCCESS && end_of_path_reached_) {
-    stopExecutionThread();
-    if (followPathServerIsActive()) {
-      follow_path_goal_.setSucceeded(*result, "successful");
+  if (result->result.val == move_base_lite_msgs::ErrorCodes::SUCCESS) {
+    if (end_of_path_reached_) {
+      ROS_INFO_STREAM("Following path successful.");
+      stopExecutionThread();
+      if (followPathServerIsActive()) {
+        follow_path_goal_.setSucceeded(*result, "successful");
+      }
     }
   } else {
+    ROS_ERROR_STREAM("Following path failed.");
     stopExecutionThread();
     // Path following failed
     // Stop moveit
