@@ -318,9 +318,15 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     ros::Time trajectory_end = start_time + trajectory_duration;
     ros::Time now = ros::Time::now();
     if (now > trajectory_end) {
-      ROS_WARN_STREAM("Trajectory end time is in the past by " << (now - trajectory_end).toSec() <<
+      ROS_ERROR_STREAM("Trajectory end time is in the past by " << (now - trajectory_end).toSec() <<
                       " s. Planning time takes too long.");
-      // TODO: how can we recover from this?
+      // Fail and restart with a new path
+      if (followPathServerIsActive()) {
+        move_base_lite_msgs::FollowPathResult result;
+        result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
+        follow_path_goal_.setAborted(result, "Planning time takes too long");
+      }
+      break;
     } else {
       // Send trajectory
       if (!executeTrajectory(*trajectory, start_time)) {
@@ -673,7 +679,7 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const actionlib::Simp
       }
     }
   } else {
-    ROS_ERROR_STREAM("Following path failed.");
+    ROS_ERROR_STREAM("Following path failed with error " << result->result.val);
     stopExecutionThread();
     // Path following failed
     // Stop moveit
