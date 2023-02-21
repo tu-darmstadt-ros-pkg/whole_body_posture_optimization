@@ -138,11 +138,6 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
       results.push_back(last_result);
       if (!last_result.success) {
         ROS_ERROR_STREAM("Posture optimization failed.");
-        return results;
-      }
-
-      if (last_result.stability_arm_opt < stability_limit_) {
-        ROS_WARN_STREAM("Robot unstable (" << last_result.stability_arm_opt << " < " << stability_limit_ << "). Aborting!");
         break;
       }
 
@@ -214,7 +209,10 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   result.stability_arm_opt = arm_result.stability;
   result.arm_cost = arm_result.final_cost;
 
-  result.success = result.stability_arm_opt > 0;
+  result.success = result.stability_arm_opt > stability_limit_;
+  if (!result.success) {
+    ROS_WARN_STREAM("Robot unstable (" << result.stability_arm_opt << " < " << stability_limit_ << ").");
+  }
 
   // Save to full state
   robot_model_->updateRobotState(result.result_pose, result.result_joint_angles);
@@ -307,7 +305,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
   START_TIMING("Trajectory planning")
   robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
   if (opt_result.size() < 2) {
-    ROS_WARN_STREAM("Can't compute timed trajectory, path is empty.");
+    ROS_WARN_STREAM("Can't compute trajectory, path is empty.");
     return trajectory_with_world;
   }
   if (!opt_result.back().success) {
