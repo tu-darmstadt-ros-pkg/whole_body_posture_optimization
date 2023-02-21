@@ -459,15 +459,14 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
     follow_path_goal.follow_path_options.reverse_allowed = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
     follow_path_goal.follow_path_options.goal_pose_position_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_position_tolerance;
     follow_path_goal.follow_path_options.goal_pose_angle_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance;
-    std::lock_guard<std::mutex> lock2(reconfigure_mutex_);
-    follow_path_goal.follow_path_options.reset_stuck_history = !continuous_planning_ && follow_path_goal_.getGoal()->follow_path_options.reset_stuck_history;
   } else {
     follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
     follow_path_goal.follow_path_options.reverse_allowed = true;
-    follow_path_goal.follow_path_options.reset_stuck_history = false;
     follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.1;
     follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
   }
+
+  follow_path_goal.follow_path_options.reset_stuck_history = false;
 
 
   if (!end_of_path_reached_) {
