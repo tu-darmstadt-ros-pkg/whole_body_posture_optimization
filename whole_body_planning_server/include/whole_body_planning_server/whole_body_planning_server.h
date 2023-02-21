@@ -123,6 +123,9 @@ private:
   ros::Subscriber execute_sub_;
   ros::Subscriber joint_state_sub_;
 
+  // Publishers
+  ros::Publisher preprocessed_path_pub_;
+
   // action interface
   std::shared_ptr<actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>> follow_path_server_;
   actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle follow_path_goal_;

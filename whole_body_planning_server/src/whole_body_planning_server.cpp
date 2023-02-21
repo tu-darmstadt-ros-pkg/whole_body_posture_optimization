@@ -33,6 +33,9 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
   pnh_.param("override_path_time", override_path_time_, true);
 
+  // Publishers
+  preprocessed_path_pub_ = pnh_.advertise<nav_msgs::Path>("preprocessed_path", 10, true);
+
   // Dynamic reconfigure
   reconfigure_server_.setCallback(std::bind(&WholeBodyPlanningServer::dynamicReconfigureCallback,
                                             this, std::placeholders::_1, std::placeholders::_2));
@@ -371,6 +374,7 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
   }
   path_copy = path_smoother.smooth(path_copy, true);
 
+  preprocessed_path_pub_.publish(path_copy);
 
   return path_copy;
 }
