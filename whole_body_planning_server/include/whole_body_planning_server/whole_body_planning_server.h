@@ -46,6 +46,7 @@ public:
   void planAndExecutePathContinuous(const nav_msgs::Path& path_msg, bool replanning=false);
 private:
   void updateRobotPose(const nav_msgs::Path& path);
+  bool getRobotPose(const ros::Time& stamp, geometry_msgs::TransformStamped& transform) const;
   nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
   bool generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out);
 

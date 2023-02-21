@@ -202,6 +202,30 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   robot_trajectory::RobotTrajectoryPtr trajectory;
   int time_parameterization_count = 0; // Number of waypoints with time parameterization attached (index of the first waypoint without t/p)
   for (int current_traj_index = 0; current_traj_index < path_smoothed.poses.size() -1; ++current_traj_index) {
+    nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
+
+    // Wait till path is in planning horizon
+    const double planning_horizon = 1.0;
+    bool too_far_away = false;
+    ros::Rate rate(10.0);
+    if (planning_horizon > 0) {
+      do {
+        too_far_away = false;
+        // Get current pose
+        geometry_msgs::TransformStamped robot_transform;
+        if (getRobotPose(ros::Time::now(), robot_transform)) {
+          Eigen::Vector3d p1, p2;
+          tf::vectorMsgToEigen(robot_transform.transform.translation, p1);
+          tf::pointMsgToEigen(path_slice.poses.back().pose.position, p2);
+          double distance = (p2 - p1).norm();
+          too_far_away = distance > planning_horizon;
+          if (too_far_away && !execution_completed_) {
+            rate.sleep();
+          }
+        }
+      } while (too_far_away && !execution_completed_);
+    }
+
     if (execution_completed_) {
       ROS_INFO_STREAM("Execution thread stopped");
       return;
@@ -211,7 +235,6 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     end_of_path_reached_ = current_traj_index == path_smoothed.poses.size() - 2;
 
     // Compute optimized postures
-    nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
     std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimization_results;
     {
       std::lock_guard<std::mutex>lock (esdf_update_mutex_);
@@ -351,18 +374,12 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
 
   // Replace first pose with current pose to account for driving direction and better planning initialization
   geometry_msgs::TransformStamped base_transform;
-  try {
-    // Get world transform
-    base_transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, path.header.stamp, ros::Duration(0.1));
+  if (getRobotPose(path.header.stamp, base_transform)) {
     path_copy.poses.front().pose.orientation = base_transform.transform.rotation;
     path_copy.poses.front().pose.position.x = base_transform.transform.translation.x;
     path_copy.poses.front().pose.position.y = base_transform.transform.translation.y;
     path_copy.poses.front().pose.position.z = base_transform.transform.translation.z;
   }
-  catch (tf2::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
-  }
-
 
   // Re-sample and smooth path
   bool allow_reverse_paths = true;
@@ -707,6 +724,19 @@ void WholeBodyPlanningServer::updateRobotPose(const nav_msgs::Path& path)
   const geometry_msgs::PoseStamped& robot_pose_msg = path.poses.front();
   tf::poseMsgToEigen(robot_pose_msg.pose, robot_pose_eigen);
   whole_body_posture_optimization::updateMoveitRobotState(*current_robot_state_, robot_pose_eigen);
+}
+
+bool WholeBodyPlanningServer::getRobotPose(const ros::Time& stamp, geometry_msgs::TransformStamped& transform) const
+{
+  try {
+    // Get world transform
+    transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, stamp, ros::Duration(0.1));
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("%s",ex.what());
+    return false;
+  }
+  return true;
 }
 
 void WholeBodyPlanningServer::stopExecutionThread()
