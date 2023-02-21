@@ -200,7 +200,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   int time_parameterization_count = 0; // Number of waypoints with time parameterization attached (index of the first waypoint without t/p)
   for (int current_traj_index = 0; current_traj_index < path_smoothed.poses.size() -1; ++current_traj_index) {
     if (execution_completed_) {
-      ROS_INFO_STREAM("Execution completed");
+      ROS_INFO_STREAM("Execution thread stopped");
       return;
     }
     ROS_INFO_STREAM("Waypoint " << current_traj_index);
@@ -214,13 +214,30 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       std::lock_guard<std::mutex>lock (esdf_update_mutex_);
       optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
     }
+    if (optimization_results.empty() || !optimization_results.back().success) {
+      stopExecution();
+      if (followPathServerIsActive()) {
+        move_base_lite_msgs::FollowPathResult result;
+        result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
+        follow_path_goal_.setAborted(result, "Pose optimization failed.");
+      }
+      break;
+    }
     results.push_back(optimization_results.back()); // Use only the second (and last) result, first one is the start state
-    // TODO handle optimization failure
 
     // Compute trajectories
     std::vector<Eigen::Isometry3d> trajectory_world_poses_tmp;
     std::vector<size_t> trajectory_start_indices_tmp;
     robot_trajectory::RobotTrajectory trajectory_with_world_tmp = optimizer_->computeTrajectory(optimization_results, trajectory_world_poses_tmp, trajectory_start_indices_tmp);
+    if (trajectory_with_world_tmp.empty()) {
+      stopExecution();
+      if (followPathServerIsActive()) {
+        move_base_lite_msgs::FollowPathResult result;
+        result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
+        follow_path_goal_.setAborted(result, "Trajectory planning failed.");
+      }
+      break;
+    }
     // Append to full trajectory (minus the end point, which would be a duplicate of the next start)
     if (!trajectory_with_world) {
       trajectory_with_world = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory_with_world_tmp.getRobotModel(), trajectory_with_world_tmp.getGroupName());
@@ -257,14 +274,13 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     // Compute time parameterization for the slice (outputs a deep copy)
     auto timed_trajectory_slice = optimizer_->addTimeParameterization(trajectory_slice, trajectory_world_poses_slice);
     if (timed_trajectory_slice.empty() || timed_trajectory_slice.getDuration() == 0.0) {
-      // TODO Stop execution
+      stopExecution();
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
         result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
         follow_path_goal_.setAborted(result, "Time parameterization failed.");
       }
-      execution_completed_ = true;
-      return;
+      break;
     }
 
     // Mark all waypoints to have a time parameterization
@@ -306,17 +322,17 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       // Send trajectory
       if (!executeTrajectory(*trajectory, start_time)) {
         ROS_ERROR_STREAM("Trajectory execution failed");
-        // TODO Stop execution
+        stopExecution();
         if (followPathServerIsActive()) {
           move_base_lite_msgs::FollowPathResult result;
-          result.result.val = move_base_lite_msgs::ErrorCodes::FAILURE;
+          result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
           follow_path_goal_.setAborted(result, "Trajectory execution failed.");
         }
-        execution_completed_ = true;
-        return;
+        break;
       }
     }
   }
+  ROS_INFO_STREAM("Execution thread completed");
 }
 
 
@@ -489,29 +505,29 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
   ROS_INFO_STREAM("New goal received.");
   // Check if another goal exists
   bool goal_preempted = false;
-  {
-    if (followPathServerIsActive()) {
-      // Check if incoming one is newer
-      if (goal.getGoalID().stamp >= follow_path_goal_.getGoalID().stamp) {
-        // Cancel previous goal
-        stopExecutionThread();
-        move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
-        follow_path_goal_.setCanceled(result, "This goal has been preempted by a newer goal.");
-        goal_preempted = true;
-      } else {
-        // Cancel incoming goal
-        move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
-        goal.setCanceled(result, "This goal has been preempted by a newer goal.");
-        return;
-      }
+  if (followPathServerIsActive()) {
+    // Check if incoming one is newer
+    if (goal.getGoalID().stamp >= follow_path_goal_.getGoalID().stamp) {
+      // Cancel previous goal
+      stopExecutionThread(); // Stop before goal is canceled
+      move_base_lite_msgs::FollowPathResult result;
+      result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
+      follow_path_goal_.setCanceled(result, "This goal has been preempted by a newer goal.");
+      goal_preempted = true;
+    } else {
+      // Cancel incoming goal
+      move_base_lite_msgs::FollowPathResult result;
+      result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
+      goal.setCanceled(result, "This goal has been preempted by a newer goal.");
+      return;
     }
-
-    // Accept new goal
-    goal.setAccepted();
-    follow_path_goal_ = goal;
   }
+
+  // Accept new goal
+  goal.setAccepted();
+  follow_path_goal_ = goal;
+
+  stopExecutionThread(); // Make sure any old thread is cleaned up
 
 
   // Override path time with receive time
@@ -539,10 +555,10 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
 void WholeBodyPlanningServer::followPathPreemptCallback(const actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle& preempt)
 {
   if (preempt == follow_path_goal_) {
+    ROS_INFO_STREAM("Goal preempted, stopping vehicle");
     // Cancel vehicle controller and stop moveit execution
     stopExecutionThread();
-    driving_client_->cancelAllGoals();
-    moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
+    stopExecution();
 
     move_base_lite_msgs::FollowPathResult result;
     result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
@@ -703,6 +719,7 @@ std::vector<robot_trajectory::RobotTrajectory> WholeBodyPlanningServer::sliceTra
   }
   return trajectories;
 }
+
 void WholeBodyPlanningServer::enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr)
 {
   const std::vector<std::string>& variable_names = robot_state_ptr->getVariableNames();
@@ -739,6 +756,13 @@ void WholeBodyPlanningServer::stopMapUpdateThread()
     map_update_thread->join();
     map_update_thread.reset();
   }
+}
+
+void WholeBodyPlanningServer::stopExecution()
+{
+  execution_completed_ = true;
+  driving_client_->cancelAllGoals();
+  moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
 }
 
 }
