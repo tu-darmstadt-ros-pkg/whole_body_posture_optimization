@@ -22,7 +22,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   tf_listener_(tf_buffer_),
   enabled_(true),
   auto_start_(false),
-  path_slice_length_(-1),
+  planning_horizon_(-1),
   path_sampling_resolution_(0.02),
   override_path_time_(false),
   continuous_planning_(false)
@@ -113,7 +113,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
 
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
-  nav_msgs::Path path_slice = slicePath(path_smoothed, path_slice_length_);
+  nav_msgs::Path path_slice = slicePath(path_smoothed, planning_horizon_);
   end_of_path_reached_ = (path_slice.poses.size() == path_smoothed.poses.size());
   if (end_of_path_reached_) {
     ROS_INFO_STREAM("Slice reaches end of path");
@@ -205,10 +205,11 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
 
     // Wait till path is in planning horizon
-    const double planning_horizon = 1.0;
     bool too_far_away = false;
     ros::Rate rate(10.0);
-    if (planning_horizon > 0) {
+    reconfigure_mutex_.lock();
+    if (planning_horizon_ > 0) {
+      reconfigure_mutex_.unlock();
       do {
         too_far_away = false;
         // Get current pose
@@ -217,13 +218,19 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
           Eigen::Vector3d p1, p2;
           tf::vectorMsgToEigen(robot_transform.transform.translation, p1);
           tf::pointMsgToEigen(path_slice.poses.back().pose.position, p2);
-          double distance = (p2 - p1).norm();
-          too_far_away = distance > planning_horizon;
+          // Distance in x-y plane
+          double distance = (p2.block<2, 1>(0, 0) - p1.block<2, 1>(0, 0)).norm();
+          {
+            std::lock_guard<std::mutex> lock(reconfigure_mutex_);
+            too_far_away = distance > planning_horizon_;
+          }
           if (too_far_away && !execution_completed_) {
             rate.sleep();
           }
         }
       } while (too_far_away && !execution_completed_);
+    } else {
+      reconfigure_mutex_.unlock();
     }
 
     if (execution_completed_) {
@@ -713,7 +720,7 @@ void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planni
   std::lock_guard<std::mutex> lock(reconfigure_mutex_);
   enabled_ = config.enabled;
   path_sampling_resolution_ = config.path_sampling_resolution;
-  path_slice_length_ = config.path_slice_length;
+  planning_horizon_ = config.planning_horizon;
   auto_start_ = config.auto_start;
   continuous_planning_ = config.continuous_planning;
 }
