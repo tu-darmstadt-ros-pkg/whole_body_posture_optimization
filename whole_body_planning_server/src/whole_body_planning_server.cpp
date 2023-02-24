@@ -9,6 +9,8 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
 #include <eigen_conversions/eigen_msg.h>
+#include <moveit_msgs/DisplayRobotState.h>
+#include <moveit/robot_state/conversions.h>
 
 
 namespace whole_body_planning_server {
@@ -35,6 +37,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
 
   // Publishers
   preprocessed_path_pub_ = pnh_.advertise<nav_msgs::Path>("preprocessed_path", 10, true);
+  robot_state_pub_ = pnh_.advertise<moveit_msgs::DisplayRobotState>("goal_robot_state", 10, false);
 
   // Dynamic reconfigure
   reconfigure_server_.setCallback(std::bind(&WholeBodyPlanningServer::dynamicReconfigureCallback,
@@ -477,6 +480,8 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
     ROS_WARN_STREAM("Trajectory is empty, execution is trivially successful.");
     return true;
   }
+  trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory, true);
+  trajectory_start_time_ = start_time;
 
   // Assemble driving plan
   nav_msgs::Path path = extractPathFromTrajectories(trajectory, start_time);
@@ -799,6 +804,90 @@ void WholeBodyPlanningServer::stopExecution()
   execution_completed_ = true;
   driving_client_->cancelAllGoals();
   moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
+}
+
+void WholeBodyPlanningServer::executionWatchDog()
+{
+  ros::Rate rate(10.0);
+  while (!execution_completed_ && ros::ok())  {
+    if (!trajectory_) {
+      rate.sleep();
+      continue;
+    }
+
+    // Get current robot pose
+    ros::Time now = ros::Time::now();
+    geometry_msgs::TransformStamped current_robot_pose_stamped;
+    getRobotPose(now, current_robot_pose_stamped);
+    Eigen::Isometry3d current_robot_pose;
+    tf::transformMsgToEigen(current_robot_pose_stamped.transform, current_robot_pose);
+
+    // Find expected robot pose at current time
+    ros::Duration duration_after_start = now - trajectory_start_time_;
+    int before_index, after_index;
+    double progress; // value between 0 and 1
+    trajectory_->findWayPointIndicesForDurationAfterStart(duration_after_start.toSec(), before_index, after_index, progress);
+    const robot_state::RobotState& before_state = trajectory_->getWayPoint(before_index);
+    const robot_state::RobotState& after_state = trajectory_->getWayPoint(after_index);
+
+    // Linear interpolation for position and orientation
+    const Eigen::Isometry3d& before_pose = before_state.getJointTransform("world_virtual_joint");
+    const Eigen::Isometry3d& after_pose = before_state.getJointTransform("world_virtual_joint");
+
+    Eigen::Vector3d position_diff = after_pose.translation() - before_pose.translation();
+    Eigen::Vector3d interpolated_position = before_pose.translation() + progress * position_diff;
+
+    Eigen::Quaterniond before_orientation(before_pose.linear());
+    Eigen::Quaterniond after_orientation(after_pose.linear());
+    Eigen::Quaterniond interpolated_orientation = before_orientation.slerp(progress, after_orientation);
+
+    Eigen::Isometry3d interpolated_pose(interpolated_orientation);
+    interpolated_pose.translation() = interpolated_position;
+
+    // Compute full interpolated state and publish for visualization
+    const moveit::core::JointModelGroup* joint_model_group = trajectory_->getRobotModel()->getJointModelGroup(trajectory_->getGroupName());
+    robot_state::RobotState interpolated_state(trajectory_->getRobotModel());
+    before_state.interpolate(after_state, progress, interpolated_state, joint_model_group);
+    whole_body_posture_optimization::updateMoveitRobotState(interpolated_state, interpolated_pose);
+    moveit_msgs::DisplayRobotState robot_state_msg;
+    moveit::core::robotStateToRobotStateMsg(interpolated_state, robot_state_msg.state);
+    robot_state_pub_.publish(robot_state_msg);
+
+    // Check position threshold
+    const double position_deviation_threshold = 0.1;
+    double distance = (interpolated_pose.translation() - current_robot_pose.translation()).norm();
+    bool position_within_limits = distance < position_deviation_threshold;
+
+    // Check orientation threshold
+    Eigen::Quaterniond current_orientation(current_robot_pose.linear());
+    const double orientation_deviation_threshold = 10 * M_PI / 180.0;
+    double angular_distance = interpolated_orientation.angularDistance(current_orientation);
+    bool orientation_within_limits = angular_distance < orientation_deviation_threshold;
+
+    bool stop_execution = false;
+    if (!position_within_limits) {
+      ROS_WARN_STREAM("Position deviation of " << distance << " exceeds threshold of " << position_deviation_threshold);
+      stop_execution = true;
+    }
+    if (!orientation_within_limits) {
+      ROS_WARN_STREAM("Orientation deviation of " << angular_distance << " exceeds threshold of " << position_deviation_threshold);
+      stop_execution = true;
+    }
+
+    if (stop_execution) {
+      // Stop execution and fail goal (with stuck)
+      stopExecution();
+      if (followPathServerIsActive()) {
+        move_base_lite_msgs::FollowPathResult result;
+        result.result.val = move_base_lite_msgs::ErrorCodes::STUCK_DETECTED;
+        follow_path_goal_.setAborted(result, "Deviation between planned robot pose and current pose exceeds threshold.");
+      }
+      break;
+    }
+
+    rate.sleep();
+  }
+  ROS_INFO_STREAM("Watchdog thread finished");
 }
 
 }

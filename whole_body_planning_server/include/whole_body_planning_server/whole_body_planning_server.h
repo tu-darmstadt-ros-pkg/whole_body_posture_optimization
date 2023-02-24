@@ -54,6 +54,11 @@ private:
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking=true, ros::Time start_time=ros::Time());
   void stopExecution();
 
+  /**
+   * @brief Continuously compare goal state and current state and stop execution if the deviation exceeds the threshold
+   */
+  void executionWatchDog();
+
   /// Util
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance);
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, int start_index, int end_index);
@@ -93,6 +98,7 @@ private:
   mutable std::mutex current_robot_state_mutex_;
 
   robot_trajectory::RobotTrajectoryPtr trajectory_;
+  ros::Time trajectory_start_time_;
   std::atomic<bool> end_of_path_reached_;
 
   std::unique_ptr<std::thread> execution_thread_;
@@ -126,6 +132,7 @@ private:
 
   // Publishers
   ros::Publisher preprocessed_path_pub_;
+  ros::Publisher robot_state_pub_;
 
   // action interface
   std::shared_ptr<actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>> follow_path_server_;
