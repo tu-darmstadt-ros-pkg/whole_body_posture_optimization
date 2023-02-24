@@ -359,6 +359,10 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       break;
     } else {
       // Send trajectory
+      if (execution_completed_) {
+        ROS_INFO_STREAM("Stopping execution thread before execution");
+        return;
+      }
       if (!executeTrajectory(*trajectory, start_time)) {
         ROS_ERROR_STREAM("Trajectory execution failed");
         stopExecution();
