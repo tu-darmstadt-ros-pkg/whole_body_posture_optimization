@@ -99,9 +99,11 @@ private:
 
   robot_trajectory::RobotTrajectoryPtr trajectory_;
   ros::Time trajectory_start_time_;
+  mutable std::mutex trajectory_mutex_;
   std::atomic<bool> end_of_path_reached_;
 
   std::unique_ptr<std::thread> execution_thread_;
+  std::unique_ptr<std::thread> execution_watchdog_thread_;
   std::atomic<bool> execution_completed_;
 
   std::unique_ptr<std::thread> map_update_thread;
@@ -137,6 +139,7 @@ private:
   // action interface
   std::shared_ptr<actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>> follow_path_server_;
   actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle follow_path_goal_;
+  mutable std::mutex follow_path_goal_mutex_;
 
   // Clients
   std::shared_ptr<FollowPathClient> driving_client_;

@@ -250,6 +250,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     }
     if (optimization_results.empty() || !optimization_results.back().success) {
       stopExecution();
+      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
         result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
@@ -265,6 +266,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     robot_trajectory::RobotTrajectory trajectory_with_world_tmp = optimizer_->computeTrajectory(optimization_results, trajectory_world_poses_tmp, trajectory_start_indices_tmp);
     if (trajectory_with_world_tmp.empty()) {
       stopExecution();
+      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
         result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
@@ -309,6 +311,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     auto timed_trajectory_slice = optimizer_->addTimeParameterization(trajectory_slice, trajectory_world_poses_slice);
     if (timed_trajectory_slice.empty() || timed_trajectory_slice.getDuration() == 0.0) {
       stopExecution();
+      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
         result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
@@ -351,6 +354,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       ROS_ERROR_STREAM("Trajectory end time is in the past by " << (now - trajectory_end).toSec() <<
                       " s. Planning time takes too long.");
       // Fail and restart with a new path
+      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
         result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
@@ -359,6 +363,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       break;
     } else {
       // Send trajectory
+      std::lock_guard<std::mutex> lock(trajectory_mutex_);
       if (execution_completed_) {
         ROS_INFO_STREAM("Stopping execution thread before execution");
         return;
@@ -366,6 +371,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       if (!executeTrajectory(*trajectory, start_time)) {
         ROS_ERROR_STREAM("Trajectory execution failed");
         stopExecution();
+        std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
         if (followPathServerIsActive()) {
           move_base_lite_msgs::FollowPathResult result;
           result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
@@ -580,6 +586,7 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
     } else {
       execution_completed_ = false;
       execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, target_path, goal_preempted);
+      execution_watchdog_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::executionWatchDog, this);
 //      planAndExecutePathContinuous(target_path, goal_preempted);
     }
   } else {
@@ -759,6 +766,10 @@ void WholeBodyPlanningServer::stopExecutionThread()
     execution_thread_->join();
     execution_thread_.reset();
   }
+  if (execution_watchdog_thread_) {
+    execution_watchdog_thread_->join();
+    execution_watchdog_thread_.reset();
+  }
 }
 
 void WholeBodyPlanningServer::enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr)
@@ -810,7 +821,9 @@ void WholeBodyPlanningServer::executionWatchDog()
 {
   ros::Rate rate(10.0);
   while (!execution_completed_ && ros::ok())  {
+    trajectory_mutex_.lock();
     if (!trajectory_) {
+      trajectory_mutex_.unlock();
       rate.sleep();
       continue;
     }
@@ -864,6 +877,9 @@ void WholeBodyPlanningServer::executionWatchDog()
     double angular_distance = interpolated_orientation.angularDistance(current_orientation);
     bool orientation_within_limits = angular_distance < orientation_deviation_threshold;
 
+    ROS_INFO_STREAM("Position deviation: " << distance);
+    ROS_INFO_STREAM("Orientation deviation: " << angular_distance);
+
     bool stop_execution = false;
     if (!position_within_limits) {
       ROS_WARN_STREAM("Position deviation of " << distance << " exceeds threshold of " << position_deviation_threshold);
@@ -877,14 +893,17 @@ void WholeBodyPlanningServer::executionWatchDog()
     if (stop_execution) {
       // Stop execution and fail goal (with stuck)
       stopExecution();
+      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
         result.result.val = move_base_lite_msgs::ErrorCodes::STUCK_DETECTED;
         follow_path_goal_.setAborted(result, "Deviation between planned robot pose and current pose exceeds threshold.");
       }
+      trajectory_mutex_.unlock();
       break;
     }
 
+    trajectory_mutex_.unlock();
     rate.sleep();
   }
   ROS_INFO_STREAM("Watchdog thread finished");
