@@ -173,8 +173,6 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   ROS_INFO_STREAM("Received new path, planning continuously..");
   map_frame_ = path_msg.header.frame_id;
 
-//  sdf_model_->publishSdfMesh();
-
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
   const int trajectory_minimum_size = 4; // limited by time parameterization
@@ -315,7 +313,6 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       }
       break;
     }
-
     // Mark all waypoints to have a time parameterization
     time_parameterization_count = static_cast<int>(trajectory_with_world->getWayPointCount());
 
