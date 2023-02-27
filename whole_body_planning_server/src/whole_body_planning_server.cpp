@@ -862,9 +862,8 @@ void WholeBodyPlanningServer::executionWatchDog()
     interpolated_pose.translation() = interpolated_position;
 
     // Compute full interpolated state and publish for visualization
-    const moveit::core::JointModelGroup* joint_model_group = trajectory_->getRobotModel()->getJointModelGroup(trajectory_->getGroupName());
     robot_state::RobotState interpolated_state(trajectory_->getRobotModel());
-    before_state.interpolate(after_state, progress, interpolated_state, joint_model_group);
+    before_state.interpolate(after_state, progress, interpolated_state);
     whole_body_posture_optimization::updateMoveitRobotState(interpolated_state, interpolated_pose);
     moveit_msgs::DisplayRobotState robot_state_msg;
     moveit::core::robotStateToRobotStateMsg(interpolated_state, robot_state_msg.state);
