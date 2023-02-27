@@ -817,6 +817,10 @@ void WholeBodyPlanningServer::stopExecution()
   execution_completed_ = true;
   trajectory_.reset();
   trajectory_start_time_ = ros::Time();
+  // We do not care about canceled goals
+  if (driving_client_->getState() != actionlib::SimpleClientGoalState::LOST) {
+    driving_client_->stopTrackingGoal();
+  }
   driving_client_->cancelAllGoals();
   moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
 }
