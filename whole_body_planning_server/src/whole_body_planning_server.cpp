@@ -198,7 +198,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   {
     std::lock_guard<std::mutex> lock(current_robot_state_mutex_);
     updateRobotPose(path_smoothed);
-    start_result.result_state = current_robot_state_;
+    start_result.result_state = std::make_shared<robot_state::RobotState>(*current_robot_state_);
   }
   results.push_back(start_result);
 
@@ -249,7 +249,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     // Compute optimized postures
     std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimization_results;
     {
-      std::lock_guard<std::mutex>lock (esdf_update_mutex_);
+      std::lock_guard<std::mutex> lock(esdf_update_mutex_);
       optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
     }
     if (optimization_results.empty() || !optimization_results.back().success) {
@@ -683,20 +683,8 @@ void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
 
 void WholeBodyPlanningServer::jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg)
 {
+  std::lock_guard<std::mutex> lock(current_robot_state_mutex_);
   current_robot_state_->setVariableValues(*joint_state_msg);
-
-//  bool state_changed = false;
-//  for (unsigned int joint_idx = 0; joint_idx < joint_names_.size(); ++joint_idx) {
-//    auto it = std::find(joint_state_msg->name.begin(), joint_state_msg->name.end(), joint_names_[joint_idx]);
-//    if (it != joint_state_msg->name.end()) {
-//      size_t index = static_cast<size_t>(it - joint_state_msg->name.begin());
-//      joint_states_[joint_idx] = joint_state_msg->position[index];
-//      state_changed = true;
-//    }
-//  }
-//  if (state_changed) {
-//    optimizer_->setDefaultJointPositions(joint_states_);
-//  }
 }
 bool WholeBodyPlanningServer::followPathServerIsActive() const
 {
