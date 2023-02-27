@@ -813,6 +813,8 @@ void WholeBodyPlanningServer::stopMapUpdateThread()
 void WholeBodyPlanningServer::stopExecution()
 {
   execution_completed_ = true;
+  trajectory_.reset();
+  trajectory_start_time_ = ros::Time();
   driving_client_->cancelAllGoals();
   moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
 }
@@ -886,7 +888,7 @@ void WholeBodyPlanningServer::executionWatchDog()
       stop_execution = true;
     }
     if (!orientation_within_limits) {
-      ROS_WARN_STREAM("Orientation deviation of " << angular_distance << " exceeds threshold of " << position_deviation_threshold);
+      ROS_WARN_STREAM("Orientation deviation of " << angular_distance << " exceeds threshold of " << orientation_deviation_threshold);
       stop_execution = true;
     }
 
