@@ -2,6 +2,7 @@
 #define WHOLE_BODY_PLANNING_SERVER_WHOLE_BODY_PLANNING_SERVER_H
 
 #include <mutex>
+#include <condition_variable>
 #include <nav_msgs/Path.h>
 #include <std_msgs/Empty.h>
 #include <sensor_msgs/JointState.h>
@@ -54,6 +55,8 @@ private:
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking=true, ros::Time start_time=ros::Time());
   void stopExecution();
 
+  void stopExecutionThread();
+
   /**
    * @brief Continuously compare goal state and current state and stop execution if the deviation exceeds the threshold
    */
@@ -83,10 +86,10 @@ private:
 
   void dynamicReconfigureCallback(const whole_body_planning_server::PlanningServerConfig &config, uint32_t level);
 
-  void stopExecutionThread();
-
+  ///! Map updates
   void spinMapUpdate();
   void stopMapUpdateThread();
+  void waitForMap();
 
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
@@ -115,6 +118,7 @@ private:
   std::shared_ptr<voxblox::EsdfServer> esdf_server_;
   ros::CallbackQueue esdf_server_queue_;
   mutable std::mutex esdf_update_mutex_;
+  std::condition_variable first_esdf_update_condition_;
 
   // Parameters
   bool enabled_;

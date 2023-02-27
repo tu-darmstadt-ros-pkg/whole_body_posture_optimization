@@ -178,6 +178,8 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   ROS_INFO_STREAM("Received new path, planning continuously..");
   map_frame_ = path_msg.header.frame_id;
 
+  waitForMap();
+
   // Path pre-processing
   nav_msgs::Path path_smoothed = preprocessPath(path_msg);
   const int trajectory_minimum_size = 4; // limited by time parameterization
@@ -800,8 +802,10 @@ void WholeBodyPlanningServer::spinMapUpdate()
       std::lock_guard<std::mutex> lock(esdf_update_mutex_);
       esdf_server_queue_.callAvailable();
     }
+    first_esdf_update_condition_.notify_all();
     rate.sleep();
   }
+  ROS_INFO_STREAM("Map update thread finished.");
 }
 void WholeBodyPlanningServer::stopMapUpdateThread()
 {
@@ -912,6 +916,17 @@ void WholeBodyPlanningServer::executionWatchDog()
     rate.sleep();
   }
   ROS_INFO_STREAM("Watchdog thread finished");
+}
+
+void WholeBodyPlanningServer::waitForMap()
+{
+  std::unique_lock<std::mutex> esdf_update_lock(esdf_update_mutex_);
+  if (sdf_model_->isEmpty()) {
+    ROS_INFO_STREAM("Waiting for first ESDF");
+    while (!execution_completed_ && sdf_model_->isEmpty()) {
+      first_esdf_update_condition_.wait(esdf_update_lock);
+    }
+  }
 }
 
 }
