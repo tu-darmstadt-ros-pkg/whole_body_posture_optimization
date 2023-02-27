@@ -212,9 +212,9 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     // Wait till path is in planning horizon
     bool too_far_away = false;
     ros::Rate rate(10.0);
-    reconfigure_mutex_.lock();
+    std::unique_lock<std::mutex> reconfigure_lock(reconfigure_mutex_);
     if (planning_horizon_ > 0) {
-      reconfigure_mutex_.unlock();
+      reconfigure_lock.unlock();
       do {
         too_far_away = false;
         // Get current pose
@@ -235,7 +235,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
         }
       } while (too_far_away && !execution_completed_);
     } else {
-      reconfigure_mutex_.unlock();
+      reconfigure_lock.unlock();
     }
 
     if (execution_completed_) {
@@ -833,9 +833,9 @@ void WholeBodyPlanningServer::executionWatchDog()
 {
   ros::Rate rate(10.0);
   while (!execution_completed_ && ros::ok())  {
-    trajectory_mutex_.lock();
+    std::unique_lock<std::mutex> trajectory_lock(trajectory_mutex_);
     if (!trajectory_) {
-      trajectory_mutex_.unlock();
+      trajectory_lock.unlock();
       rate.sleep();
       continue;
     }
@@ -908,7 +908,6 @@ void WholeBodyPlanningServer::executionWatchDog()
         result.result.val = move_base_lite_msgs::ErrorCodes::STUCK_DETECTED;
         follow_path_goal_.setAborted(result, "Deviation between planned robot pose and current pose exceeds threshold.");
       }
-      trajectory_mutex_.unlock();
       break;
     }
 
