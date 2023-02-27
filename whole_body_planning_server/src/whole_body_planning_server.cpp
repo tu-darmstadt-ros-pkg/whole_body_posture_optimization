@@ -34,6 +34,8 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
 //  pnh_.param<std::string>("map_frame", map_frame_, "map");
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
   pnh_.param("override_path_time", override_path_time_, true);
+  pnh_.param("execution_position_tolerance", execution_position_tolerance_, 0.1);
+  pnh_.param("execution_orientation_tolerance", execution_orientation_tolerance_, 20 * M_PI / 180.0);
 
   // Publishers
   preprocessed_path_pub_ = pnh_.advertise<nav_msgs::Path>("preprocessed_path", 10, true);
@@ -869,26 +871,24 @@ void WholeBodyPlanningServer::executionWatchDog()
     robot_state_pub_.publish(robot_state_msg);
 
     // Check position threshold
-    const double position_deviation_threshold = 0.1;
     double distance = (interpolated_pose.translation() - current_robot_pose.translation()).norm();
-    bool position_within_limits = distance < position_deviation_threshold;
+    bool position_within_limits = distance < execution_position_tolerance_;
 
     // Check orientation threshold
     Eigen::Quaterniond current_orientation(current_robot_pose.linear());
-    const double orientation_deviation_threshold = 10 * M_PI / 180.0;
     double angular_distance = interpolated_orientation.angularDistance(current_orientation);
-    bool orientation_within_limits = angular_distance < orientation_deviation_threshold;
+    bool orientation_within_limits = angular_distance < execution_orientation_tolerance_;
 
     ROS_INFO_STREAM("Position deviation: " << distance);
     ROS_INFO_STREAM("Orientation deviation: " << angular_distance);
 
     bool stop_execution = false;
     if (!position_within_limits) {
-      ROS_WARN_STREAM("Position deviation of " << distance << " exceeds threshold of " << position_deviation_threshold);
+      ROS_WARN_STREAM("Position deviation of " << distance << " exceeds tolerance of " << execution_position_tolerance_);
       stop_execution = true;
     }
     if (!orientation_within_limits) {
-      ROS_WARN_STREAM("Orientation deviation of " << angular_distance << " exceeds threshold of " << orientation_deviation_threshold);
+      ROS_WARN_STREAM("Orientation deviation of " << angular_distance << " exceeds tolerance of " << execution_orientation_tolerance_);
       stop_execution = true;
     }
 

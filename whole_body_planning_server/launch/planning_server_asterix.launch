@@ -5,8 +5,12 @@
     <param name="auto_start" value="true"/>
     <param name="base_frame" value="base_link"/>
     <param name="path_sampling_resolution" value="0.05"/>
-    <param name="path_slice_length" value="-1"/>
-    
+    <param name="planning_horizon" value="0.5"/>
+
+    <param name="continuous_planning" value="true"/>
+    <param name="execution_position_tolerance" value="1.0"/>
+    <param name="execution_orientation_tolerance" value="0.35"/>
+
     <!-- posture optimization lib parameters -->
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
 

@@ -126,6 +126,8 @@ private:
   double path_sampling_resolution_;
   bool override_path_time_;
   bool continuous_planning_;
+  double execution_position_tolerance_;
+  double execution_orientation_tolerance_;
 
   // Subscribers
   ros::Subscriber path_sub_;
