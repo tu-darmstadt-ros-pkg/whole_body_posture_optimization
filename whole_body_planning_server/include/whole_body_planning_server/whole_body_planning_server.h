@@ -63,7 +63,7 @@ private:
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance);
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, int start_index, int end_index);
   nav_msgs::Path extractPathFromTrajectories(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const;
-  void enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr);
+  static void enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr);
   std::string pathToString(const nav_msgs::Path& path) const;
   bool followPathServerIsActive() const;
 
