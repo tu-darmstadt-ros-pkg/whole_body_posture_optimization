@@ -845,7 +845,7 @@ void WholeBodyPlanningServer::executionWatchDog()
 
     // Linear interpolation for position and orientation
     const Eigen::Isometry3d& before_pose = before_state.getJointTransform("world_virtual_joint");
-    const Eigen::Isometry3d& after_pose = before_state.getJointTransform("world_virtual_joint");
+    const Eigen::Isometry3d& after_pose = after_state.getJointTransform("world_virtual_joint");
 
     Eigen::Vector3d position_diff = after_pose.translation() - before_pose.translation();
     Eigen::Vector3d interpolated_position = before_pose.translation() + progress * position_diff;
