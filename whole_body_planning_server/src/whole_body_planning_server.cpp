@@ -129,7 +129,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
 
   // Plan trajectory
   auto start = std::chrono::steady_clock::now();
-  if(!generatePlan(path_slice, trajectory_)) {
+  if(!generatePlan(path_slice, planned_trajectory_)) {
     ROS_ERROR_STREAM("Planning failed.");
     if (followPathServerIsActive()) {
       move_base_lite_msgs::FollowPathResult result;
@@ -152,7 +152,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
     start_time = ros::Time::now() + ros::Duration(0.1);
   }
 
-  ros::Duration trajectory_duration(trajectory_->getDuration());
+  ros::Duration trajectory_duration(planned_trajectory_->getDuration());
   ros::Time trajectory_end = start_time + trajectory_duration;
 
   ros::Time now = ros::Time::now();
@@ -162,7 +162,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   }
 
   if (auto_start) {
-    if (!executeTrajectory(*trajectory_, start_time)) {
+    if (!executeTrajectory(*planned_trajectory_, start_time)) {
       ROS_ERROR_STREAM("Trajectory execution failed");
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
@@ -680,12 +680,12 @@ void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {
 
 void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
 {
-  if (!trajectory_) {
+  if (!planned_trajectory_) {
     ROS_ERROR_STREAM("No trajectory planned yet, cannot execute");
     return;
   }
   ros::Time starting_time = ros::Time::now() + ros::Duration(1);
-  if (!executeTrajectory(*trajectory_, starting_time)) {
+  if (!executeTrajectory(*planned_trajectory_, starting_time)) {
     ROS_ERROR_STREAM("Trajectory execution failed");
   }
 }

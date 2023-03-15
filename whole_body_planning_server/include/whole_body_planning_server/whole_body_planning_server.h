@@ -100,6 +100,7 @@ private:
   robot_state::RobotStatePtr current_robot_state_;
   mutable std::mutex current_robot_state_mutex_;
 
+  robot_trajectory::RobotTrajectoryPtr planned_trajectory_;
   robot_trajectory::RobotTrajectoryPtr trajectory_;
   ros::Time trajectory_start_time_;
   mutable std::mutex trajectory_mutex_;
