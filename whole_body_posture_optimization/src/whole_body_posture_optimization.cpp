@@ -302,15 +302,23 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
                                                                                   std::vector<Eigen::Isometry3d>& trajectory_world_poses,
                                                                                   std::vector<size_t>& trajectory_start_indices)
 {
+  return computeTrajectory(opt_result, Eigen::Vector2d::Zero(), trajectory_world_poses, trajectory_start_indices);
+}
+
+robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajectory(const std::vector<PostureOptimizationResult>& opt_result,
+                                                                                  const Eigen::Vector2d& odom_start,
+                                                                                  std::vector<Eigen::Isometry3d>& trajectory_world_poses,
+                                                                                  std::vector<size_t>& trajectory_start_indices)
+{
   START_TIMING("Trajectory planning")
-  robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
+  robot_trajectory::RobotTrajectory trajectory_fake_odom(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
   if (opt_result.size() < 2) {
     ROS_WARN_STREAM("Can't compute trajectory, path is empty.");
-    return trajectory_with_world;
+    return trajectory_fake_odom;
   }
   if (!opt_result.back().success) {
     ROS_WARN_STREAM("Posture optimization failed, can't compute trajectory");
-    return trajectory_with_world;
+    return trajectory_fake_odom;
   }
 
   const robot_state::JointModelGroup* joint_model_group = robot_model_->getMoveitRobotModel()->getJointModelGroup(complete_robot_group_);
@@ -328,20 +336,20 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
       ROS_ERROR_STREAM("Using planner '" << trajectory_planner_name_ << "' instead.");
     } else {
       ROS_ERROR_STREAM("No planners found.");
-      return trajectory_with_world;
+      return trajectory_fake_odom;
     }
   }
   planning_interface::PlannerManagerPtr planner_instance(planner_plugin_loader.createUnmanagedInstance(trajectory_planner_name_));
   if (!planner_instance->initialize(robot_model_->getMoveitRobotModel(), nh_.getNamespace())) {
     ROS_FATAL_STREAM("Could not initialize planner instance");
-    return trajectory_with_world;
+    return trajectory_fake_odom;
   }
   ROS_INFO_STREAM("Using planning interface '" << planner_instance->getDescription() << "'");
 
   std::vector<size_t> trajectory_start_index;
   // We use x/y position fields to track distance / rotation for time parameterization
-  double total_distance = opt_result.front().result_state->getVariablePosition("world_virtual_joint/trans_x");
-  double total_rotation = opt_result.front().result_state->getVariablePosition("world_virtual_joint/trans_z");
+  double total_distance = odom_start[0];
+  double total_rotation = odom_start[1];
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
     planning_interface::MotionPlanRequest req;
     req.group_name = complete_robot_group_;
@@ -361,7 +369,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
     planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
     if (!context) {
       ROS_ERROR_STREAM("Failed to construct planning context. Error: " << res.error_code_);
-      return trajectory_with_world;
+      return trajectory_fake_odom;
     }
     context->solve(res);
     if (res.error_code_.val != res.error_code_.SUCCESS)
@@ -414,11 +422,11 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
     total_rotation += yaw_distance;
 
     // Save start index of this trajectory part
-    trajectory_start_indices.push_back(trajectory_with_world.getWayPointCount());
+    trajectory_start_indices.push_back(trajectory_fake_odom.getWayPointCount());
     // Append trajectory parts to full trajectory
     if (i != opt_result.size()-2) {
       // Append to full trajectory (minus the end point, which would be a duplicate of the next start)
-      trajectory_with_world.append(*res.trajectory_, 0, 0, res.trajectory_->getWayPointCount()-1);
+      trajectory_fake_odom.append(*res.trajectory_, 0, 0, res.trajectory_->getWayPointCount()-1);
     } else {
       // Keep end point on last trajectory
       //      updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), opt_result[i+1].result_pose);
@@ -427,26 +435,26 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
       odom_fake_pose.translation().z() = total_rotation;
       updateMoveitRobotState(*res.trajectory_->getLastWayPointPtr(), odom_fake_pose);
       world_poses.push_back(end_pose);
-      trajectory_with_world.append(*res.trajectory_, 0);
+      trajectory_fake_odom.append(*res.trajectory_, 0);
     }
     trajectory_world_poses.insert(trajectory_world_poses.end(), world_poses.begin(), world_poses.end());
   }
-  trajectory_start_indices.push_back(trajectory_with_world.getWayPointCount()); // last index is size of trajectory
+  trajectory_start_indices.push_back(trajectory_fake_odom.getWayPointCount()); // last index is size of trajectory
   // Debug: print out trajectories
   //  ROS_INFO_STREAM(vecToString(trajectory_start_index));
   //  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(trajectory_with_world));
   STOP_TIMING_AVG
 
 
-  return trajectory_with_world;
+  return trajectory_fake_odom;
 }
 
 robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::addTimeParameterization(
-    robot_trajectory::RobotTrajectory& trajectory_with_world,
+    robot_trajectory::RobotTrajectory& trajectory_fake_odom,
     const std::vector<Eigen::Isometry3d>& trajectory_world_poses)
 {
-  if (trajectory_with_world.getWayPointCount() != trajectory_world_poses.size()) {
-    throw std::invalid_argument("trajectory_with_world size (" + std::to_string(trajectory_with_world.getWayPointCount())
+  if (trajectory_fake_odom.getWayPointCount() != trajectory_world_poses.size()) {
+    throw std::invalid_argument("trajectory_fake_odom size (" + std::to_string(trajectory_fake_odom.getWayPointCount())
                                 + ") does not match trajectory_world_poses size(" + std::to_string(trajectory_world_poses.size()) + ").");
   }
 
@@ -456,13 +464,13 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::addTimeParameter
   // Perform time parameterization
   trajectory_processing::IterativeSplineParameterization time_parameterization(false);
 //  trajectory_processing::TimeOptimalTrajectoryGeneration time_parameterization; // TOTP uses resampling, so can't use that easily
-  if (!time_parameterization.computeTimeStamps(trajectory_with_world)) {
+  if (!time_parameterization.computeTimeStamps(trajectory_fake_odom)) {
     ROS_ERROR_STREAM("Time parameterization failed.");
     return trajectory_out;
   }
 
   // Perform a deep copy before overwriting the world poses
-  robot_trajectory::RobotTrajectory deep_copy(trajectory_with_world, true);
+  robot_trajectory::RobotTrajectory deep_copy(trajectory_fake_odom, true);
 
   // Replace fake world-poses used for time-parameterization with actual world poses
   for (unsigned int i = 0; i < deep_copy.getWayPointCount(); ++i) {

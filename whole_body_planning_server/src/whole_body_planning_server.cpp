@@ -190,7 +190,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
 
   // Collect results
   std::vector<whole_body_posture_optimization::PostureOptimizationResult> results;
-  robot_trajectory::RobotTrajectoryPtr trajectory_with_world;
+  robot_trajectory::RobotTrajectoryPtr trajectory_fake_odom;
   std::vector<Eigen::Isometry3d> trajectory_world_poses;
 
   // Add start state
@@ -206,6 +206,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   bool first_execution = true;
   robot_trajectory::RobotTrajectoryPtr trajectory;
   int time_parameterization_count = 0; // Number of waypoints with time parameterization attached (index of the first waypoint without t/p)
+  Eigen::Vector2d fake_odom_pose = Eigen::Vector2d::Zero();
   for (int current_traj_index = 0; current_traj_index < path_smoothed.poses.size() -1; ++current_traj_index) {
     nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
 
@@ -267,8 +268,8 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     // Compute trajectories
     std::vector<Eigen::Isometry3d> trajectory_world_poses_tmp;
     std::vector<size_t> trajectory_start_indices_tmp;
-    robot_trajectory::RobotTrajectory trajectory_with_world_tmp = optimizer_->computeTrajectory(optimization_results, trajectory_world_poses_tmp, trajectory_start_indices_tmp);
-    if (trajectory_with_world_tmp.empty()) {
+    robot_trajectory::RobotTrajectory trajectory_fake_odom_part = optimizer_->computeTrajectory(optimization_results, fake_odom_pose, trajectory_world_poses_tmp, trajectory_start_indices_tmp);
+    if (trajectory_fake_odom_part.empty()) {
       stopExecution();
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
       if (followPathServerIsActive()) {
@@ -278,19 +279,24 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       }
       break;
     }
+    // Extract current fake odom pose to initialize next trajectory
+    fake_odom_pose[0] = trajectory_fake_odom_part.getWayPoint(trajectory_fake_odom_part.getWayPointCount()-1).getVariablePosition("world_virtual_joint/trans_x");
+    fake_odom_pose[1] = trajectory_fake_odom_part.getWayPoint(trajectory_fake_odom_part.getWayPointCount()-1).getVariablePosition("world_virtual_joint/trans_z");
+
     // Append to full trajectory (minus the end point, which would be a duplicate of the next start)
-    if (!trajectory_with_world) {
-      trajectory_with_world = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory_with_world_tmp.getRobotModel(), trajectory_with_world_tmp.getGroupName());
+    if (!trajectory_fake_odom) {
+      trajectory_fake_odom = std::make_shared<robot_trajectory::RobotTrajectory>(
+          trajectory_fake_odom_part.getRobotModel(), trajectory_fake_odom_part.getGroupName());
     }
     if (!end_of_path_reached_) {
       trajectory_world_poses.insert(trajectory_world_poses.end(), trajectory_world_poses_tmp.begin(), trajectory_world_poses_tmp.end() - 1);
-      trajectory_with_world->append(trajectory_with_world_tmp, 0.0, 0, trajectory_with_world_tmp.getWayPointCount() - 1);
+      trajectory_fake_odom->append(trajectory_fake_odom_part, 0.0, 0, trajectory_fake_odom_part.getWayPointCount() - 1);
     } else {
       trajectory_world_poses.insert(trajectory_world_poses.end(), trajectory_world_poses_tmp.begin(), trajectory_world_poses_tmp.end());
-      trajectory_with_world->append(trajectory_with_world_tmp, 0.0);
+      trajectory_fake_odom->append(trajectory_fake_odom_part, 0.0);
     }
 
-    if (trajectory_with_world->getWayPointCount() < trajectory_minimum_size) {
+    if (trajectory_fake_odom->getWayPointCount() < trajectory_minimum_size) {
       continue;
     }
 
@@ -298,13 +304,13 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     int time_parameterization_start_index = time_parameterization_count;
     time_parameterization_start_index = std::max(0, time_parameterization_start_index - trajectory_overlap);
     // Check against minimum trajectory length
-    if (trajectory_with_world->getWayPointCount() - time_parameterization_start_index < trajectory_minimum_size) {
-      time_parameterization_start_index = static_cast<int>(trajectory_with_world->getWayPointCount()) - trajectory_minimum_size; // Cannot go below 0 because we check for that earlier
+    if (trajectory_fake_odom->getWayPointCount() - time_parameterization_start_index < trajectory_minimum_size) {
+      time_parameterization_start_index = static_cast<int>(trajectory_fake_odom->getWayPointCount()) - trajectory_minimum_size; // Cannot go below 0 because we check for that earlier
     }
 
     // Slice trajectory and world poses
-    robot_trajectory::RobotTrajectory trajectory_slice(trajectory_with_world->getRobotModel(), trajectory_with_world->getGroupName());
-    trajectory_slice.append(*trajectory_with_world, 0.0, time_parameterization_start_index);
+    robot_trajectory::RobotTrajectory trajectory_slice(trajectory_fake_odom->getRobotModel(), trajectory_fake_odom->getGroupName());
+    trajectory_slice.append(*trajectory_fake_odom, 0.0, time_parameterization_start_index);
     std::vector<Eigen::Isometry3d> trajectory_world_poses_slice(std::next(trajectory_world_poses.begin(), time_parameterization_start_index), trajectory_world_poses.end());
     // Enforce bounds in slice (position, velocity, acceleration)
     for (size_t i = 0; i < trajectory_slice.getWayPointCount(); ++i) {
@@ -324,7 +330,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       break;
     }
     // Mark all waypoints to have a time parameterization
-    time_parameterization_count = static_cast<int>(trajectory_with_world->getWayPointCount());
+    time_parameterization_count = static_cast<int>(trajectory_fake_odom->getWayPointCount());
 
     // Slice unchanged part from previous trajectory and append new part
     if (!trajectory) {

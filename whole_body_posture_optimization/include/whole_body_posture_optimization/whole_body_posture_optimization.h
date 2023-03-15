@@ -64,10 +64,28 @@ public:
   robot_trajectory::RobotTrajectory computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
   robot_trajectory::RobotTrajectory computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result,
                                                            std::vector<size_t>& trajectory_start_indices);
+  /**
+   * Takes the (sparse) optimization results and connects them via one planned self-collision-free trajectory without time parameterization.
+   * The trajectory contains the virtual world link which is filled with fake odom messages.
+   * @param opt_result Posture optimization results
+   * @param trajectory_world_poses Interpolated base link poses in world frame for each waypoint of the returned trajectory
+   * @param trajectory_start_indices Start index of the trajectory part of each input state
+   * @return
+   */
   robot_trajectory::RobotTrajectory computeTrajectory(const std::vector<PostureOptimizationResult>& opt_result,
                                                       std::vector<Eigen::Isometry3d>& trajectory_world_poses,
                                                       std::vector<size_t>& trajectory_start_indices);
-  robot_trajectory::RobotTrajectory addTimeParameterization(robot_trajectory::RobotTrajectory& trajectory_with_world,
+  robot_trajectory::RobotTrajectory computeTrajectory(const std::vector<PostureOptimizationResult>& opt_result,
+                                                      const Eigen::Vector2d& odom_start,
+                                                      std::vector<Eigen::Isometry3d>& trajectory_world_poses,
+                                                      std::vector<size_t>& trajectory_start_indices);
+  /**
+   * Adds time parameterization to a trajectory with virtual world link with fake odom poses.
+   * @param trajectory_fake_odom Trajectory with fake odom poses
+   * @param trajectory_world_poses Base link poses in world frame that are used for the final trajectory
+   * @return
+   */
+  robot_trajectory::RobotTrajectory addTimeParameterization(robot_trajectory::RobotTrajectory& trajectory_fake_odom,
                                                       const std::vector<Eigen::Isometry3d>& trajectory_world_poses);
 
   void publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const ros::Time& start_time=ros::Time(0));
