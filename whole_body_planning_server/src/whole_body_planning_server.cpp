@@ -11,6 +11,7 @@
 #include <eigen_conversions/eigen_msg.h>
 #include <moveit_msgs/DisplayRobotState.h>
 #include <moveit/robot_state/conversions.h>
+#include <std_msgs/Float64.h>
 
 
 namespace whole_body_planning_server {
@@ -39,7 +40,9 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
 
   // Publishers
   preprocessed_path_pub_ = pnh_.advertise<nav_msgs::Path>("preprocessed_path", 10, true);
-  robot_state_pub_ = pnh_.advertise<moveit_msgs::DisplayRobotState>("goal_robot_state", 10, false);
+  robot_state_pub_ = pnh_.advertise<moveit_msgs::DisplayRobotState>("execution/goal_state", 10, false);
+  position_deviation_pub_ = pnh_.advertise<std_msgs::Float64>("execution/position_deviation", 10, false);
+  orientation_deviation_pub_ = pnh_.advertise<std_msgs::Float64>("execution/orientation_deviation", 10, false);
 
   // Dynamic reconfigure
   reconfigure_server_.setCallback(std::bind(&WholeBodyPlanningServer::dynamicReconfigureCallback,
@@ -880,8 +883,8 @@ void WholeBodyPlanningServer::executionWatchDog()
     double angular_distance = interpolated_orientation.angularDistance(current_orientation);
     bool orientation_within_limits = angular_distance < execution_orientation_tolerance_;
 
-    ROS_INFO_STREAM("Position deviation: " << distance);
-    ROS_INFO_STREAM("Orientation deviation: " << angular_distance);
+//    ROS_INFO_STREAM("Position deviation: " << distance);
+//    ROS_INFO_STREAM("Orientation deviation: " << angular_distance);
 
     bool stop_execution = false;
     if (!position_within_limits) {
@@ -892,6 +895,13 @@ void WholeBodyPlanningServer::executionWatchDog()
       ROS_WARN_STREAM("Orientation deviation of " << angular_distance << " exceeds tolerance of " << execution_orientation_tolerance_);
       stop_execution = true;
     }
+
+    // Publish deviation
+    std_msgs::Float64 deviation_msg;
+    deviation_msg.data = distance;
+    position_deviation_pub_.publish(deviation_msg);
+    deviation_msg.data = angular_distance;
+    orientation_deviation_pub_.publish(deviation_msg);
 
     if (stop_execution) {
       // Stop execution and fail goal (with stuck)
