@@ -474,6 +474,7 @@ nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, in
 
 bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out)
 {
+  std::lock_guard<std::mutex> lock(esdf_update_mutex_);
   ROS_INFO_STREAM("Planning a new path");
   if (path_msg.poses.empty()) {
     ROS_WARN_STREAM("Path is empty. Can't plan.");
