@@ -889,22 +889,22 @@ void WholeBodyPlanningServer::executionWatchDog()
 
     // Check position threshold
     double distance = (interpolated_pose.translation() - current_robot_pose.translation()).norm();
-    bool position_within_limits = distance < execution_position_tolerance_;
+    bool position_out_of_limits = execution_position_tolerance_ > 0 && distance > execution_position_tolerance_;
 
     // Check orientation threshold
     Eigen::Quaterniond current_orientation(current_robot_pose.linear());
     double angular_distance = interpolated_orientation.angularDistance(current_orientation);
-    bool orientation_within_limits = angular_distance < execution_orientation_tolerance_;
+    bool orientation_out_of_limits = execution_orientation_tolerance_ > 0 && angular_distance > execution_orientation_tolerance_;
 
 //    ROS_INFO_STREAM("Position deviation: " << distance);
 //    ROS_INFO_STREAM("Orientation deviation: " << angular_distance);
 
     bool stop_execution = false;
-    if (!position_within_limits) {
+    if (position_out_of_limits) {
       ROS_WARN_STREAM("Position deviation of " << distance << " exceeds tolerance of " << execution_position_tolerance_);
       stop_execution = true;
     }
-    if (!orientation_within_limits) {
+    if (orientation_out_of_limits) {
       ROS_WARN_STREAM("Orientation deviation of " << angular_distance << " exceeds tolerance of " << execution_orientation_tolerance_);
       stop_execution = true;
     }
