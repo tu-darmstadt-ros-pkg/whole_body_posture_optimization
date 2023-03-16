@@ -162,7 +162,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   }
 
   if (auto_start) {
-    if (!executeTrajectory(*planned_trajectory_, start_time)) {
+    if (!executeTrajectoryWithWatchdog(*planned_trajectory_, start_time)) {
       ROS_ERROR_STREAM("Trajectory execution failed");
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
@@ -558,6 +558,18 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
   return true;
 }
 
+bool WholeBodyPlanningServer::executeTrajectoryWithWatchdog(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time)
+{
+  if (!executeTrajectory(trajectory, start_time)) {
+    return false;
+  }
+  execution_completed_ = false;
+  if (!execution_watchdog_thread_) {
+    execution_watchdog_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::executionWatchDog, this);
+  }
+  return true;
+}
+
 void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle goal)
 {
   ROS_INFO_STREAM("New goal received.");
@@ -686,7 +698,7 @@ void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
     return;
   }
   ros::Time starting_time = ros::Time::now() + ros::Duration(1);
-  if (!executeTrajectory(*planned_trajectory_, starting_time)) {
+  if (!executeTrajectoryWithWatchdog(*planned_trajectory_, starting_time)) {
     ROS_ERROR_STREAM("Trajectory execution failed");
   }
 }
