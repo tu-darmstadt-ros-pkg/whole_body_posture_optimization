@@ -666,11 +666,24 @@ nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const robot_
   nav_msgs::Path path;
   path.header.frame_id = map_frame_;
   path.header.stamp = start_time;
+  Eigen::Affine3d previous_pose;
   for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
+    Eigen::Affine3d goal_pose = trajectory.getWayPoint(i).getJointTransform("world_virtual_joint");
+    if (i > 0) {
+      double distance = (goal_pose.translation() - previous_pose.translation()).norm();
+      if (distance < 0.01) {
+        if (i == trajectory.getWayPointCount() - 1) {
+          path.poses.pop_back();
+        } else {
+          continue;
+        }
+      }
+    }
+    previous_pose = goal_pose;
+
     geometry_msgs::PoseStamped pose_msg;
     pose_msg.header.frame_id = map_frame_;
     pose_msg.header.stamp = start_time + ros::Duration(trajectory.getWayPointDurationFromStart(i));
-    Eigen::Affine3d goal_pose = trajectory.getWayPoint(i).getJointTransform("world_virtual_joint");
     tf::poseEigenToMsg(goal_pose, pose_msg.pose);
     path.poses.push_back(pose_msg);
   }
