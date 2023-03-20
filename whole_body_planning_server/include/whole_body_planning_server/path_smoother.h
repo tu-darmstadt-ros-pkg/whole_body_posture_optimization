@@ -19,6 +19,7 @@ class Pathsmoother3D
 {
 private:
   double SMOOTHED_PATH_DISCRETIZATION;
+  double SMOOTHED_PATH_ORIENTATION_DISCRETIZATION;
   double PATH_SMOOTHNESS;             // Temperature / smoothness parameter. Current value is manually tuned.
                              // The smaller the smoother. <-> The bigger the smaller the error to the original path.
   bool allow_reverse_paths;  // Flag indicating if reverse paths are allowed
@@ -57,7 +58,9 @@ protected:
 
   std::vector<Eigen::Vector3d> computeSmoothedPositions(const std::vector<double>& distances, const std::deque<Eigen::Vector3d>& positions) const;
 
-  std::vector<Eigen::Quaterniond> computeSmoothedOrientations(const std::vector<Eigen::Vector3d>& smoothed_positions, const Eigen::Quaterniond& start_orientation, const Eigen::Quaterniond& end_orientation, bool reverse) const;
+  std::vector<Eigen::Quaterniond> computeSmoothedOrientations(std::vector<Eigen::Vector3d>& smoothed_positions, const Eigen::Quaterniond& start_orientation, const Eigen::Quaterniond& end_orientation, bool reverse) const;
+
+  std::vector<Eigen::Quaterniond> discretizeOrientation(const Eigen::Quaterniond& start_orientation, const Eigen::Quaterniond& end_orientation) const;
 
   double gaussianWeight(double t0, double t1) const;
 };

@@ -20,6 +20,7 @@ void Pathsmoother3D::setPathSmoothness(double value)
 
 Pathsmoother3D::Pathsmoother3D(bool allow_reverse_paths, bool ignore_goal_orientation)
   : SMOOTHED_PATH_DISCRETIZATION(0.05),// Hector best practice values
+  SMOOTHED_PATH_ORIENTATION_DISCRETIZATION(0.2),
   PATH_SMOOTHNESS(0.125),            // Hector best practice values
   allow_reverse_paths(allow_reverse_paths),
   ignore_goal_orientation(ignore_goal_orientation),
@@ -120,6 +121,7 @@ nav_msgs::Path Pathsmoother3D::smooth(const nav_msgs::Path& path_in, bool revers
 
   nav_msgs::Path path_out;
   path_out.header = path_in.header;
+  path_out.poses.reserve(out_smoothed_positions.size());
   for (unsigned int i = 0; i < out_smoothed_positions.size(); i++) {
     geometry_msgs::PoseStamped pose;
     pose.header.frame_id = path_out.header.frame_id;
@@ -194,10 +196,12 @@ std::vector<Eigen::Vector3d> Pathsmoother3D::computeSmoothedPositions(const std:
   return smoothed_positions;
 }
 
-std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(const std::vector<Eigen::Vector3d>& smoothed_positions, const Eigen::Quaterniond& start_orientation, const Eigen::Quaterniond& end_orientation, bool reverse) const
+std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(std::vector<Eigen::Vector3d>& smoothed_positions, const Eigen::Quaterniond& start_orientation, const Eigen::Quaterniond& end_orientation, bool reverse) const
 {
   std::vector<Eigen::Quaterniond> smoothed_orientations;
   smoothed_orientations.reserve(smoothed_positions.size());
+
+  std::vector<Eigen::Vector3d> smoothed_positions_out = smoothed_positions;
   double reverse_factor = reverse ? -1.0 : 1.0;
   for (unsigned i = 0; i < smoothed_positions.size(); i++)
   {
@@ -209,20 +213,56 @@ std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(cons
       Eigen::Vector3d delta_vector = smoothed_positions[i + 1] - smoothed_positions[i];
       delta_vector.z() = 0; // If this is != 0, it leads to solutions rotated around X (local_robot_direction)
       q.setFromTwoVectors(reverse_factor * local_robot_direction, delta_vector);
+
+      if (i == 1) {
+        std::vector<Eigen::Quaterniond> orientations = discretizeOrientation(start_orientation, q);
+        smoothed_orientations.insert(smoothed_orientations.end(), orientations.begin(), orientations.end());
+        std::vector<Eigen::Vector3d> positions(orientations.size(), smoothed_positions.front());
+        smoothed_positions_out.insert(smoothed_positions_out.begin(), positions.begin(), positions.end());
+      }
+
       smoothed_orientations.push_back(q);
     }
     else if (i == smoothed_positions.size() - 1) {
       if (!ignore_goal_orientation) {
+        std::vector<Eigen::Quaterniond> orientations = discretizeOrientation(smoothed_orientations.back(), end_orientation);
+        smoothed_orientations.insert(smoothed_orientations.end(), orientations.begin(), orientations.end());
         smoothed_orientations.push_back(end_orientation);
+        std::vector<Eigen::Vector3d> positions(orientations.size(), smoothed_positions.back());
+        smoothed_positions_out.insert(smoothed_positions_out.end(), positions.begin(), positions.end());
       }
       else {
         smoothed_orientations.push_back(smoothed_orientations.back()); // Repeat last orientation
       }
     }
-    else // i == 0
+    else { // i == 0
       smoothed_orientations.push_back(start_orientation);
+    }
   }
+  smoothed_positions = smoothed_positions_out;
   return smoothed_orientations;
 }
+
+std::vector<Eigen::Quaterniond> Pathsmoother3D::discretizeOrientation(const Eigen::Quaterniond& start_orientation, const Eigen::Quaterniond& end_orientation) const
+{
+  ROS_INFO_STREAM("Interpolating between " << start_orientation.coeffs() << " and " << end_orientation.coeffs());
+  double angular_distance = start_orientation.angularDistance(end_orientation);
+  ROS_INFO_STREAM("distance: " << angular_distance);
+  int steps = static_cast<int>(std::ceil(angular_distance / SMOOTHED_PATH_ORIENTATION_DISCRETIZATION));
+  ROS_INFO_STREAM("Additional poses: " << steps -1);
+  if (steps < 2) {
+    return {};
+  }
+  std::vector<Eigen::Quaterniond> orientations;
+  orientations.reserve(steps - 1);
+  for (int i = 1; i < steps; ++i) {
+    double t = (i * SMOOTHED_PATH_ORIENTATION_DISCRETIZATION) / angular_distance;
+    Eigen::Quaterniond interpolated_orientation = start_orientation.slerp(t, end_orientation);
+    ROS_INFO_STREAM("Adding step " << t << ": " << interpolated_orientation.coeffs());
+    orientations.push_back(interpolated_orientation);
+  }
+  return orientations;
+}
+
 
 }
