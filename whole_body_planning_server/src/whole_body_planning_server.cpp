@@ -120,7 +120,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
   map_frame_ = path_msg.header.frame_id;
 
   // Path pre-processing
-  nav_msgs::Path path_smoothed = preprocessPath(path_msg);
+  nav_msgs::Path path_smoothed = preprocessPath(path_msg, path_sampling_resolution_);
   nav_msgs::Path path_slice = slicePath(path_smoothed, planning_horizon_);
   end_of_path_reached_ = (path_slice.poses.size() == path_smoothed.poses.size());
   if (end_of_path_reached_) {
@@ -184,7 +184,12 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   waitForMap();
 
   // Path pre-processing
-  nav_msgs::Path path_smoothed = preprocessPath(path_msg);
+  double path_sampling_resolution;
+  {
+    std::lock_guard<std::mutex> reconfigure_lock(reconfigure_mutex_);
+    path_sampling_resolution = path_sampling_resolution_;
+  }
+  nav_msgs::Path path_smoothed = preprocessPath(path_msg, path_sampling_resolution);
   const int trajectory_minimum_size = 4; // limited by time parameterization
   const int trajectory_overlap = 2;
   if (path_smoothed.poses.size() < trajectory_minimum_size) {
@@ -299,7 +304,10 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       trajectory_fake_odom->append(trajectory_fake_odom_part, 0.0);
     }
 
-    if (trajectory_fake_odom->getWayPointCount() < trajectory_minimum_size) {
+    // Check if trajectory is long enough to perform time parameterization
+    // and covers enough distance to be executed by the vehicle controller
+    if (trajectory_fake_odom->getWayPointCount() < trajectory_minimum_size ||
+        trajectory_fake_odom->getWayPoint(trajectory_fake_odom->getWayPointCount()-1).getVariablePosition("world_virtual_joint/trans_x") < path_sampling_resolution) {
       continue;
     }
 
@@ -398,7 +406,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
 }
 
 
-nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& path) const
+nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& path, double path_sampling_resolution) const
 {
   nav_msgs::Path path_copy = path;
 
@@ -421,10 +429,7 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
   }
 
   Pathsmoother3D path_smoother(allow_reverse_paths, ignore_goal_orientation);
-  {
-    std::lock_guard<std::mutex> lock(reconfigure_mutex_);
-    path_smoother.setSmoothedPathDiscretization(path_sampling_resolution_);
-  }
+  path_smoother.setSmoothedPathDiscretization(path_sampling_resolution);
   path_copy = path_smoother.smooth(path_copy, true);
 
   preprocessed_path_pub_.publish(path_copy);
@@ -670,8 +675,10 @@ nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const robot_
   for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
     Eigen::Affine3d goal_pose = trajectory.getWayPoint(i).getJointTransform("world_virtual_joint");
     if (i > 0) {
-      double distance = (goal_pose.translation() - previous_pose.translation()).norm();
+      // Only add waypoint if there is sufficient distance in x-y plane
+      double distance = (goal_pose.translation().block<2, 1>(0, 0) - previous_pose.translation().block<2, 1>(0, 0)).norm();
       if (distance < 0.01) {
+        // preserve the last waypoint and instead remove the one before
         if (i == trajectory.getWayPointCount() - 1) {
           path.poses.pop_back();
         } else {
@@ -680,7 +687,6 @@ nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const robot_
       }
     }
     previous_pose = goal_pose;
-
     geometry_msgs::PoseStamped pose_msg;
     pose_msg.header.frame_id = map_frame_;
     pose_msg.header.stamp = start_time + ros::Duration(trajectory.getWayPointDurationFromStart(i));

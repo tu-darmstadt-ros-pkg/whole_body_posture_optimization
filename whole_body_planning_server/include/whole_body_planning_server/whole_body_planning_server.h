@@ -48,7 +48,7 @@ public:
 private:
   void updateRobotPose(const nav_msgs::Path& path);
   bool getRobotPose(const ros::Time& stamp, geometry_msgs::TransformStamped& transform) const;
-  nav_msgs::Path preprocessPath(const nav_msgs::Path& path) const;
+  nav_msgs::Path preprocessPath(const nav_msgs::Path& path, double path_sampling_resolution) const;
   bool generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out);
 
   bool executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time);
