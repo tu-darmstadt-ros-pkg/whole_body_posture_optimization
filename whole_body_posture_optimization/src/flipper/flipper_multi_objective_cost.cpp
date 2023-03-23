@@ -27,6 +27,9 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
     prev_com_ = prev_pose_ * pose_predictor->robotModel()->centerOfMass();
     // Compute previous support polygon
     pose_predictor_->estimateSupportPolygon(hector_math::Pose<double>(prev_pose_), prev_support_polygon_);
+    if (prev_support_polygon_.contact_hull_points.empty()) {
+      ROS_WARN_STREAM("Failed to compute previous support polygon. Cannot compute impact costs.");
+    }
   }
   if (DataLog::getInstance().getTable("flipper_multi_objective_cost").enabled()) {
     std::vector<std::string> data_labels = free_joints;
@@ -120,7 +123,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
       Eigen::Vector3d euler_angles = quatToEuler(rotation_diff);
 
       // Reduce impact force when tipping
-      if (parameters_.impact_weight != 0) {
+      if (parameters_.impact_weight != 0 && !prev_support_polygon_.contact_hull_points.empty()) {
         Eigen::Vector3d com = result_pose_eigen * pose_predictor_->robotModel()->centerOfMass();
         std::vector<double> curr_com_prev_polygon_stabilities =
             computeForceAngleStabilitiesWithGravity<double>(prev_support_polygon_.contact_hull_points, com);
