@@ -245,11 +245,8 @@ std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(std:
 
 std::vector<Eigen::Quaterniond> Pathsmoother3D::discretizeOrientation(const Eigen::Quaterniond& start_orientation, const Eigen::Quaterniond& end_orientation) const
 {
-  ROS_INFO_STREAM("Interpolating between " << start_orientation.coeffs() << " and " << end_orientation.coeffs());
   double angular_distance = start_orientation.angularDistance(end_orientation);
-  ROS_INFO_STREAM("distance: " << angular_distance);
   int steps = static_cast<int>(std::ceil(angular_distance / SMOOTHED_PATH_ORIENTATION_DISCRETIZATION));
-  ROS_INFO_STREAM("Additional poses: " << steps -1);
   if (steps < 2) {
     return {};
   }
@@ -258,7 +255,6 @@ std::vector<Eigen::Quaterniond> Pathsmoother3D::discretizeOrientation(const Eige
   for (int i = 1; i < steps; ++i) {
     double t = (i * SMOOTHED_PATH_ORIENTATION_DISCRETIZATION) / angular_distance;
     Eigen::Quaterniond interpolated_orientation = start_orientation.slerp(t, end_orientation);
-    ROS_INFO_STREAM("Adding step " << t << ": " << interpolated_orientation.coeffs());
     orientations.push_back(interpolated_orientation);
   }
   return orientations;
