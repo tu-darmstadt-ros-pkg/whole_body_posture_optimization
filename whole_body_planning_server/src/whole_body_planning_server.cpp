@@ -178,7 +178,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
 
 void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path& path_msg, bool replanning)
 {
-  ROS_INFO_STREAM("Received new path, planning continuously..");
+  ROS_DEBUG_STREAM("Received new path, planning continuously..");
   map_frame_ = path_msg.header.frame_id;
 
   waitForMap();
@@ -248,10 +248,10 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     }
 
     if (execution_completed_) {
-      ROS_INFO_STREAM("Execution thread stopped");
+      ROS_DEBUG_STREAM("Execution thread stopped");
       return;
     }
-    ROS_INFO_STREAM("Waypoint " << current_traj_index);
+    ROS_DEBUG_STREAM("Waypoint " << current_traj_index);
 
     end_of_path_reached_ = current_traj_index == path_smoothed.poses.size() - 2;
 
@@ -353,7 +353,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     trajectory->append(trajectory_copy, 0.0, 0, time_parameterization_start_index); // old part
     trajectory->append(timed_trajectory_slice, trajectory_copy.getWayPointDurationFromPrevious(time_parameterization_start_index)); // new part
 
-    ROS_INFO_STREAM("Total trajectory duration: " << trajectory->getDuration() << " s");
+    ROS_DEBUG_STREAM("Total trajectory duration: " << trajectory->getDuration() << " s");
 
     // Set start time once after the first trajectory part has been computed
     if (first_execution) {
@@ -386,7 +386,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       // Send trajectory
       std::lock_guard<std::mutex> lock(trajectory_mutex_);
       if (execution_completed_) {
-        ROS_INFO_STREAM("Stopping execution thread before execution");
+        ROS_DEBUG_STREAM("Stopping execution thread before execution");
         return;
       }
       if (!executeTrajectory(*trajectory, start_time)) {
@@ -402,7 +402,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       }
     }
   }
-  ROS_INFO_STREAM("Execution thread completed");
+  ROS_DEBUG_STREAM("Execution thread completed");
 }
 
 
@@ -500,7 +500,7 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot
 
 bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time)
 {
-  ROS_INFO_STREAM("Starting trajectory execution");
+  ROS_DEBUG_STREAM("Starting trajectory execution");
   if (trajectory.empty()) {
     ROS_WARN_STREAM("Trajectory is empty, execution is trivially successful.");
     return true;
@@ -540,8 +540,6 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
     follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = false;
   }
 
-  ROS_INFO_STREAM("Executing planned trajectory");
-
   // Send goals simultaneously
   if (!executeJointTrajectory(trajectory, false, start_time)) {
     return false;
@@ -577,7 +575,8 @@ bool WholeBodyPlanningServer::executeTrajectoryWithWatchdog(const robot_trajecto
 
 void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle goal)
 {
-  ROS_INFO_STREAM("New goal received.");
+  ROS_INFO_STREAM("WholeBodyPlanner received new goal to [" << goal.getGoal()->target_path.poses.back().pose.position.x << ", "
+                                                         << goal.getGoal()->target_path.poses.back().pose.position.y << "]");
   // Check if another goal exists
   bool goal_preempted = false;
   if (followPathServerIsActive()) {
@@ -739,7 +738,7 @@ bool WholeBodyPlanningServer::followPathServerIsActive() const
 void WholeBodyPlanningServer::followPathClientDoneCallback(const actionlib::SimpleClientGoalState& state,
                                                            const move_base_lite_msgs::FollowPathResultConstPtr& result)
 {
-  ROS_INFO_STREAM("Follow path client finished.");
+  ROS_DEBUG_STREAM("Follow path client finished.");
   if (result->result.val == move_base_lite_msgs::ErrorCodes::SUCCESS) {
     if (end_of_path_reached_) {
       ROS_INFO_STREAM("Following path successful.");
@@ -834,7 +833,7 @@ void WholeBodyPlanningServer::spinMapUpdate()
     first_esdf_update_condition_.notify_all();
     rate.sleep();
   }
-  ROS_INFO_STREAM("Map update thread finished.");
+  ROS_DEBUG_STREAM("Map update thread finished.");
 }
 void WholeBodyPlanningServer::stopMapUpdateThread()
 {
@@ -915,9 +914,6 @@ void WholeBodyPlanningServer::executionWatchDog()
     double angular_distance = interpolated_orientation.angularDistance(current_orientation);
     bool orientation_out_of_limits = execution_orientation_tolerance_ > 0 && angular_distance > execution_orientation_tolerance_;
 
-//    ROS_INFO_STREAM("Position deviation: " << distance);
-//    ROS_INFO_STREAM("Orientation deviation: " << angular_distance);
-
     bool stop_execution = false;
     if (position_out_of_limits) {
       ROS_WARN_STREAM("Position deviation of " << distance << " exceeds tolerance of " << execution_position_tolerance_);
@@ -950,7 +946,7 @@ void WholeBodyPlanningServer::executionWatchDog()
     trajectory_mutex_.unlock();
     rate.sleep();
   }
-  ROS_INFO_STREAM("Watchdog thread finished");
+  ROS_DEBUG_STREAM("Watchdog thread finished");
 }
 
 void WholeBodyPlanningServer::waitForMap()

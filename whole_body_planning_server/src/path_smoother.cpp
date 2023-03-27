@@ -66,7 +66,7 @@ void Pathsmoother3D::smooth(const std::deque<Eigen::Vector3d>& in_path, const Ei
         reverse = start_projection < 0.0; // Angle > 90° -> robot is pointing away from the path
 
         if(reverse)
-          ROS_INFO("[Pathsmoother3D] REVERSE! start_projection = %f", start_projection);
+          ROS_DEBUG("[Pathsmoother3D] REVERSE! start_projection = %f", start_projection);
       }
       else
       {
