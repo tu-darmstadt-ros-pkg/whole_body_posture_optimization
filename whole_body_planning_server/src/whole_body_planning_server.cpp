@@ -675,7 +675,7 @@ nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const robot_
   for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
     Eigen::Affine3d goal_pose = trajectory.getWayPoint(i).getJointTransform("world_virtual_joint");
     if (i > 0) {
-      // Only add waypoint if there is sufficient distance in x-y plane
+      // Skip if waypoints are too close in the x-y plane
       double distance = (goal_pose.translation().block<2, 1>(0, 0) - previous_pose.translation().block<2, 1>(0, 0)).norm();
       if (distance < 0.01) {
         // preserve the last waypoint and instead remove the one before
@@ -825,7 +825,7 @@ void WholeBodyPlanningServer::enforceAccelerationBounds(const moveit::core::Robo
 void WholeBodyPlanningServer::spinMapUpdate()
 {
   ros::NodeHandle nh;
-  ros::WallRate rate(0.1);
+  ros::WallRate rate(10);
   while (nh.ok() && map_update_running_) {
     {
       std::lock_guard<std::mutex> lock(esdf_update_mutex_);
