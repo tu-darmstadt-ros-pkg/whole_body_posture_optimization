@@ -128,6 +128,7 @@ private:
   std::string base_frame_;
   bool auto_start_;
   double planning_horizon_;
+  double minimum_path_length_;
   std::string stability_info_save_folder_;
   double path_sampling_resolution_;
   bool override_path_time_;

@@ -26,6 +26,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   enabled_(true),
   auto_start_(false),
   planning_horizon_(-1),
+  minimum_path_length_(0),
   path_sampling_resolution_(0.02),
   override_path_time_(false),
   continuous_planning_(false)
@@ -309,6 +310,13 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     if (trajectory_fake_odom->getWayPointCount() < trajectory_minimum_size ||
         trajectory_fake_odom->getWayPoint(trajectory_fake_odom->getWayPointCount()-1).getVariablePosition("world_virtual_joint/trans_x") < path_sampling_resolution) {
       continue;
+    }
+
+    {
+      std::lock_guard<std::mutex> lock(reconfigure_mutex_);
+      if (trajectory_fake_odom->getWayPoint(trajectory_fake_odom->getWayPointCount()-1).getVariablePosition("world_virtual_joint/trans_x") < minimum_path_length_ && !end_of_path_reached_) {
+        continue;
+      }
     }
 
     // Find index of slice start for time parameterization
@@ -766,6 +774,11 @@ void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planni
   enabled_ = config.enabled;
   path_sampling_resolution_ = config.path_sampling_resolution;
   planning_horizon_ = config.planning_horizon;
+  minimum_path_length_ = config.minimum_path_length;
+  if (minimum_path_length_ > planning_horizon_) {
+    minimum_path_length_ = 0.9 * planning_horizon_;
+    ROS_WARN_STREAM("Minimum path length can't be greater than planning horizon. Setting minimum path length to " << minimum_path_length_);
+  }
   auto_start_ = config.auto_start;
   continuous_planning_ = config.continuous_planning;
 }
