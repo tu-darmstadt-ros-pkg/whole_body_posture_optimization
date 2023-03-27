@@ -358,6 +358,9 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
     planning_interface::MotionPlanRequest req;
     req.group_name = complete_robot_group_;
     req.allowed_planning_time = 2.0;
+    moveit_msgs::WorkspaceParameters& default_wp = req.workspace_parameters;
+    default_wp.min_corner.x = default_wp.min_corner.y = default_wp.min_corner.z = -1000;
+    default_wp.max_corner.x = default_wp.max_corner.y = default_wp.max_corner.z = 1000;
 
     // Set start state
     planning_scene->setCurrentState(*opt_result[i].result_state);
