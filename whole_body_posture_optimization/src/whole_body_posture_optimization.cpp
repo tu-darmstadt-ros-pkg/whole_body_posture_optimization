@@ -202,16 +202,21 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   result.flipper_cost = flipper_result.final_cost;
 
   // Optimize the arm
-  ArmOptimizationResult arm_result = arm_optimization_->optimize(init_joint_angles, flipper_result.support_polygon.contact_hull_points,
-                                                                 flipper_result.pose, flipper_result.joint_state);
-  result.result_joint_angles = arm_result.joint_angles;
-  result.result_com = arm_result.center_of_mass;
-  result.stability_arm_opt = arm_result.stability;
-  result.arm_cost = arm_result.final_cost;
-
-  result.success = result.stability_arm_opt > stability_limit_;
-  if (!result.success) {
-    ROS_WARN_STREAM("Robot unstable (" << result.stability_arm_opt << " < " << stability_limit_ << ").");
+  if (flipper_result.support_polygon.contact_hull_points.size() > 2) {
+    ArmOptimizationResult arm_result = arm_optimization_->optimize(init_joint_angles, flipper_result.support_polygon.contact_hull_points,
+                                                                   flipper_result.pose, flipper_result.joint_state);
+    result.result_joint_angles = arm_result.joint_angles;
+    result.result_com = arm_result.center_of_mass;
+    result.stability_arm_opt = arm_result.stability;
+    result.arm_cost = arm_result.final_cost;
+    result.success = result.stability_arm_opt > stability_limit_;
+    ROS_INFO_STREAM("Stability: " << result.stability_arm_opt);
+    if (!result.success) {
+      ROS_WARN_STREAM("Robot unstable (" << result.stability_arm_opt << " < " << stability_limit_ << ").");
+    }
+  } else {
+    ROS_ERROR_STREAM("No convex hull found.");
+    result.success = false;
   }
 
   // Save to full state
@@ -221,7 +226,6 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
   // Publish results
   robot_model_->publishRobotState();
   robot_model_->publishCollisionSpheres();
-  ROS_INFO_STREAM("Stability: " << result.stability_arm_opt);
 
   STOP_TIMING_AVG
 

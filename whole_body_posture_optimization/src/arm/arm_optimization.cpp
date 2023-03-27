@@ -439,7 +439,13 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_hull_points, com_pose.translation());
 //  std::vector<double> stabilities;
 //  hector_stability_metrics::computeNormalizedEnergyStabilityMargin<double>(contact_hull_points, stabilities, com_pose.translation());
-  result.stability = *std::min_element(stabilities.begin(), stabilities.end());
+  auto min_stability_it = std::min_element(stabilities.begin(), stabilities.end());
+  if (min_stability_it != stabilities.end()) {
+    result.stability = *min_stability_it;
+  } else {
+    ROS_ERROR_STREAM("Stability is empty.");
+    result.stability = -std::numeric_limits<double>::max();
+  }
 
   visualization_msgs::MarkerArray convex_hull_array_msg;
   visualization::addSupportPolygonEdgesWithStabilityToMarkerArray(convex_hull_array_msg, contact_hull_points, stabilities, 6.0, "world",
