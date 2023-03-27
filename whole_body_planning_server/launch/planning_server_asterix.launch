@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
-<launch>  
+<launch>
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find whole_body_planning_server)/config/rosconsole.config"/>
   <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" clear_params="true" respawn="true">
 <!--  <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" launch-prefix="gdb -args">-->
     <param name="auto_start" value="true"/>
