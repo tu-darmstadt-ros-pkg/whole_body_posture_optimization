@@ -29,15 +29,17 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   minimum_path_length_(0),
   path_sampling_resolution_(0.02),
   override_path_time_(false),
-  continuous_planning_(false)
+  continuous_planning_(false),
+  execution_position_tolerance_(0.0),
+  execution_orientation_tolerance_(0.0)
 {
   // Parameters
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
 //  pnh_.param<std::string>("map_frame", map_frame_, "map");
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
   pnh_.param("override_path_time", override_path_time_, true);
-  pnh_.param("execution_position_tolerance", execution_position_tolerance_, 0.1);
-  pnh_.param("execution_orientation_tolerance", execution_orientation_tolerance_, 20 * M_PI / 180.0);
+  pnh_.param("execution_position_tolerance", execution_position_tolerance_, 0.0);
+  pnh_.param("execution_orientation_tolerance", execution_orientation_tolerance_, 0.0);
 
   // Publishers
   preprocessed_path_pub_ = pnh_.advertise<nav_msgs::Path>("preprocessed_path", 10, true);
