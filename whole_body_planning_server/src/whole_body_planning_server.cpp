@@ -518,47 +518,11 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
   trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory, true);
   trajectory_start_time_ = start_time;
 
-  // Assemble driving plan
-  nav_msgs::Path path = extractPathFromTrajectories(trajectory, start_time);
-
-  move_base_lite_msgs::FollowPathGoal follow_path_goal;
-  follow_path_goal.target_path = path;
-  // Fill parameters
-  follow_path_goal.follow_path_options.desired_speed = 0.0; // Implicitly given by pose time stamps
-  follow_path_goal.follow_path_options.use_path_orientation = true; // Drive path as planned
-  follow_path_goal.follow_path_options.is_fixed = true; // No smoothing
-  follow_path_goal.follow_path_options.reset_stuck_history = false;
-
-  // Use values from goal if available
-  if (followPathServerIsActive()) {
-    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = follow_path_goal_.getGoal()->follow_path_options.rotate_front_to_goal_pose_orientation;
-    follow_path_goal.follow_path_options.reverse_allowed = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
-    follow_path_goal.follow_path_options.goal_pose_position_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_position_tolerance;
-    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance;
-  } else {
-    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
-    follow_path_goal.follow_path_options.reverse_allowed = true;
-    follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.1;
-    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
-  }
-
-  if (!end_of_path_reached_) {
-    // Set low tolerances because the current end of the path is not the goal pose
-    follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.0001;
-    // Do not care about final orientation inside path
-    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
-    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = false;
-  }
-
   // Send goals simultaneously
   if (!executeJointTrajectory(trajectory, false, start_time)) {
     return false;
   }
-  driving_client_->sendGoal(follow_path_goal,
-                            std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
-                            FollowPathClient::SimpleActiveCallback(),
-                            FollowPathClient::SimpleFeedbackCallback());
-
+  executeBaseTrajectory(trajectory, start_time);
 
   // Wait until start time to publish trajectory
   ros::Time now = ros::Time::now();
@@ -675,7 +639,51 @@ bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::Rob
   return moveit_cpp_ptr_->getTrajectoryExecutionManager()->pushAndExecute(robot_trajectory_msg);
 }
 
-nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectories(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const
+void WholeBodyPlanningServer::executeBaseTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time)
+{
+  // Assemble driving plan
+  nav_msgs::Path path = extractPathFromTrajectory(trajectory, start_time);
+  executeBaseTrajectory(path);
+}
+
+void WholeBodyPlanningServer::executeBaseTrajectory(const nav_msgs::Path& path) {
+  move_base_lite_msgs::FollowPathGoal follow_path_goal;
+  follow_path_goal.target_path = path;
+  // Fill parameters
+  follow_path_goal.follow_path_options.desired_speed = 0.0; // Implicitly given by pose time stamps
+  follow_path_goal.follow_path_options.use_path_orientation = true; // Drive path as planned
+  follow_path_goal.follow_path_options.is_fixed = true; // No smoothing
+  follow_path_goal.follow_path_options.reset_stuck_history = false;
+
+  // Use values from goal if available
+  if (followPathServerIsActive()) {
+    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = follow_path_goal_.getGoal()->follow_path_options.rotate_front_to_goal_pose_orientation;
+    follow_path_goal.follow_path_options.reverse_allowed = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
+    follow_path_goal.follow_path_options.goal_pose_position_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_position_tolerance;
+    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance;
+  } else {
+    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
+    follow_path_goal.follow_path_options.reverse_allowed = true;
+    follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.1;
+    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
+  }
+
+  if (!end_of_path_reached_) {
+    // Set low tolerances because the current end of the path is not the goal pose
+    follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.0001;
+    // Do not care about final orientation inside path
+    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
+    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = false;
+  }
+
+  driving_client_->sendGoal(follow_path_goal,
+                            std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
+                            FollowPathClient::SimpleActiveCallback(),
+                            FollowPathClient::SimpleFeedbackCallback());
+}
+
+
+nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const
 {
   nav_msgs::Path path;
   path.header.frame_id = map_frame_;

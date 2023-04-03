@@ -54,6 +54,8 @@ private:
   bool executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time);
   bool executeTrajectoryWithWatchdog(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time);
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking=true, ros::Time start_time=ros::Time());
+  void executeBaseTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time=ros::Time());
+  void executeBaseTrajectory(const nav_msgs::Path& path);
   void stopExecution();
 
   void stopExecutionThread();
@@ -66,7 +68,7 @@ private:
   /// Util
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance);
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, int start_index, int end_index);
-  nav_msgs::Path extractPathFromTrajectories(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const;
+  nav_msgs::Path extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const;
   static void enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr);
   std::string pathToString(const nav_msgs::Path& path) const;
   bool followPathServerIsActive() const;
