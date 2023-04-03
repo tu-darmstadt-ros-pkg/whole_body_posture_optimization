@@ -196,7 +196,10 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   const int trajectory_minimum_size = 4; // limited by time parameterization
   const int trajectory_overlap = 2;
   if (path_smoothed.poses.size() < trajectory_minimum_size) {
-    ROS_WARN_STREAM("Path too short.");
+    ROS_WARN_STREAM("Path too short for a whole-body trajectory. Driving directly to goal.");
+    end_of_path_reached_ = true;
+    executeBaseTrajectory(path_smoothed);
+    return;
   }
 
   // Collect results
