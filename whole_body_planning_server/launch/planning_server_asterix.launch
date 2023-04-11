@@ -43,5 +43,5 @@
   <include ns="whole_body_planning_server" file="$(find asterix_moveit_config)/launch/trajectory_execution.launch.xml"/>
 
   <!-- Disable replanning for move_base_lite -->
-  <node name="move_base_lite_disable_replanning" pkg="rosservice" type="rosservice" output="screen" args="call --wait /move_base_lite_node/set_parameters 'config: {bools: [{name: 'replan_on_new_map', value: false}], ints: [], strs: [], doubles: [], groups: []}'" />
+<!--   <node name="move_base_lite_disable_replanning" pkg="rosservice" type="rosservice" output="screen" args="call -wait /move_base_lite_node/set_parameters 'config: {bools: [{name: 'replan_on_new_map', value: false}], ints: [], strs: [], doubles: [], groups: []}'" /> -->
 </launch>
