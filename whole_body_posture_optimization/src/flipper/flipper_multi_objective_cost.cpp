@@ -135,17 +135,21 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
         }
       }
 
-      // Approximate moment of turning resistance
+      // Approximate work required to overcome the moment of turning resistance
+      // Assumes to robot to turn on the spot because the real ICC is unknown
       if (parameters_.turning_resistance_weight != 0) {
         // Compute contact
+        double total_contact_area = 0;
         for (const hector_pose_prediction_interface::ContactPointInformation<double>& point: contact_information.contact_points) {
           Eigen::Vector3d p_base = result_pose_eigen.inverse() * point.point; // Transform from world to base link
           double distance = p_base.block<2, 1>(0, 0).norm();
-          turning_resistance += distance * point.surface_area;
+          turning_resistance += p_base.x() * point.surface_area * p_base.x() / distance;
+          total_contact_area += point.surface_area;
         }
+        turning_resistance /= total_contact_area;
 
         double turning_angle = euler_angles(0);
-        turning_resistance *= std::abs(turning_angle);
+        turning_resistance *= std::abs(turning_angle); // moment of resistance * displacement = work required to overcome moment of resistance
       }
 
       if (parameters_.movement_cost_weight != 0) {
