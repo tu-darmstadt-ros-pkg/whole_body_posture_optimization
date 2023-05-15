@@ -202,15 +202,11 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     for (const hector_pose_prediction_interface::ContactPointInformation<double>& point: contact_information.contact_points) {
 
       if (point.link_type == hector_pose_prediction_interface::LinkType::Tracks) {
-        // Traction cost
-        // Weight track contact by angle between contact normal and (inverse) gravity vector
-        // Approximates normal force
+        // Traction cost, Coulomb friction
         if (point.surface_normal == Eigen::Vector3d::Zero()) continue; // No gradient
-        double angle = std::acos(gravity_vector.dot(point.surface_normal)/(point.surface_normal.norm()));
-        double a = -2/M_PI;
-        double b = 1;
-        double contact_weight = std::max(a * angle + b, 0.0); // Value between 0 (low traction) and 1 (high traction)
-        track_contact_area += contact_weight * point.surface_area;
+        Eigen::Vector3d surface_normal = point.surface_normal.normalized();
+        double normal_force = gravity_vector.dot(surface_normal); // Value between 0 (low traction) and 1 (high traction)
+        track_contact_area += normal_force * point.surface_area;
       }
 
       if (point.link_type == hector_pose_prediction_interface::LinkType::Chassis ||
