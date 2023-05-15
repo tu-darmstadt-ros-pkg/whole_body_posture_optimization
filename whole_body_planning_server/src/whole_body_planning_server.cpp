@@ -612,9 +612,11 @@ void WholeBodyPlanningServer::followPathPreemptCallback(const actionlib::ActionS
     stopExecutionThread();
     stopExecution();
 
-    move_base_lite_msgs::FollowPathResult result;
-    result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
-    follow_path_goal_.setCanceled(result, "Preempt from incoming message to server");
+    if (followPathServerIsActive()) {
+      move_base_lite_msgs::FollowPathResult result;
+      result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
+      follow_path_goal_.setCanceled(result, "Preempt from incoming message to server");
+    }
   } else {
     ROS_WARN_STREAM("Received preempt for unknown goal");
   }
