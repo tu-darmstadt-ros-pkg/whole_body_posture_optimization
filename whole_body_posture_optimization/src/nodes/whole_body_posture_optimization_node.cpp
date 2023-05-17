@@ -55,12 +55,25 @@ nav_msgs::Path createStraightPath(const geometry_msgs::PoseStamped& start, const
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = start.header.frame_id; // frame_id should be the same for every pose and path
 
-  // Goal orientation points x-axis to goal (in 2D)
+  // Compute orientation on path
   Eigen::Vector3d position_difference_no_z = position_difference;
   position_difference_no_z.z() = 0;
-  Eigen::Quaterniond path_orientation;
-  path_orientation.setFromTwoVectors(Eigen::Vector3d::UnitX(), position_difference_no_z);
 
+  // Compute angle between start orientation and path
+  double backwards;
+  if (isNullQuaternion(start.pose.orientation)) {
+    backwards = 1.0;
+  } else {
+    Eigen::Quaterniond start_orientation;
+    tf::quaternionMsgToEigen(start.pose.orientation, start_orientation);
+    Eigen::Vector3d start_direction = start_orientation * Eigen::Vector3d::UnitX();
+    double angle_to_path = std::acos(start_direction.dot(position_difference_no_z)/(position_difference_no_z.norm() * start_direction.norm()));
+    backwards = angle_to_path < M_PI_2 ? 1.0 : -1.0;
+  }
+
+  // Path orientation points x-axis to goal (in 2D)
+  Eigen::Quaterniond path_orientation;
+  path_orientation.setFromTwoVectors(backwards * Eigen::Vector3d::UnitX(), position_difference_no_z);
   tf::quaternionEigenToMsg(path_orientation, pose.pose.orientation);
 
   // Fill path
