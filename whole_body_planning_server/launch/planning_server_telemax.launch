@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="telemax_config" default="telemax"/>
+
+  <env name="ROSCONSOLE_CONFIG_FILE" value="$(find whole_body_planning_server)/config/rosconsole.config"/>
+
+  <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" clear_params="true" respawn="true">
+<!--  <node pkg="whole_body_planning_server" type="whole_body_planning_server_node" name="whole_body_planning_server" output="screen" launch-prefix="gdb -args">-->
+    <param name="auto_start" value="true"/>
+    <param name="base_frame" value="base_link"/>
+    <param name="path_sampling_resolution" value="0.05"/>
+    <param name="planning_horizon" value="0.5"/>
+
+    <param name="continuous_planning" value="true"/>
+    <param name="execution_position_tolerance" value="0.0"/>
+    <param name="execution_orientation_tolerance" value="0.0"/>
+    <param name="minimum_path_length" value="0.2"/>
+
+    <!-- posture optimization lib parameters -->
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt_$(arg telemax_config).yaml" command="load" />
+    <!-- sdf contact estimation lib parameters -->
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="pose_predictor"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" ns="pose_predictor/shape_model" />
+    
+    <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/>
+
+    <!-- esdf server parameters -->
+    <rosparam file="$(find whole_body_planning_server)/config/esdf_server_common.yaml" command="load" ns="esdf_server"/>
+    <param name="esdf_server/update_mesh_every_n_sec" value="0.0"/>
+    <remap from="~/esdf_server/esdf_map_in" to="/esdf_server/esdf_map_out" />
+  </node>
+
+  <!-- moveit_cpp parameters -->
+  <rosparam ns="whole_body_planning_server" file="$(find whole_body_planning_server)/config/moveit_cpp.yaml" command="load"/>
+
+  <!-- moveit parameters -->
+  <group ns="robot_description_planning">
+    <rosparam command="load" file="$(find drz_telemax_moveit_config)/config/joint_limits.yaml"/>
+    <rosparam command="load" file="$(find drz_telemax_moveit_config)/config/joint_limits_world.yaml"/>
+  </group>
+
+  <!-- Planning Pipeline -->
+  <include ns="whole_body_planning_server/ompl" file="$(find drz_telemax_moveit_config)/launch/ompl_planning_pipeline.launch.xml"/>
+
+  <!-- Trajectory execution  -->
+  <include ns="whole_body_planning_server" file="$(find drz_telemax_moveit_config)/launch/trajectory_execution.launch.xml"/>
+
+  <!-- Disable replanning for move_base_lite -->
+<!--   <node name="move_base_lite_disable_replanning" pkg="rosservice" type="rosservice" output="screen" args="call -wait /move_base_lite_node/set_parameters 'config: {bools: [{name: 'replan_on_new_map', value: false}], ints: [], strs: [], doubles: [], groups: []}'" /> -->
+</launch>
