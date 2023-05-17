@@ -128,9 +128,12 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
         std::vector<double> curr_com_prev_polygon_stabilities =
             computeForceAngleStabilitiesWithGravity<double>(prev_support_polygon_.contact_hull_points, com);
         double curr_com_prev_polygon_stability = *std::min_element(curr_com_prev_polygon_stabilities.begin(), curr_com_prev_polygon_stabilities.end());
+
         if (curr_com_prev_polygon_stability < 0) {
           // Tipping event, penalize tipping angle
-          double rotation_angle = euler_angles(1);
+          Eigen::Vector3d rel_pos = prev_pose_.inverse() * result_pose_eigen.translation();
+          double backwards = rel_pos.x() > 0 ? 1.0 : -1.0;
+          double rotation_angle = backwards * euler_angles(1); // only penalize falling towards ground
           impact_cost = std::max(0.0, rotation_angle);
         }
       }
@@ -146,7 +149,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
           turning_resistance += p_base.x() * point.surface_area * p_base.x() / distance;
           total_contact_area += point.surface_area;
         }
-        turning_resistance /= total_contact_area;
+        turning_resistance /= total_contact_area; // TODO does this make sense?
 
         double turning_angle = euler_angles(0);
         turning_resistance *= std::abs(turning_angle); // moment of resistance * displacement = work required to overcome moment of resistance
