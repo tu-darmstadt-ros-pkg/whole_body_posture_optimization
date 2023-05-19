@@ -430,7 +430,7 @@ std::vector<std::string> RobotModel::getCollisionGroupNames()
   return collision_links;
 }
 
-const std::vector<collision_detection::CollisionSphere>& RobotModel::getCollisionSpheres(std::string link_name)
+const std::vector<collision_detection::CollisionSphere>& RobotModel::getCollisionSpheres(const std::string& link_name)
 {
   unsigned int idx = body_decomposition_index_map_.at(link_name);
   return body_decompositions_[idx]->getCollisionSpheres();

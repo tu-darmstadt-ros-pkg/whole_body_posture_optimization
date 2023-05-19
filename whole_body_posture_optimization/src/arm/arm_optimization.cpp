@@ -32,9 +32,18 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   // Load Allowed Collision Matrix (ACM)
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
   acm_ = planning_scene->getAllowedCollisionMatrix();
+  loadAdditionalACMEntries(nh_);
 
   // Precompute partial robot tsdf
   partial_robot_tsdf_ = robot_model_->computeTsdfFromRobotModel(static_link_names_, static_cast<float>(self_collision_tsdf_truncation_distance_), static_cast<float>(self_collision_tsdf_voxel_size_));
+
+  collision_link_names_ = robot_model_->getCollisionGroupNames();
+  for (const auto& link_name: collision_link_names_) {
+    auto it = std::find(self_collision_tsdf_allowed_links_.begin(), self_collision_tsdf_allowed_links_.end(), link_name);
+    if (it == self_collision_tsdf_allowed_links_.end()) {
+      self_collision_tsdf_link_names_.push_back(link_name);
+    }
+  }
 
   //Publisher
   result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com", 10, true);
@@ -86,6 +95,7 @@ bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
   nh.param<std::map<std::string, double>>("self_collision_tsdf_padding", self_collision_tsdf_padding_map_, self_collision_tsdf_padding_map_);
   nh.param("self_collision_tsdf_truncation_distance", self_collision_tsdf_truncation_distance_, 0.4);
   nh.param("self_collision_tsdf_voxel_size", self_collision_tsdf_voxel_size_, 0.05);
+  nh.param("self_collision_tsdf_allowed_links", self_collision_tsdf_allowed_links_, std::vector<std::string>());
   nh.param("enabled", enabled_, enabled_);
   nh.param<std::string>("algorithm", algorithm_, "LD_SLSQP");
 
@@ -226,8 +236,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> environment_constraints;
     START_TIMING("Env. collision const. creation")
     // Environment collision constraints
-    std::vector<std::string> collision_group_names = robot_model_->getCollisionGroupNames();
-    for (const std::string& collision_link: collision_group_names) {
+    for (const std::string& collision_link: collision_link_names_) {
       ROS_DEBUG_STREAM("Creating environment collision constraints for link: " << collision_link);
       for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
         CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, ENVIRONMENT));
@@ -245,15 +254,12 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     // self-collision tsdf constraints
     START_TIMING("Self-collision tsdf const. creation")
     std::shared_ptr<voxblox::TsdfMap> tsdf = robot_model_->computeTsdfFromRobotModel(semi_static_link_names_, static_cast<float>(self_collision_tsdf_truncation_distance_), partial_robot_tsdf_, *full_state);
-//    sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose, 0.4f);
+    sdf_contact_estimation::publishTsdfSlice(robot_tsdf_pub_, tsdf, robot_pose, 0.4f);
     auto robot_base_tsdf = std::make_shared<sdf_contact_estimation::SdfModel>();
     robot_base_tsdf->loadTsdf(tsdf, self_collision_tsdf_truncation_distance_, false, false);
 
     std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_tsdf_constraints;
-    for (const std::string& collision_link: collision_group_names) {
-      if (collision_link == "arm_link_0") { // arm_link_0 is always in collision, TODO remove hardcoded links
-        continue;
-      }
+    for (const std::string& collision_link: self_collision_tsdf_link_names_) {
       for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
         CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, SELF_COLLISION_TSDF));
         ceres::CostFunction* cost_function = SdfContactConstraint::Create(
@@ -271,10 +277,10 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     START_TIMING("Self-collision const. creation")
     std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> self_collision_constraints;
     // Create constraint for each unique link-pair
-    for (unsigned int i = 0; i < collision_group_names.size()-1; i++) {
-      std::string link_name_1 = collision_group_names[i];
-      for (unsigned int j = i+1; j < collision_group_names.size(); j++) {
-        std::string link_name_2 = collision_group_names[j];
+    for (unsigned int i = 0; i < collision_link_names_.size()-1; i++) {
+      std::string link_name_1 = collision_link_names_[i];
+      for (unsigned int j = i+1; j < collision_link_names_.size(); j++) {
+        std::string link_name_2 = collision_link_names_[j];
 
         // Check acm
         collision_detection::AllowedCollision::Type allowed_collision_type;
@@ -456,6 +462,24 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   support_polygon_pub_.publish(convex_hull_array_msg);
 
   return result;
+}
+void ArmOptimization::loadAdditionalACMEntries(const ros::NodeHandle &nh)
+{
+  XmlRpc::XmlRpcValue acm_array;
+  if (nh.getParam("self_collision_allowed_links", acm_array)) {
+    if (acm_array.getType() != XmlRpc::XmlRpcValue::TypeArray) {
+      ROS_WARN("Allowed collision matrix is not an array");
+      return;
+    }
+
+    for (int i = 0; i < acm_array.size(); ++i) { // NOLINT(modernize-loop-convert)
+      if (!acm_array[i].hasMember("link1") || !acm_array[i].hasMember("link2")) {
+        ROS_WARN("All collision operations must have two links");
+        continue;
+      }
+      acm_.setEntry(std::string(acm_array[i]["link1"]), std::string(acm_array[i]["link2"]), true);
+    }
+  }
 }
 
 }

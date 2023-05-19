@@ -45,20 +45,28 @@ arm_optimization:
     #- arm_joint_3 # middle roll joint
     - arm_joint_4 # third pitch
     #- arm_joint_5 # last roll joint
+
+  # Environment collision
   environment_collision_default_padding: 0.15
   environment_collision_padding: {
     arm_link_5: 0.3, # additional padding to cover fingers
   }
+  # Self collision
   self_collision_default_padding: 0.05
   self_collision_padding: {
     arm_link_5: 0.3
   }
+  self_collision_allowed_links:
+    - link1: 'arm_link_1'
+      link2: 'arm_link_3'
+  # Self collision (TSDF)
   self_collision_tsdf_default_padding: 0.005
   self_collision_tsdf_padding: {
     arm_link_5: 0.3,
     arm_link_2: 0.03
   }
   self_collision_tsdf_truncation_distance: 0.4
+  self_collision_tsdf_allowed_links: ["arm_link_0"]
   
   cost_parameters:
     function_scale: 1
@@ -76,9 +84,12 @@ arm_optimization:
     - flipper_back_left_link
     - flipper_back_right_link
     
+  # Used to calculate the self-collision tsdf
   static_link_names:
     - spin_lidar_laser_frame
-    - realsense_d435_back_link
+    - spin_lidar_mount_link
+    - back_rgbd_cam_link
+    #- front_rgbd_cam_link
     - navigation_module_link
     #- manipulator_base_link
     #- chassis_link
@@ -111,8 +122,8 @@ flipper_optimization:
     #algorithm: GN_AGS
     #algorithm: G_MLSL
     #algorithm: G_MLSL_LDS
-    maxeval: 100
-    #stopval: -1.5
+    maxeval: 1000
+    stopval: -0.0
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1

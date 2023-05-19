@@ -56,7 +56,7 @@ public:
 
   std::vector<std::string> getCollisionLinkNames();
   std::vector<std::string> getCollisionGroupNames();
-  const std::vector<collision_detection::CollisionSphere> &getCollisionSpheres(std::string link_name);
+  const std::vector<collision_detection::CollisionSphere>& getCollisionSpheres(const std::string& link_name);
 
   template<typename T> ad_kinematics::Affine3<T> computeChainFK(const std::string& link_name, const std::vector<T>& chain_angles) {
     return ad_chain_->computeTransform<T>(link_name, chain_angles).toAffine();

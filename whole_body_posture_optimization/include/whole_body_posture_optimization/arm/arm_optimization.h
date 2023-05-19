@@ -32,6 +32,7 @@ public:
 
 private:
   bool loadParameters(const ros::NodeHandle &nh);
+  void loadAdditionalACMEntries(const ros::NodeHandle &nh);
   double getJointPadding(std::string joint_name, CollisionType collision_type);
   double getDefaultJointPadding(CollisionType collision_type);
   bool loadLimits();
@@ -59,7 +60,11 @@ private:
   std::vector<std::string> semi_static_link_names_;
   std::vector<std::string> static_link_names_;
 
+  std::vector<std::string> collision_link_names_;
+  std::vector<std::string> self_collision_tsdf_link_names_;
+
   // Collision parameters
+  std::vector<std::string> self_collision_tsdf_allowed_links_;
   double environment_collision_default_padding_;
   std::map<std::string, double> environment_collision_padding_map_;
   double self_collision_default_padding_;
