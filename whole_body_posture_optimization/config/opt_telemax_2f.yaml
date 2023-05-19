@@ -4,16 +4,22 @@ default_joint_state: [0.0, 0.0, 0.0, 0, -2, 1.2, 0, 1, 0, 0] # (10) default for 
 optimization_type: split
 collision_group: arm_group
 
-stability_limit: 0.0
+stability_limit: 0.3
 front_tip_support_area_limit: 0.0
 
 complete_robot_group: complete_robot_group
 complete_robot_with_world_group: complete_robot_with_world
-  
+trajectory_planner: ompl_interface/OMPLPlanner  # [chomp_interface/CHOMPPlanner, lerp_interface/LERPPlanner, ompl_interface/OMPLPlanner, pilz_industrial_motion_planner::CommandPlanner]
+
+
 arm_optimization:
-  enabled: false
+  enabled: true
   solver:
-    algorithm: LN_COBYLA
+    algorithm: LD_SLSQP
+    #algorithm: LD_MMA
+    #algorithm: LN_COBYLA
+    #algorithm: LD_AUGLAG
+    #algorithm: GN_ISRES
     #maxtime: 0.200
     maxeval: 300
     #ftol_abs: 0.0001
@@ -33,30 +39,40 @@ arm_optimization:
     #xtol_abs: 0.01
     xtol_rel: 0.005
   joints:
-    - arm_joint_0
+    #- arm_joint_0
     - arm_joint_1 # first pitch
     - arm_joint_2 # second pitch
     #- arm_joint_3 # middle roll joint
     - arm_joint_4 # third pitch
     #- arm_joint_5 # last roll joint
+
+  # Environment collision
   environment_collision_default_padding: 0.15
   environment_collision_padding: {
     arm_link_5: 0.3, # additional padding to cover fingers
   }
+  # Self collision
   self_collision_default_padding: 0.05
   self_collision_padding: {
     arm_link_5: 0.3
   }
+  self_collision_allowed_links:
+    - link1: 'arm_link_1'
+      link2: 'arm_link_3'
+  # Self collision (TSDF)
   self_collision_tsdf_default_padding: 0.005
   self_collision_tsdf_padding: {
     arm_link_5: 0.3,
     arm_link_2: 0.03
   }
   self_collision_tsdf_truncation_distance: 0.4
-  
-  objective_parameters:
+  self_collision_tsdf_allowed_links: ["arm_link_0"]
+
+  cost_parameters:
     function_scale: 1
-    exp_parameters: [14.0, -2.6, 0.3]
+    exp_parameters_a: 14.0
+    exp_parameters_b: -2.6
+    exp_parameters_c: 0.3
     lorentzian_sigma: 0.15
     movement_cost_weight: 0.3
 
@@ -67,10 +83,13 @@ arm_optimization:
     - flipper_front_right_link
     - flipper_back_left_link
     - flipper_back_right_link
-    
+
+  # Used to calculate the self-collision tsdf
   static_link_names:
     - spin_lidar_laser_frame
-    - realsense_d435_back_link
+    - spin_lidar_mount_link
+    - back_rgbd_cam_link
+    #- front_rgbd_cam_link
     - navigation_module_link
     #- manipulator_base_link
     #- chassis_link
@@ -78,57 +97,74 @@ arm_optimization:
     - camera360_center_link
 
 flipper_optimization:
-  enabled: true
-  #algorithm: GN_DIRECT
-  #algorithm: GN_DIRECT_L
-  algorithm: GN_ORIG_DIRECT_L
-  #algorithm: LN_NELDERMEAD
-  #algorithm: LN_PRAXIS
-  #algorithm: GN_CRS2_LM
-  #algorithm: GN_MLSL
-  #algorithm: GN_MLSL_LDS
-  #algorithm: LN_COBYLA
-  #algorithm: LN_NEWUOA_BOUND
-  #algorithm: LN_SBPLX
-  #algorithm: LN_AUGLAG
-  #algorithm: LN_BOBYQA
-  #algorithm: GN_ISRES
-  #algorithm: GN_ESCH
-  #algorithm: GN_AGS
-  #algorithm: G_MLSL
-  #algorithm: G_MLSL_LDS
-  stopping_criteria:
+  custom_solver:
+    enabled: false
+    algorithm: grid_search
+    #search_resolution: 0.087 # 5 deg steps
+    search_resolution: 0.78 # 45 deg steps
+  solver:
+    enabled: true
+    algorithm: GN_DIRECT
+    #algorithm: GN_DIRECT_L
+    #algorithm: GN_ORIG_DIRECT_L
+    #algorithm: LN_NELDERMEAD
+    #algorithm: LN_PRAXIS
+    #algorithm: GN_CRS2_LM
+    #algorithm: GN_MLSL
+    #algorithm: GN_MLSL_LDS
+    #algorithm: LN_COBYLA
+    #algorithm: LN_NEWUOA_BOUND
+    #algorithm: LN_SBPLX
+    #algorithm: LN_AUGLAG
+    #algorithm: LN_BOBYQA
+    #algorithm: GN_ISRES
+    #algorithm: GN_ESCH
+    #algorithm: GN_AGS
+    #algorithm: G_MLSL
+    #algorithm: G_MLSL_LDS
     maxeval: 100
+    stopval: -0.0
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1
     #ftol_abs: 1-e2
-    
+
   #local_algorithm: LN_NELDERMEAD
   #local_stopping_criteria:
     #maxeval: 10
     #ftol_rel: 1e-3
     #xtol_rel: 1e-3
-    
+
   joints:
     - flipper_front_joint
     - flipper_back_joint
-    
-  objective: fast
-    
-  heuristic:
-    lorentzian_sigma: 0.01 #0.15
-    movement_cost_weight: 0.1  #0.5
-    track_contact_weight: 8
-    body_contact_weight: 3.0
+
+  cost_parameters:
     verbose: false
-    
-  stability:
-    exp_parameters: [14.0, -2.6, 0.3] 
-    lorentzian_sigma: 0.2
-    movement_cost_weight: 0.02
-  
+    # state costs
+    stability_weight: 1.0
+    stability_nominal_value: 1.5
+    stability_exp_parameters_a: 14.0
+    stability_exp_parameters_b: -2.6
+    stability_exp_parameters_c: 0.3
+    support_area_weight: 0
+    track_contact_weight: 8
+    track_contact_nominal_value: 0.2
+    body_contact_weight: 50
+    roll_cost_weight: 20.0
+    position_deviation_weight: 0
+    # transition costs
+    lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
+    movement_cost_weight: 0.1 #0.05  #0.2  #0.5
+    turning_resistance_weight: 10
+    impact_weight: 3.0
+    # uncertainty
+    num_pose_x_samples: 0
+    sample_step_pose_x: 0.01
+    pose_x_sigma: 0.03
+    risk_level: 0.5
+
 ## Debug
 posture_optimization_debug: false
-contact_estimation/debug: false    
+contact_estimation/debug: false
 
