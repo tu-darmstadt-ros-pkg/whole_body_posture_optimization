@@ -790,7 +790,7 @@ void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planni
   path_sampling_resolution_ = config.path_sampling_resolution;
   planning_horizon_ = config.planning_horizon;
   minimum_path_length_ = config.minimum_path_length;
-  if (minimum_path_length_ > planning_horizon_) {
+  if (planning_horizon_ > 0 && minimum_path_length_ > planning_horizon_) {
     minimum_path_length_ = 0.9 * planning_horizon_;
     ROS_WARN_STREAM("Minimum path length can't be greater than planning horizon. Setting minimum path length to " << minimum_path_length_);
   }
