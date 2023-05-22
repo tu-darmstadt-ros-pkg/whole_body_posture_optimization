@@ -159,9 +159,10 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
         // Joint movement cost
         for (unsigned int idx = 0; idx < prev_flipper_param_angles_.size(); idx++) {
           double angle_difference = prev_flipper_param_angles_[idx] - flipper_angles[0][idx];
-          movement_cost += lorentzian<double>(angle_difference, parameters_.lorentzian_sigma);
+//          movement_cost += lorentzian<double>(angle_difference, parameters_.lorentzian_sigma);
+          movement_cost = std::max(lorentzian<double>(angle_difference, parameters_.lorentzian_sigma), movement_cost);
         }
-        movement_cost /= static_cast<double>(prev_flipper_param_angles_.size()); // Normalize by number of joints
+//        movement_cost /= static_cast<double>(prev_flipper_param_angles_.size()); // Normalize by number of joints
       }
     }
 
