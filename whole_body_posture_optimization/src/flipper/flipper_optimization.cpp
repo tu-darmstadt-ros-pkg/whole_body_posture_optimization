@@ -133,11 +133,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   objective->enableNanCheck(true);
   opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, objective.get());
 
-  // Publish start state
-//  robot_shape_gen_->updateShape(init_flipper_angles);
-//  sdf_contact_estimation::publishShape(robot_shape_gen_->getShape(), start_state_pub_, robot_pose, "world", Eigen::Vector3d(1, 0, 0));
-
-  std::vector<double> parameters = mapListToSubset(init_joint_angles, param_idx_to_jnt_idx_);
+  std::vector<double> parameters = mapListToSubset(*full_state, param_idx_to_jnt_idx_);
   ceres_nlopt_wrapper::applyBounds(lower_bounds_, upper_bounds_, parameters);
   START_TIMING("Flipper optimization")
   auto start = std::chrono::high_resolution_clock::now();
