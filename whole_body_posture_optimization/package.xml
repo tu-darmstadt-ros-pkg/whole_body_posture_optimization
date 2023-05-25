@@ -27,5 +27,9 @@
   <depend>ceres_nlopt_wrapper</depend>
   <depend>hector_stability_metrics</depend>
   <depend>ddynamic_reconfigure</depend>
+  <depend>hector_heightmap_pose_prediction</depend>
+  <depend>hector_world_heightmap</depend>
+  <depend>hector_world_heightmap_ros</depend>
+  <depend>grid_map_msgs</depend>
 
 </package>
