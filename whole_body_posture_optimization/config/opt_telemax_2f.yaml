@@ -165,7 +165,7 @@ flipper_optimization:
     track_contact_weight: 8
     track_contact_nominal_value: 0.2
     body_contact_weight: 50
-    roll_cost_weight: 20.0
+    roll_cost_weight: 4.0
     position_deviation_weight: 0
     # transition costs
     lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
