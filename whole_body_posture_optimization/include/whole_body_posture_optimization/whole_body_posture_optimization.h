@@ -51,11 +51,9 @@ public:
 
   std::shared_ptr<RobotModel> getRobotModel() const;
 
-  void setDefaultJointPositions(const std::vector<double>& default_joint_positions);
   const std::vector<double>& getDefaultJointPositions();
 
   robot_trajectory::RobotTrajectory computeOptimalTrajectory(const nav_msgs::Path& path, const robot_state::RobotStateConstPtr& start_state=robot_state::RobotStateConstPtr());
-  //  robot_trajectory::RobotTrajectory computeOptimalTrajectory(const nav_msgs::Path& path);
 
   std::vector<PostureOptimizationResult> findOptimalPostures(const nav_msgs::Path& path, const robot_state::RobotStateConstPtr& start_state=robot_state::RobotStateConstPtr());
   PostureOptimizationResult findOptimalPosture(const Eigen::Isometry3d& pose, const std::vector<double> &init_joint_angles, const robot_state::RobotStateConstPtr& previous_state=robot_state::RobotStateConstPtr());
@@ -103,7 +101,8 @@ private:
 
   // Parameters
   OptimizationType optimization_type_;
-  std::vector<double> default_joint_state_;
+  robot_state::RobotStatePtr default_joint_state_;
+  std::vector<double> default_joint_state_vec_;
   double stability_limit_;
   double front_tip_support_area_limit_;
   std::string complete_robot_group_;

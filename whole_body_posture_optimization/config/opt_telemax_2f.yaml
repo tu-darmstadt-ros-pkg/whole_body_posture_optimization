@@ -1,5 +1,19 @@
-# default
-default_joint_state: [0.0, 0.0, 0.0, 0, -2, 1.2, 0, 1, 0, 0] # (10) default for all joints
+default_joint_state:
+  flipper_front_joint: 0.0
+  flipper_back_joint: 0.0
+  arm_joint_0: 0.0
+  arm_joint_1: -2.0
+  arm_joint_2: 1.2
+  arm_joint_3: 0.0
+  arm_joint_4: 1.0
+  arm_joint_5: 0.0
+  gripper_joint: 0.0
+  spin_lidar_spin_joint: 0.0
+
+  # Folded position
+  #arm_joint_1: -2.36
+  #arm_joint_2: 2.32
+  #arm_joint_4: 2.16
 
 optimization_type: split
 collision_group: arm_group

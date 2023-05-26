@@ -30,8 +30,8 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
                                                            const sdf_contact_estimation::SdfModelPtr& sdf_model)
   : nh_(nh), pose_predictor_(pose_predictor), sdf_model_(sdf_model), stability_limit_(0.0)
 {
-  loadParameters(nh);
   robot_model_ = std::make_shared<RobotModel>(nh_);
+  loadParameters(nh);
 
   ros::NodeHandle flipper_nh(nh, "flipper_optimization");
   flipper_optimization_ = std::make_shared<FlipperOptimization>(flipper_nh, robot_model_, pose_predictor_);
@@ -57,10 +57,14 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
     }
   }
 
-  if (!nh.getParam("default_joint_state", default_joint_state_)) {
+  std::map<std::string, double> default_joint_state_map;
+  if (!nh.getParam("default_joint_state", default_joint_state_map)) {
     ROS_ERROR_STREAM("No default joint state found.");
     return false;
   }
+  default_joint_state_ = std::make_shared<robot_state::RobotState>(robot_model_->getMoveitRobotState());
+  default_joint_state_->setVariablePositions(default_joint_state_map);
+  default_joint_state_vec_ = getVariablePositions(default_joint_state_, robot_model_->getActuatedJointNames());
 
 
   nh.param("stability_limit", stability_limit_, 0.0);
@@ -91,14 +95,9 @@ std::shared_ptr<RobotModel> WholeBodyPostureOptimization::getRobotModel() const
   return robot_model_;
 }
 
-void WholeBodyPostureOptimization::setDefaultJointPositions(const std::vector<double>& default_joint_positions)
-{
-  default_joint_state_ = default_joint_positions;
-}
-
 const std::vector<double> &WholeBodyPostureOptimization::getDefaultJointPositions()
 {
-  return default_joint_state_;
+  return default_joint_state_vec_;
 }
 
 robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeOptimalTrajectory(
