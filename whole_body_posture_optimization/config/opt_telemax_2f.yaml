@@ -1,5 +1,19 @@
-# default
-default_joint_state: [0.0, 0.0, 0.0, 0, -2, 1.2, 0, 1, 0, 0] # (10) default for all joints
+default_joint_state:
+  flipper_front_joint: 0.0
+  flipper_back_joint: 0.0
+  arm_joint_0: 0.0
+  arm_joint_1: -2.0
+  arm_joint_2: 1.2
+  arm_joint_3: 0.0
+  arm_joint_4: 1.0
+  arm_joint_5: 0.0
+  gripper_joint: 0.0
+  spin_lidar_spin_joint: 0.0
+
+  # Folded position
+  #arm_joint_1: -2.36
+  #arm_joint_2: 2.32
+  #arm_joint_4: 2.16
 
 optimization_type: split
 collision_group: arm_group
@@ -143,19 +157,19 @@ flipper_optimization:
     verbose: false
     # state costs
     stability_weight: 1.0
-    stability_nominal_value: 1.5
+    #stability_nominal_value: 1.5
     stability_exp_parameters_a: 14.0
     stability_exp_parameters_b: -2.6
     stability_exp_parameters_c: 0.3
     support_area_weight: 0
     track_contact_weight: 8
-    track_contact_nominal_value: 0.2
+    #track_contact_nominal_value: 0.2
     body_contact_weight: 50
-    roll_cost_weight: 20.0
+    roll_cost_weight: 4.0
     position_deviation_weight: 0
     # transition costs
     lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
-    movement_cost_weight: 0.1 #0.05  #0.2  #0.5
+    movement_cost_weight: 0.2 #0.05  #0.2  #0.5
     turning_resistance_weight: 10
     impact_weight: 3.0
     # uncertainty

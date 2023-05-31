@@ -342,7 +342,6 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     nlopt::result nlopt_result;
     try {
       nlopt_result = opt.optimize(parameters, minf);
-      ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
     }
     catch (const std::invalid_argument& e) {
       ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());
@@ -356,7 +355,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
     ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
-                    << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
+                    << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf << ", " << ceres_nlopt_wrapper::resultToString(nlopt_result));
 
     // Subsidiary optimization
 //    if (sub_opt_) {

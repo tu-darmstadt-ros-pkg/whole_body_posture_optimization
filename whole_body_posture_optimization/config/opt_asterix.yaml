@@ -1,6 +1,16 @@
-# default
-default_joint_state: [1.15, -1.48, 1.47, -1.51, -1.65, -3.03, 0.0, 0.0, -1.57, -1.57, 0.0, 0] # (12) default for all joints
-#default_joint_state: [0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0.0, 0] # (12) default for all joints
+default_joint_state:
+  arm_joint_0: 1.15
+  arm_joint_1: -1.48
+  arm_joint_2: 1.47
+  arm_joint_3: -1.51
+  arm_joint_4: -1.65
+  arm_joint_5: -3.03
+  gripper_servo_joint: 0.0
+  spin_lidar_spin_joint: 0.0
+  flipper_front_joint: -1.57
+  flipper_back_joint: -1.57
+  sensor_head_yaw_joint: 0.0
+  sensor_head_pitch_joint: 0.0
 
 optimization_type: split
 collision_group: arm_group
