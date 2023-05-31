@@ -21,6 +21,10 @@
       truncation_distance: 0.4
     </rosparam>
 
+    <rosparam subst_value="true" ns="heightmap">
+      map_bag_file_path: $(find whole_body_planning_data)/heightmap/lab.whm
+    </rosparam>
+
 <!--    <param name="path_start" value="3.0"/>
     <param name="path_stop" value="5.0"/>
     <param name="path_step" value="0.02"/>-->
@@ -32,9 +36,11 @@
     <param name="stepping_start" value="0"/>
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_$(arg telemax_config).yaml" command="load" />
 
-    <!-- sdf contact estimation lib parameters -->
-    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="pose_predictor"/>
-    <rosparam file="$(find sdf_contact_estimation)/config/$(arg telemax_config)_shape_config.yaml" command="load" ns="pose_predictor/shape_model" />
+    <!-- pose predictor parameters -->
+    <param name="pose_predictor" value="hector_heightmap_pose_prediction::HeightmapPosePredictor"/>
+<!--     <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/> -->
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="sdf_pose_predictor"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/$(arg telemax_config)_shape_config.yaml" command="load" ns="sdf_pose_predictor/shape_model" />
   </node>
 
   <!-- moveit parameters -->
