@@ -10,6 +10,7 @@ add_compile_options(-std=c++14)
 find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   hector_pose_prediction_interface
+  hector_pose_prediction_ros
   sdf_contact_estimation
   whole_body_planning_plotting_utils
   rbdl
@@ -21,8 +22,11 @@ find_package(catkin REQUIRED COMPONENTS
   ceres_nlopt_wrapper
   hector_stability_metrics
   ddynamic_reconfigure
-  hector_pose_prediction_ros
-)
+  hector_heightmap_pose_prediction
+  hector_world_heightmap
+  hector_world_heightmap_ros
+  grid_map_msgs
+  )
 
 
 ###################################
@@ -31,7 +35,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs hector_pose_prediction_interface sdf_contact_estimation whole_body_planning_plotting_utils rbdl urdf moveit_core moveit_ros_planning ad_kinematics move_base_lite_msgs ceres_nlopt_wrapper hector_stability_metrics ddynamic_reconfigure hector_pose_prediction_ros
+  CATKIN_DEPENDS nav_msgs hector_pose_prediction_interface hector_pose_prediction_ros sdf_contact_estimation whole_body_planning_plotting_utils rbdl urdf moveit_core moveit_ros_planning ad_kinematics move_base_lite_msgs ceres_nlopt_wrapper hector_stability_metrics ddynamic_reconfigure hector_heightmap_pose_prediction hector_world_heightmap hector_world_heightmap_ros grid_map_msgs
 #  DEPENDS system_lib
 )
 
@@ -111,6 +115,7 @@ target_link_libraries(com_visualisation_node ${PROJECT_NAME})
 #add_executable(stability_benchmark_node src/stability_benchmark_node.cpp)
 #add_dependencies(stability_benchmark_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 #target_link_libraries(stability_benchmark_node ${PROJECT_NAME})
+
 
 #############
 ## Install ##
