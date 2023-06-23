@@ -1,11 +1,12 @@
 #include <whole_body_posture_optimization/arm/arm_optimization.h>
 
 #include <whole_body_posture_optimization/timing.h>
-#include <sdf_contact_estimation/visualisation.h>
 #include <whole_body_posture_optimization/common.h>
 #include <whole_body_posture_optimization/arm/sdf_contact_constraint.h>
 #include <whole_body_posture_optimization/arm/self_contact_constraint.h>
 
+#include <whole_body_planning_plotting_utils/data_log.h>
+#include <sdf_contact_estimation/visualisation.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <chrono>
 #include <ceres_nlopt_wrapper/optimization_history.h>
@@ -14,6 +15,8 @@
 #include <hector_pose_prediction_ros/visualization.h>
 
 namespace whole_body_posture_optimization {
+
+using whole_body_planning_plotting_utils::DataLog;
 
 using namespace hector_pose_prediction_interface;
 
@@ -43,6 +46,20 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
     if (it == self_collision_tsdf_allowed_links_.end()) {
       self_collision_tsdf_link_names_.push_back(link_name);
     }
+  }
+
+  // Initialize logging
+  if (DataLog::getInstance().getTable("arm_optimization").enabled()) {
+    std::vector<std::string> data_labels = {
+      "pose_x",
+      "pose_y",
+      "pose_z",
+      "optimization_time",
+      "iterations",
+      "cost",
+      "stability"
+    };
+    DataLog::getInstance().getTable("arm_optimization").initialize(data_labels);
   }
 
   //Publisher
@@ -356,7 +373,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
     ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                     << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf << ", " << ceres_nlopt_wrapper::resultToString(nlopt_result));
-
+    result.iterations = stability_cost.getEvaluations();
+    result.optimization_time = elapsed.count();
     // Subsidiary optimization
 //    if (sub_opt_) {
 //      start = std::chrono::high_resolution_clock::now();
@@ -459,6 +477,20 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
                                    Eigen::Vector4f(0, 1, 0, 1), "world", "support_polygon_points", 0.04);
   deleteAllMarkers(support_polygon_pub_);
   support_polygon_pub_.publish(convex_hull_array_msg);
+
+  // Logging
+  if (DataLog::getInstance().getTable("arm_optimization").enabled()) {
+    Eigen::VectorXd data(DataLog::getInstance().getTable("arm_optimization").getDataSize());
+    data << robot_pose.translation().x(),
+        robot_pose.translation().y(),
+        robot_pose.translation().z(),
+        result.optimization_time,
+        result.iterations,
+        result.final_cost,
+        result.stability;
+
+    DataLog::getInstance().getTable("arm_optimization").addData(data);
+  }
 
   return result;
 }

@@ -7,9 +7,10 @@
 #include <whole_body_planning_plotting_utils/data_log.h>
 #include <hector_pose_prediction_ros/visualization.h>
 
-using whole_body_planning_plotting_utils::DataLog;
 
 namespace whole_body_posture_optimization {
+
+using whole_body_planning_plotting_utils::DataLog;
 
 using namespace hector_pose_prediction_interface;
 
@@ -62,8 +63,6 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
       "stability"
     };
     DataLog::getInstance().getTable("flipper_optimization").initialize(data_labels);
-
-    ROS_INFO_STREAM("data size " << DataLog::getInstance().getTable("flipper_optimization").getDataSize());
   }
 
   // Set local optimizer
