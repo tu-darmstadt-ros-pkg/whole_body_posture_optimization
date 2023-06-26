@@ -89,7 +89,7 @@ public:
   void publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const ros::Time& start_time=ros::Time(0));
 
   static void printResultInfo(const std::vector<PostureOptimizationResult>& results);
-//  static void saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories, std::string save_path);
+  static void saveTrajectoryStatistics(const std::vector<PostureOptimizationResult>& results, robot_trajectory::RobotTrajectory& trajectory, const std::vector<size_t>& trajectory_start_indices, const std::string& save_path);
 private:
   ros::NodeHandle nh_;
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;

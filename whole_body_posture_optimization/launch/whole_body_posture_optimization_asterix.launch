@@ -24,7 +24,7 @@
     <param name="path_stop" value="5.0"/>
     <param name="path_step" value="0.02"/>-->
 
-<!--     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/> -->
+    <param name="trajectory_statistics_save_folder" value="$(find whole_body_planning_plotting_utils)/data/trajectory_plan"/>
     
     <!-- posture optimization lib parameters -->
     <param name="stepping" value="false"/>
