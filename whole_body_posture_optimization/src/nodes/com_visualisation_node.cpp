@@ -59,8 +59,7 @@ int main(int argc, char** argv) {
   while (ros::ok()) {
     ros::spinOnce();
     if (joint_state_received_) {
-      Eigen::Vector3d com;
-      model.computeCenterOfMass(state_, com);
+      Eigen::Vector3d com = model.computeCenterOfMass(state_);
       geometry_msgs::PointStamped point_msg;
       point_msg.header.frame_id = "base_link";
       tf::pointEigenToMsg(com, point_msg.point);

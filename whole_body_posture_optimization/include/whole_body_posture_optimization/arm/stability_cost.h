@@ -13,20 +13,6 @@
 
 namespace  whole_body_posture_optimization {
 
-class ComputeCenterOfMass : public ceres::CostFunction {
-public:
-  ComputeCenterOfMass(const std::shared_ptr<RobotModel>& robot_model, const std::vector<double>& full_state, const std::vector<std::size_t>& param_idx_to_joint_idx);
-
-  virtual bool Evaluate(double const* const* parameters,
-                        double* residuals,
-                        double** jacobians) const;
-private:
-  std::shared_ptr<RobotModel> robot_model_;
-  std::vector<double> full_state_;
-  std::vector<std::size_t> param_idx_to_joint_idx_;
-
-};
-
 class StabilityCost
 {
 public:
@@ -35,11 +21,17 @@ public:
                  const StabilityCostParameters& parameters);
 
   template <typename T> bool operator()(T const* const* parameters, T* cost) const {
-    // Compute COM
-    T com[3];
-    (*compute_com_)(parameters, &com[0]);
+    // Compose full state
+    std::vector<T> joint_angles(full_state_.size());
+    for (unsigned int i = 0; i < joint_angles.size(); ++i) {
+      joint_angles[i] = T(full_state_[i]);
+    }
+    for (unsigned int i = 0; i < param_idx_to_joint_idx_.size(); ++i) {
+      joint_angles[param_idx_to_joint_idx_[i]] = parameters[0][i];
+    }
 
-    Vector3<T> com_base(com[0], com[1], com[2]); // TODO use eigen map to eliminate copy
+    // Compute COM
+    Vector3<T> com_base = robot_model_->template computeCenterOfMass(joint_angles);
     Vector3<T> com_world = robot_pose_.cast<T>() * com_base;
     // Cast contact points
     std::vector<Vector3<T>> contact_points_t;
@@ -91,7 +83,7 @@ public:
                                      const std::vector<double>& full_state, const std::vector<double> &previous_param_angles, const Eigen::Isometry3d &robot_pose, const StabilityCostParameters &parameters);
 
 private:
-  std::shared_ptr<ceres::DynamicCostFunctionToFunctor> compute_com_;
+  std::vector<double> full_state_;
   std::shared_ptr<RobotModel> robot_model_;
 
   std::vector<std::size_t> param_idx_to_joint_idx_;

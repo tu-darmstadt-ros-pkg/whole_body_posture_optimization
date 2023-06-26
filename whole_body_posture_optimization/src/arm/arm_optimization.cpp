@@ -453,7 +453,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   }
 
   // Compute and publish COM
-  robot_model_->computeCenterOfMass(result.joint_angles, result.center_of_mass);
+  result.center_of_mass = robot_model_->computeCenterOfMass(result.joint_angles);
   Eigen::Isometry3d com_pose = Eigen::Isometry3d::Identity();
   com_pose.translation() = robot_pose * result.center_of_mass;
   sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");

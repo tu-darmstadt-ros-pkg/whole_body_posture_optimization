@@ -6,14 +6,12 @@
 #include <moveit/robot_state/conversions.h>
 #include <moveit_msgs/DisplayRobotState.h>
 #include <eigen_conversions/eigen_msg.h>
-#include <differentiation/rbdl_utilsAD.h>
-#include <urdfreader/urdfreader.h>
 
 
 namespace whole_body_posture_optimization {
 
 RobotModel::RobotModel(ros::NodeHandle &nh)
-  : nh_(nh), num_joints_(0), num_actuated_joints_(0), collision_group_(""), total_mass_(0)
+  : nh_(nh), num_joints_(0), collision_group_(""), total_mass_(0)
 {
   // Parameter loading
   if(!nh.getParam("/robot_description", robot_description_)) {
@@ -24,39 +22,6 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
     ROS_WARN_STREAM("Failed to load collision group name.");
   }
 
-  // Loading urdf
-  if (!urdf_model_.initString(robot_description_)) {
-    ROS_ERROR_STREAM("Failed to parse urdf.");
-  }
-
-  // Loading rbdl model
-  model_ptr_ = std::make_shared<rbdl::Model>();
-  rbdl::Addons::URDFReadFromString(robot_description_.c_str(), model_ptr_.get(), false, false);
-  ad_model_ptr_ = std::make_shared<ADModel>(*model_ptr_);
-  ROS_INFO_STREAM("Loaded model:");
-  ROS_INFO_STREAM(" -- dof: " << model_ptr_->dof_count);
-  ROS_INFO_STREAM(" -- q_size: " << model_ptr_->q_size);
-  num_joints_ = model_ptr_->dof_count;
-  for (unsigned int body_id = 0; body_id < model_ptr_->mBodies.size(); body_id++) {
-    std::string body_name = model_ptr_->GetBodyName(body_id);
-    ROS_INFO_STREAM("Body id: " << body_id << ", name: " << body_name);
-    ROS_INFO_STREAM("-- mass: " << model_ptr_->mBodies[body_id].mMass);
-    total_mass_ += model_ptr_->mBodies[body_id].mMass;
-    if (body_id != 0) {
-      std::string joint_name = getParentJointName(body_name);
-      ROS_INFO_STREAM("-- Parent joint: " << joint_name);
-      ROS_INFO_STREAM("-- Joint type: " << model_ptr_->mJoints[body_id].mJointType);
-      joint_names_.push_back(joint_name);
-      updateActuatedJointMapping(joint_name, static_cast<unsigned int>(joint_names_.size())-1);
-    }
-  }
-  ROS_INFO_STREAM("Total mass: " << getTotalMass());
-
-  // Second pass to find mimics
-  for (unsigned int i = 0; i < joint_names_.size(); i++) {
-    updateJointMimicMapping(joint_names_[i], i);
-  }
-
   // Loading moveit model
   robot_model_loader::RobotModelLoader robot_model_loader("robot_description", false);
   moveit_robot_model_ = robot_model_loader.getModel();
@@ -65,9 +30,50 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   }
   moveit_robot_state_ = std::make_shared<robot_state::RobotState>(moveit_robot_model_);
 
-  // ad kinematics
+  // Loading urdf
+  urdf_model_ = moveit_robot_model_->getURDF();
+
+  // Load differentiable kinematics
+  ad_tree_ = std::make_shared<ad_kinematics::Tree>(urdf_model_);
+  num_joints_ = ad_tree_->getNumActuatedJoints();
+  joint_names_ = ad_tree_->getActuatedJointNames();
+
+  for (unsigned int i = 0; i < joint_names_.size(); ++i) {
+    updateActuatedJointMapping(joint_names_[i], i);
+  }
+
+  // Second pass to find mimics
+  for (unsigned int i = 0; i < joint_names_.size(); i++) {
+    updateJointMimicMapping(joint_names_[i], i);
+  }
+
+
+
+  // Loading rbdl model
+//  model_ptr_ = std::make_shared<rbdl::Model>();
+//  rbdl::Addons::URDFReadFromString(robot_description_.c_str(), model_ptr_.get(), false, false);
+//  ad_model_ptr_ = std::make_shared<ADModel>(*model_ptr_);
+//  ROS_INFO_STREAM("Loaded model:");
+//  ROS_INFO_STREAM(" -- dof: " << model_ptr_->dof_count);
+//  ROS_INFO_STREAM(" -- q_size: " << model_ptr_->q_size);
+
+
+//  for (unsigned int body_id = 0; body_id < model_ptr_->mBodies.size(); body_id++) {
+//    std::string body_name = model_ptr_->GetBodyName(body_id);
+//    ROS_INFO_STREAM("Body id: " << body_id << ", name: " << body_name);
+//    ROS_INFO_STREAM("-- mass: " << model_ptr_->mBodies[body_id].mMass);
+//    total_mass_ += model_ptr_->mBodies[body_id].mMass;
+//    if (body_id != 0) {
+//      std::string joint_name = getParentJointName(body_name);
+//      ROS_INFO_STREAM("-- Parent joint: " << joint_name);
+//      ROS_INFO_STREAM("-- Joint type: " << model_ptr_->mJoints[body_id].mJointType);
+//      joint_names_.push_back(joint_name);
+//      updateActuatedJointMapping(joint_name, static_cast<unsigned int>(joint_names_.size())-1);
+//    }
+//  }
+//  ROS_INFO_STREAM("Total mass: " << getTotalMass());
+
   if (!collision_group_.empty()) {
-    ad_chain_ = std::make_shared<ad_kinematics::Chain>(moveit_robot_model_->getURDF(), moveit_robot_state_->getJointModelGroup(collision_group_));
     generateLinkBodyDecompositions(0.02); //TODO resolution?
   }
 
@@ -75,65 +81,6 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   ros::NodeHandle pnh("~");
   robot_state_pub_ = pnh.advertise<moveit_msgs::DisplayRobotState>("robot_state", 10, true);
   collision_spheres_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("collision_spheres", 10, true);
-}
-
-void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com, Eigen::MatrixXd &jacobian)
-{
-  if (joint_angles.size() != num_actuated_joints_) {
-    ROS_ERROR_STREAM("[RobotModel::computeCenterOfMass] Joint positions size (" << joint_angles.size()
-                     << ") doesn't match number of actuated joints in robot model (" << num_actuated_joints_ << ")");
-    return;
-  }
-
-  std::vector<double> full_joint_state(num_joints_, 0.0);
-  for (unsigned int i = 0; i < joint_angles.size(); i++) {
-    setJointValuesFromActuated(i, joint_angles[i], full_joint_state);
-  }
-
-  // TODO replace with map
-  rbdl::Math::VectorNd q(full_joint_state.size());
-  rbdl::Math::VectorNd qdot(full_joint_state.size());
-  for (unsigned int i = 0; i < full_joint_state.size(); i++) {
-    q(i) = full_joint_state[i];
-    qdot(i) = 0;
-  }
-  int ndirs = static_cast<int>(num_joints_);
-  rbdl::Math::MatrixNd q_dirs = rbdl::Math::MatrixNd::Zero(num_joints_, ndirs);
-  rbdl::Math::MatrixNd qdot_dirs = rbdl::Math::MatrixNd::Zero(num_joints_, ndirs);
-  q_dirs.block(0, 0, num_joints_, num_joints_) = rbdl::Math::MatrixNd::Identity(num_joints_, num_joints_);
-//  q_dirs.block(0, ndof, ndof, ndof) = MatrixNd::Zero(ndof, ndof);
-  qdot_dirs.block(0, 0, num_joints_, num_joints_) = rbdl::Math::MatrixNd::Zero(num_joints_, num_joints_);
-//  qdot_dirs.block(0, ndof, ndof, ndof) = MatrixNd::Identity(ndof, ndof);
-
-  double mass;
-  rbdl::Math::Vector3d com2;
-  rbdl::Math::MatrixNd full_jacobian = rbdl::Math::MatrixNd(3, ndirs);
-  rbdl::AD::CalcCenterOfMass(*model_ptr_, *ad_model_ptr_, q, q_dirs, qdot, qdot_dirs, mass, com2, full_jacobian, nullptr, nullptr, nullptr, nullptr, true);
-  com = com2;
-
-  // Work-around because rbdl_reader assigns chassis mass to world frame
-  rbdl::Body root = model_ptr_->mBodies[0];
-//  ROS_INFO_STREAM("Mass without chassis: " << mass);
-  com = (mass * com + root.mMass * root.mCenterOfMass)/(mass + root.mMass);
-  double mass_with_root = mass + root.mMass;
-  double gradient_scaling = mass / mass_with_root;
-  mass  = mass_with_root;
-  full_jacobian *= gradient_scaling;
-  // Only copy jacobian entries of actuated joints
-  jacobian = rbdl::Math::MatrixNd(3, num_actuated_joints_);
-  for (unsigned int r = 0; r < 3; ++r) {
-    for (unsigned int j = 0; j < num_actuated_joints_; ++j) {
-      jacobian(r, j) = full_jacobian(r, actuated_idx_to_joint_idx_[j]);
-    }
-  }
-
-//  ROS_INFO_STREAM("Mass with chassis: " << mass);
-}
-
-void RobotModel::computeCenterOfMass(const std::vector<double> &joint_angles, Eigen::Vector3d &com)
-{
-  Eigen::MatrixXd jacobian;
-  computeCenterOfMass(joint_angles, com, jacobian);
 }
 
 std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance, float voxel_size, const std::vector<double>& joint_state)
@@ -216,8 +163,8 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
 
 void RobotModel::updateJointAngles(const std::vector<double>& joint_angles)
 {
-  if (joint_angles.size() != num_actuated_joints_) {
-    ROS_ERROR_STREAM("[RobotModel::updateJointAngles] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << num_actuated_joints_ << ")");
+  if (joint_angles.size() != actuated_joint_names_.size()) {
+    ROS_ERROR_STREAM("[RobotModel::updateJointAngles] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << actuated_joint_names_.size() << ")");
     return;
   }
   joint_angles_ = joint_angles;
@@ -325,19 +272,6 @@ void RobotModel::publishCollisionSpheres()
   collision_spheres_pub_.publish(marker_array);
 }
 
-std::vector<unsigned int> RobotModel::getBodyIndices(const std::vector<std::string> &bodies)
-{
-  std::vector<unsigned int> indices;
-  for (const std::string& body: bodies) {
-    unsigned int idx = model_ptr_->GetBodyId(body.c_str());
-    if (idx == std::numeric_limits<unsigned int>::max()) {
-      ROS_ERROR_STREAM("Body '" << body << "' wasn't found in model.");
-    }
-    indices.push_back(idx);
-  }
-  return indices;
-}
-
 std::vector<std::size_t> RobotModel::getActuatedJointIndices(const std::vector<std::string> &joints) const
 {
   std::vector<std::size_t> indices;
@@ -353,7 +287,7 @@ std::vector<std::size_t> RobotModel::getActuatedJointIndices(const std::vector<s
 
 std::string RobotModel::getParentJointName(const std::string &link_name)
 {
-  urdf::LinkConstSharedPtr link = urdf_model_.getLink(link_name);
+  urdf::LinkConstSharedPtr link = urdf_model_->getLink(link_name);
   if (!link) {
     ROS_ERROR_STREAM("Couldn't find link '" << link_name << "'.");
     return "NOT FOUND";
@@ -364,7 +298,7 @@ std::string RobotModel::getParentJointName(const std::string &link_name)
 bool RobotModel::getJointLimits(const std::string &joint_name, double &lower_limit, double &upper_limit)
 {
   // Load limits from URDF
-  urdf::JointConstSharedPtr joint = urdf_model_.getJoint(joint_name);
+  urdf::JointConstSharedPtr joint = urdf_model_->getJoint(joint_name);
   if (!joint) {
     ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
     return false;
@@ -438,12 +372,12 @@ const std::vector<collision_detection::CollisionSphere>& RobotModel::getCollisio
 
 std::vector<std::size_t> RobotModel::getChainToJointIndexMapping()
 {
-  return getActuatedJointIndices(ad_chain_->getActuatedJointNames());
+  return getActuatedJointIndices(ad_tree_->getActuatedJointNames());
 }
 
 std::vector<int> RobotModel::getParamToChainIndexMapping(const std::vector<std::string> &free_joints)
 {
-  return ad_chain_->getJointQIndices(free_joints);
+  return ad_tree_->getJointQIndices(free_joints);
 }
 
 void RobotModel::generateLinkBodyDecompositions(double resolution)
@@ -467,28 +401,34 @@ void RobotModel::generateLinkBodyDecompositions(double resolution)
 
 void RobotModel::updateActuatedJointMapping(const std::string& joint_name, unsigned int joint_index)
 {
-  urdf::JointConstSharedPtr joint_ptr = urdf_model_.getJoint(joint_name);
+  urdf::JointConstSharedPtr joint_ptr = urdf_model_->getJoint(joint_name);
   if (!joint_ptr) {
     ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
   }
-  if (joint_ptr->type == urdf::Joint::REVOLUTE || joint_ptr->type == urdf::Joint::CONTINUOUS || joint_ptr->type == urdf::Joint::PRISMATIC) {
-    // Special case for fake fixed joints
-    if (joint_ptr->type == urdf::Joint::REVOLUTE && joint_ptr->limits->upper == 0.0 && joint_ptr->limits->lower == 0.0) {
-      return;
-    }
-    if (!joint_ptr->mimic) {
-      ROS_INFO_STREAM("Joint is actuated.");
-      actuated_joint_names_.push_back(joint_name);
-      actuated_idx_to_joint_idx_.push_back(joint_index);
-      actuated_joint_mimics_.emplace_back();
-      num_actuated_joints_++;
-    }
+
+  bool is_fixed = joint_ptr->type != urdf::Joint::REVOLUTE && joint_ptr->type != urdf::Joint::CONTINUOUS && joint_ptr->type != urdf::Joint::PRISMATIC;
+  if (is_fixed) {
+    return;
   }
+
+  // Special case for fake fixed joints
+  if (joint_ptr->type == urdf::Joint::REVOLUTE && joint_ptr->limits->upper == 0.0 && joint_ptr->limits->lower == 0.0) {
+    return;
+  }
+
+  if (joint_ptr->mimic) {
+    return;
+  }
+
+  actuated_joint_names_.push_back(joint_name);
+  actuated_idx_to_joint_idx_.push_back(joint_index);
+  actuated_joint_mimics_.emplace_back();
+  ROS_INFO_STREAM("Joint is actuated.");
 }
 
 void RobotModel::updateJointMimicMapping(const std::string& joint_name, unsigned int joint_index)
 {
-  urdf::JointConstSharedPtr joint_ptr = urdf_model_.getJoint(joint_name);
+  urdf::JointConstSharedPtr joint_ptr = urdf_model_->getJoint(joint_name);
   if (!joint_ptr) {
     ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
   }
@@ -518,17 +458,14 @@ robot_model::RobotModelPtr RobotModel::getMoveitRobotModel() const
   return moveit_robot_model_;
 }
 
-void RobotModel::setJointValuesFromActuated(double actuated_idx, double value, std::vector<double>& joint_state)
-{
-  joint_state[actuated_idx_to_joint_idx_[actuated_idx]] = value;
-  for (const JointMimic& mimic: actuated_joint_mimics_[actuated_idx]) {
-    joint_state[mimic.joint_index] = value * mimic.multiplier + mimic.offset;
-  }
-}
-
 robot_state::RobotState RobotModel::getMoveitRobotState() const
 {
   return *moveit_robot_state_;
 }
+std::shared_ptr<ad_kinematics::Tree> RobotModel::getADTree() const
+{
+  return ad_tree_;
+}
+
 
 }

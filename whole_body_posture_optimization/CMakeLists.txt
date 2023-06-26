@@ -12,7 +12,6 @@ find_package(catkin REQUIRED COMPONENTS
   hector_pose_prediction_interface
   sdf_contact_estimation
   whole_body_planning_plotting_utils
-  rbdl
   urdf
   moveit_core
   moveit_ros_planning
@@ -31,7 +30,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES whole_body_posture_optimization
-  CATKIN_DEPENDS nav_msgs hector_pose_prediction_interface sdf_contact_estimation whole_body_planning_plotting_utils rbdl urdf moveit_core moveit_ros_planning ad_kinematics move_base_lite_msgs ceres_nlopt_wrapper hector_stability_metrics ddynamic_reconfigure hector_pose_prediction_ros
+  CATKIN_DEPENDS nav_msgs hector_pose_prediction_interface sdf_contact_estimation whole_body_planning_plotting_utils urdf moveit_core moveit_ros_planning ad_kinematics move_base_lite_msgs ceres_nlopt_wrapper hector_stability_metrics ddynamic_reconfigure hector_pose_prediction_ros
 #  DEPENDS system_lib
 )
 
@@ -59,7 +58,9 @@ set(HEADERS
 #  include/${PROJECT_NAME}/combined/self_contact_constraint_no_gradient.h
 #  include/${PROJECT_NAME}/combined/sdf_contact_constraint_no_gradient.h
   include/${PROJECT_NAME}/optimization_parameters_base.h
-  include/${PROJECT_NAME}/solvers/optimizer_factory.h)
+  include/${PROJECT_NAME}/solvers/optimizer_factory.h
+  include/${PROJECT_NAME}/types.h
+)
 
 set(SOURCES
   src/whole_body_posture_optimization.cpp

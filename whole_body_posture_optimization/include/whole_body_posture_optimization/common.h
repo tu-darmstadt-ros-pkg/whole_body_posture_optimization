@@ -7,23 +7,9 @@
 #include <ceres_nlopt_wrapper/utils.h>
 #include <ceres/cost_function.h>
 #include <sdf_contact_estimation/util/utils.h>
+#include <whole_body_posture_optimization/types.h>
 
 namespace whole_body_posture_optimization {
-
-enum CollisionType {
-  ENVIRONMENT,
-  SELF_COLLISION,
-  SELF_COLLISION_TSDF
-};
-
-template<typename T>
-using Vector3 = Eigen::Matrix<T, 3, 1>;
-
-template<typename T>
-using Affine3 = Eigen::Transform<T, 3, Eigen::Affine>;
-
-template<typename T>
-using Matrix3 = Eigen::Matrix<T, 3, 3>;
 
 void deleteAllMarkers(const ros::Publisher& pub);
 
