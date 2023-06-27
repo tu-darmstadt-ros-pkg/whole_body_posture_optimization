@@ -47,32 +47,6 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
     updateJointMimicMapping(joint_names_[i], i);
   }
 
-
-
-  // Loading rbdl model
-//  model_ptr_ = std::make_shared<rbdl::Model>();
-//  rbdl::Addons::URDFReadFromString(robot_description_.c_str(), model_ptr_.get(), false, false);
-//  ad_model_ptr_ = std::make_shared<ADModel>(*model_ptr_);
-//  ROS_INFO_STREAM("Loaded model:");
-//  ROS_INFO_STREAM(" -- dof: " << model_ptr_->dof_count);
-//  ROS_INFO_STREAM(" -- q_size: " << model_ptr_->q_size);
-
-
-//  for (unsigned int body_id = 0; body_id < model_ptr_->mBodies.size(); body_id++) {
-//    std::string body_name = model_ptr_->GetBodyName(body_id);
-//    ROS_INFO_STREAM("Body id: " << body_id << ", name: " << body_name);
-//    ROS_INFO_STREAM("-- mass: " << model_ptr_->mBodies[body_id].mMass);
-//    total_mass_ += model_ptr_->mBodies[body_id].mMass;
-//    if (body_id != 0) {
-//      std::string joint_name = getParentJointName(body_name);
-//      ROS_INFO_STREAM("-- Parent joint: " << joint_name);
-//      ROS_INFO_STREAM("-- Joint type: " << model_ptr_->mJoints[body_id].mJointType);
-//      joint_names_.push_back(joint_name);
-//      updateActuatedJointMapping(joint_name, static_cast<unsigned int>(joint_names_.size())-1);
-//    }
-//  }
-//  ROS_INFO_STREAM("Total mass: " << getTotalMass());
-
   if (!collision_group_.empty()) {
     generateLinkBodyDecompositions(0.02); //TODO resolution?
   }
