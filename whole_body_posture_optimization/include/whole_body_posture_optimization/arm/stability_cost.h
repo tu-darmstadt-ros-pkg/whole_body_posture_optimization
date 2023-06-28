@@ -21,7 +21,7 @@ public:
                  const StabilityCostParameters& parameters);
 
   template <typename T> bool operator()(T const* const* parameters, T* cost) const {
-    // Compose full state
+    // Compose full state TODO: Directly compose state required by computeCenterOfMass internally
     std::vector<T> joint_angles(full_state_.size());
     for (unsigned int i = 0; i < joint_angles.size(); ++i) {
       joint_angles[i] = T(full_state_[i]);
