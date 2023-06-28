@@ -33,25 +33,30 @@ public:
     std::vector<T> full_joint_state = getFullStateFromActuated(joint_angles);
 
     T total_mass = T(0.0);
-    Vector3<T> com = Vector3<T>::Zero();
-    for (auto const& link: urdf_model_->links_) {
-      if (!link.second->inertial || link.second->inertial->mass <= 0) {
-        continue;
-      }
-      T mass = T(link.second->inertial->mass);
-      Vector3<T> link_com;
-      link_com.x() = T(link.second->inertial->origin.position.x);
-      link_com.y() = T(link.second->inertial->origin.position.y);
-      link_com.z() = T(link.second->inertial->origin.position.z);
-
-      Affine3<T> transform = computeChainFK<T>(link.second->name, full_joint_state);
-
-      com += transform * link_com * mass;
-      total_mass += mass;
-    }
+    Vector3<T> com = computeCenterOfMassRecursive(urdf_model_->root_link_, full_joint_state, Affine3<T>::Identity(), total_mass);
     com /= total_mass;
     return com;
   }
+
+  template <typename T>
+  Vector3<T> computeCenterOfMassRecursive(const urdf::LinkSharedPtr& link, const std::vector<T> &joint_angles, const Affine3<T>& transform, T& total_mass) {
+    Vector3<T> com = Vector3<T>::Zero();
+    if (link->inertial && link->inertial->mass > 0) {
+      T mass = T(link->inertial->mass);
+      Vector3<T> link_com;
+      link_com.x() = T(link->inertial->origin.position.x);
+      link_com.y() = T(link->inertial->origin.position.y);
+      link_com.z() = T(link->inertial->origin.position.z);
+      com = transform * link_com * mass;
+      total_mass += mass;
+    }
+    for (auto const& child_link: link->child_links) {
+      Affine3<T> child_transform = transform * ad_tree_->getLink(child_link->name)->pose(joint_angles).toAffine();
+      com += computeCenterOfMassRecursive(child_link, joint_angles, child_transform, total_mass);
+    }
+    return com;
+  }
+
 
   std::shared_ptr<voxblox::TsdfMap> computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance, float voxel_size,
                                                               const std::vector<double>& joint_state=std::vector<double>());
