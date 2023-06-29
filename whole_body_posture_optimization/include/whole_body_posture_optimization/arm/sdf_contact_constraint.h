@@ -13,7 +13,7 @@ namespace  whole_body_posture_optimization {
 
 class SdfContactConstraint {
 public:
-  SdfContactConstraint(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<int>& param_idx_to_chain_idx,
+  SdfContactConstraint(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<std::size_t>& param_idx_to_chain_idx,
                     const std::vector<double>& default_chain_angles, const Eigen::Isometry3d& robot_pose, const sdf_contact_estimation::SdfModelPtr& sdf_model,
                     const CollisionObject& obj)
     : robot_model_(robot_model), free_joints_(free_joints), param_idx_to_chain_idx_(param_idx_to_chain_idx), default_chain_angles_(default_chain_angles), robot_pose_(robot_pose),
@@ -36,7 +36,7 @@ public:
 
     // Compute sphere position in world
     Vector3<T> sphere_center = obj_.collision_sphere.relative_vec_.cast<T>();
-    Affine3<T> base_to_link = robot_model_->computeChainFK<T>(obj_.link_name, chain_angles);
+    Affine3<T> base_to_link = robot_model_->getLinkTransform<T>(obj_.link_name, chain_angles);
     Vector3<T> sphere_center_world = robot_pose_.cast<T>() * base_to_link * sphere_center;
 
     // Evaluate sdf at sphere position
@@ -47,7 +47,7 @@ public:
     return true;
   }
 
-  static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<int>& param_idx_to_chain_idx,
+  static ceres::CostFunction* Create(const std::shared_ptr<RobotModel> &robot_model, const std::vector<std::string>& free_joints, const std::vector<std::size_t>& param_idx_to_chain_idx,
                                      const std::vector<double>& default_chain_angles, const Eigen::Isometry3d& robot_pose, const sdf_contact_estimation::SdfModelPtr& sdf_model,
                                      const CollisionObject& obj) {
     auto* cost_function = new ceres::DynamicAutoDiffCostFunction<SdfContactConstraint, 4>(
@@ -61,7 +61,7 @@ public:
 
 private:
   std::shared_ptr<RobotModel> robot_model_;
-  std::vector<int> param_idx_to_chain_idx_; // Transforms parameter index to chain index
+  std::vector<std::size_t> param_idx_to_chain_idx_; // Transforms parameter index to chain index
   std::vector<std::string> free_joints_; // name of joint associated with parameter of same idx
   std::vector<double> default_chain_angles_; // default values for all chain joints
   Eigen::Isometry3d robot_pose_; // current robot pose in world

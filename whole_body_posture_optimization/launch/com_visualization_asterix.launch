@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<launch>  
+  <!-- Load robot description -->
+  <param name="robot_description" command="$(find xacro)/xacro $(find asterix_description)/urdf/asterix_ugv.urdf.xacro" />
+  <param name="robot_description_semantic" textfile="$(find asterix_moveit_config)/config/asterix_ugv.srdf" />
+  
+  <!-- Joint state UI -->
+  <rosparam subst_value="true">
+    zeros:
+<!--      arm_joint_0: 1.57
+      arm_joint_1: -1.57
+      arm_joint_2: 1.49
+      arm_joint_3: -1.57
+      arm_joint_4: -1.30
+      arm_joint_5: 0.05
+      flipper_front_joint: -1.57
+      flipper_back_joint: -1.57-->
+      arm_joint_0: 0
+      arm_joint_1: 0
+      arm_joint_2: 0
+      arm_joint_3: 0
+      arm_joint_4: 0
+      arm_joint_5: 0.0
+      flipper_front_joint: 0
+      flipper_back_joint: 0
+  </rosparam>
+  <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" />
+
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="use_tf_static" value="true" />
+  </node>
+  
+  
+  <!-- Whole-body posture optimization -->
+  <node pkg="whole_body_posture_optimization" type="com_visualisation_node" name="com_visualisation_node" output="screen" clear_params="true">
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />
+
+    <!-- sdf contact estimation lib parameters -->
+<!--     <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="pose_predictor"/> -->
+    <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" ns="pose_predictor/shape_model" />
+    
+  </node>
+
+  <node name="$(anon rviz)" pkg="rviz" type="rviz" args="-d $(find whole_body_posture_optimization)/rviz/com_visualization.rviz" output="screen"/>
+
+</launch>

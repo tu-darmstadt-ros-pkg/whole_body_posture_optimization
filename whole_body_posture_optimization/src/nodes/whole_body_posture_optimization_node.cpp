@@ -223,12 +223,8 @@ int main(int argc, char** argv) {
   path_ = createPathFromParameters(pnh);
   new_path_received_ = !path_.poses.empty();
 
-//  std::string stability_info_save_folder;
-//  if (pnh.getParam("stability_info_save_folder", stability_info_save_folder)) {
-//    std::string time_stamp = whole_body_posture_optimization::getTimestamp();
-//    std::string save_path = stability_info_save_folder + "/stability_" + time_stamp + ".dat";
-//    whole_body_posture_optimization::WholeBodyPostureOptimization::saveResultInfo(result, trajectories, save_path);
-//  }
+  std::string trajectory_statistics_save_folder;
+  bool save_trajectory_statistics = pnh.getParam("trajectory_statistics_save_folder", trajectory_statistics_save_folder);
 
   // Spin and wait for new paths
   ros::Rate rate(10.0);
@@ -238,15 +234,20 @@ int main(int argc, char** argv) {
       DataLog::getInstance().getTable("flipper_optimization").clear();
       // Compute optimal postures
       auto result = po.findOptimalPostures(path_);
-      auto trajectory = po.computeTimedTrajectory(result);
+      std::vector<size_t> trajectory_start_indices;
+      auto trajectory = po.computeTimedTrajectory(result, trajectory_start_indices);
       po.publishTrajectory(trajectory);
 
       // Print and save results
       whole_body_posture_optimization::WholeBodyPostureOptimization::printResultInfo(result);
       whole_body_posture_optimization::Timing::printTimeInfos();
-      // Save results
       if (!logging_folder.empty()) {
         DataLog::getInstance().saveTablesToFolder(logging_folder);
+      }
+      if (save_trajectory_statistics) {
+        std::string time_stamp = whole_body_posture_optimization::getTimestamp();
+        std::string save_path = trajectory_statistics_save_folder + "/trajectory_statistics-" + time_stamp + ".csv";
+        whole_body_posture_optimization::WholeBodyPostureOptimization::saveTrajectoryStatistics(result, trajectory, trajectory_start_indices, save_path);
       }
 
       new_path_received_ = false;

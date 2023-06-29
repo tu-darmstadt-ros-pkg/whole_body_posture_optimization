@@ -1,11 +1,12 @@
 #include <whole_body_posture_optimization/arm/arm_optimization.h>
 
 #include <whole_body_posture_optimization/timing.h>
-#include <sdf_contact_estimation/visualisation.h>
 #include <whole_body_posture_optimization/common.h>
 #include <whole_body_posture_optimization/arm/sdf_contact_constraint.h>
 #include <whole_body_posture_optimization/arm/self_contact_constraint.h>
 
+#include <whole_body_planning_plotting_utils/data_log.h>
+#include <sdf_contact_estimation/visualisation.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <chrono>
 #include <ceres_nlopt_wrapper/optimization_history.h>
@@ -14,6 +15,8 @@
 #include <hector_pose_prediction_ros/visualization.h>
 
 namespace whole_body_posture_optimization {
+
+using whole_body_planning_plotting_utils::DataLog;
 
 using namespace hector_pose_prediction_interface;
 
@@ -27,7 +30,7 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   if (!loadLimits()) {
     ROS_ERROR_STREAM("Loading arm limits failed");
   }
-  param_idx_to_jnt_idx_ = getIndexMap(robot_model->getActuatedJointNames(), free_joints_);
+  param_idx_to_jnt_idx_ = getIndexMap(robot_model->getActiveJointNames(), free_joints_);
 
   // Load Allowed Collision Matrix (ACM)
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
@@ -43,6 +46,20 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
     if (it == self_collision_tsdf_allowed_links_.end()) {
       self_collision_tsdf_link_names_.push_back(link_name);
     }
+  }
+
+  // Initialize logging
+  if (DataLog::getInstance().getTable("arm_optimization").enabled()) {
+    std::vector<std::string> data_labels = {
+      "pose_x",
+      "pose_y",
+      "pose_z",
+      "optimization_time",
+      "iterations",
+      "cost",
+      "stability"
+    };
+    DataLog::getInstance().getTable("arm_optimization").initialize(data_labels);
   }
 
   //Publisher
@@ -227,12 +244,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
     // Add constraints
     opt.remove_inequality_constraints();
-    std::vector<int> param_idx_to_chain_idx = robot_model_->getParamToChainIndexMapping(free_joints_);
-    std::vector<std::size_t> chain_idx_to_jnt_idx = robot_model_->getChainToJointIndexMapping();
-    std::vector<double> default_chain_angles(chain_idx_to_jnt_idx.size());
-    for (unsigned int chain_idx = 0; chain_idx < default_chain_angles.size(); chain_idx++) {
-      default_chain_angles[chain_idx] = (*full_state)[chain_idx_to_jnt_idx[chain_idx]];
-    }
+    std::vector<std::size_t> param_idx_to_joint_idx = robot_model_->getActiveJointIndices(free_joints_);
     std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> environment_constraints;
     START_TIMING("Env. collision const. creation")
     // Environment collision constraints
@@ -241,7 +253,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
         CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, ENVIRONMENT));
         ceres::CostFunction* cost_function = SdfContactConstraint::Create(
-              robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, sdf_model_, collision_object);
+              robot_model_, free_joints_, param_idx_to_joint_idx, *full_state, robot_pose, sdf_model_, collision_object);
         std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
         wrapper->setName("constraint_environment_" + collision_link);
         environment_constraints.push_back(wrapper);
@@ -263,7 +275,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
         CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, SELF_COLLISION_TSDF));
         ceres::CostFunction* cost_function = SdfContactConstraint::Create(
-              robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, Eigen::Isometry3d::Identity(), robot_base_tsdf, collision_object);
+              robot_model_, free_joints_, param_idx_to_joint_idx, *full_state, Eigen::Isometry3d::Identity(), robot_base_tsdf, collision_object);
         std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
         wrapper->setName("constraint_self_collision_tsdf_" + collision_link);
         self_collision_tsdf_constraints.push_back(wrapper);
@@ -297,7 +309,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
             CollisionObject obj1(sphere1, link_name_1, getJointPadding(link_name_1, SELF_COLLISION));
             CollisionObject obj2(sphere2, link_name_2, getJointPadding(link_name_2, SELF_COLLISION));
             ceres::CostFunction* cost_function = SelfContactConstraint::Create(
-                  robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, obj1, obj2);
+                  robot_model_, free_joints_, param_idx_to_joint_idx, *full_state, obj1, obj2);
             std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
             wrapper->setName("constraint_self_collision_" + link_name_1 + "_vs_" + link_name_2);
             self_collision_constraints.push_back(wrapper);
@@ -356,7 +368,8 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
     ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                     << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf << ", " << ceres_nlopt_wrapper::resultToString(nlopt_result));
-
+    result.iterations = stability_cost.getEvaluations();
+    result.optimization_time = elapsed.count();
     // Subsidiary optimization
 //    if (sub_opt_) {
 //      start = std::chrono::high_resolution_clock::now();
@@ -435,7 +448,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
   }
 
   // Compute and publish COM
-  robot_model_->computeCenterOfMass(result.joint_angles, result.center_of_mass);
+  result.center_of_mass = robot_model_->computeCenterOfMass(result.joint_angles);
   Eigen::Isometry3d com_pose = Eigen::Isometry3d::Identity();
   com_pose.translation() = robot_pose * result.center_of_mass;
   sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
@@ -459,6 +472,20 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
                                    Eigen::Vector4f(0, 1, 0, 1), "world", "support_polygon_points", 0.04);
   deleteAllMarkers(support_polygon_pub_);
   support_polygon_pub_.publish(convex_hull_array_msg);
+
+  // Logging
+  if (DataLog::getInstance().getTable("arm_optimization").enabled()) {
+    Eigen::VectorXd data(DataLog::getInstance().getTable("arm_optimization").getDataSize());
+    data << robot_pose.translation().x(),
+        robot_pose.translation().y(),
+        robot_pose.translation().z(),
+        result.optimization_time,
+        result.iterations,
+        result.final_cost,
+        result.stability;
+
+    DataLog::getInstance().getTable("arm_optimization").addData(data);
+  }
 
   return result;
 }

@@ -64,7 +64,7 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
   }
   default_joint_state_ = std::make_shared<robot_state::RobotState>(robot_model_->getMoveitRobotState());
   default_joint_state_->setVariablePositions(default_joint_state_map);
-  default_joint_state_vec_ = getVariablePositions(default_joint_state_, robot_model_->getActuatedJointNames());
+  default_joint_state_vec_ = getVariablePositions(default_joint_state_, robot_model_->getActiveJointNames());
 
 
   nh.param("stability_limit", stability_limit_, 0.0);
@@ -540,29 +540,29 @@ void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOpti
 }
 
 
-//void WholeBodyPostureOptimization::saveResultInfo(const std::vector<PostureOptimizationResult>& results, const std::vector<robot_trajectory::RobotTrajectory>& trajectories,
-//                                                  std::string save_path)
-//{
-//  std::ofstream file;
-//  file.open(save_path);
-//
-//  file << "time pos_x pos_y flipper_cost arm_cost flipper_stability stability" << std::endl;
-//  double time_from_start = 0.0;
-//  for (unsigned int i = 0; i < results.size(); i++) {
-//    const PostureOptimizationResult& result = results[i];
-//    file << time_from_start << " ";
-//    file << result.requested_pose.translation().x() << " ";
-//    file << result.requested_pose.translation().y() << " ";
-//    file << result.flipper_cost << " ";
-//    file << result.arm_cost << " ";
-//    file << result.stability_flipper_opt << " ";
-//    file << result.stability_arm_opt << std::endl;
-//    if (i < trajectories.size()) {
-//      time_from_start += trajectories[i].getDuration();
-//    }
-//  }
-//
-//  file.close();
-//}
+void WholeBodyPostureOptimization::saveTrajectoryStatistics(const std::vector<PostureOptimizationResult>& results, robot_trajectory::RobotTrajectory& trajectory,
+                                                            const std::vector<size_t>& trajectory_start_indices, const std::string& save_path)
+{
+  std::ofstream file;
+  file.open(save_path);
+
+  file << "time, requested_position_x, requested_position_y, result_position_x, result_position_y, flipper_cost, arm_cost, flipper_stability, stability" << std::endl;
+  double time_from_start = 0.0;
+  for (unsigned int i = 0; i < results.size(); i++) {
+    const PostureOptimizationResult& result = results[i];
+    time_from_start = trajectory.getWayPointDurationFromStart(trajectory_start_indices[i]);
+    file << time_from_start << ", ";
+    file << result.requested_pose.translation().x() << ", ";
+    file << result.requested_pose.translation().y() << ", ";
+    file << result.result_pose.translation().x() << ", ";
+    file << result.result_pose.translation().y() << ", ";
+    file << result.flipper_cost << ", ";
+    file << result.arm_cost << ", ";
+    file << result.stability_flipper_opt << ", ";
+    file << result.stability_arm_opt << std::endl;
+  }
+
+  file.close();
+}
 
 }

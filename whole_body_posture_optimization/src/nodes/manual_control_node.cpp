@@ -11,7 +11,7 @@ static Eigen::Isometry3d robot_pose_;
 static bool state_updated_;
 static std::vector<double> previous_state_;
 static std::vector<double> state_;
-static std::vector<std::string> actuated_joint_names_;
+static std::vector<std::string> active_joint_names_;
 
 void poseCB(const geometry_msgs::PoseStamped& pose_msg) {
   tf::poseMsgToEigen(pose_msg.pose, robot_pose_);
@@ -20,8 +20,8 @@ void poseCB(const geometry_msgs::PoseStamped& pose_msg) {
 
 void stateCb(const sensor_msgs::JointState& joint_state_msg) {
   bool state_changed = false;
-  for (unsigned int joint_idx = 0; joint_idx < actuated_joint_names_.size(); ++joint_idx) {
-    auto it = std::find(joint_state_msg.name.begin(), joint_state_msg.name.end(), actuated_joint_names_[joint_idx]);
+  for (unsigned int joint_idx = 0; joint_idx < active_joint_names_.size(); ++joint_idx) {
+    auto it = std::find(joint_state_msg.name.begin(), joint_state_msg.name.end(), active_joint_names_[joint_idx]);
     if (it != joint_state_msg.name.end()) {
       size_t index = static_cast<size_t>(it - joint_state_msg.name.begin());
       state_[joint_idx] = joint_state_msg.position[index];
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
   bool reset = true;
 
   // Set default joint state
-  actuated_joint_names_ = po.getRobotModel()->getActuatedJointNames();
+  active_joint_names_ = po.getRobotModel()->getActiveJointNames();
   state_ = po.getDefaultJointPositions();
   previous_state_ = state_;
   state_updated_ = true;

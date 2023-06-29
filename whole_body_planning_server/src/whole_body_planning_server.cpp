@@ -40,6 +40,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   pnh_.param("override_path_time", override_path_time_, true);
   pnh_.param("execution_position_tolerance", execution_position_tolerance_, 0.0);
   pnh_.param("execution_orientation_tolerance", execution_orientation_tolerance_, 0.0);
+  pnh_.param("trajectory_statistics_save_folder", trajectory_statistics_save_folder_, std::string(""));
 
   // Publishers
   preprocessed_path_pub_ = pnh_.advertise<nav_msgs::Path>("preprocessed_path", 10, true);
@@ -206,6 +207,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   std::vector<whole_body_posture_optimization::PostureOptimizationResult> results;
   robot_trajectory::RobotTrajectoryPtr trajectory_fake_odom;
   std::vector<Eigen::Isometry3d> trajectory_world_poses;
+  std::vector<size_t> trajectory_start_indices;
 
   // Add start state
   whole_body_posture_optimization::PostureOptimizationResult start_result;
@@ -302,6 +304,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       trajectory_fake_odom = std::make_shared<robot_trajectory::RobotTrajectory>(
           trajectory_fake_odom_part.getRobotModel(), trajectory_fake_odom_part.getGroupName());
     }
+    trajectory_start_indices.push_back(trajectory_fake_odom->getWayPointCount());
     if (!end_of_path_reached_) {
       trajectory_world_poses.insert(trajectory_world_poses.end(), trajectory_world_poses_tmp.begin(), trajectory_world_poses_tmp.end() - 1);
       trajectory_fake_odom->append(trajectory_fake_odom_part, 0.0, 0, trajectory_fake_odom_part.getWayPointCount() - 1);
@@ -396,6 +399,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       }
       break;
     } else {
+      saveTrajectoryStatistics(results, *trajectory, trajectory_start_indices);
       // Send trajectory
       std::lock_guard<std::mutex> lock(trajectory_mutex_);
       if (execution_completed_) {
@@ -502,10 +506,16 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot
 
   // *** Compute plan ***
   updateRobotPose(path_msg);
-  auto trajectory = optimizer_->computeOptimalTrajectory(path_msg, current_robot_state_);
+//  auto trajectory = optimizer_->computeOptimalTrajectory(path_msg, current_robot_state_);
+  auto results = optimizer_->findOptimalPostures(path_msg, current_robot_state_);
+  std::vector<size_t> trajectory_start_indices;
+  auto trajectory = optimizer_->computeTimedTrajectory(results, trajectory_start_indices);
   if (trajectory.empty() || trajectory.getDuration() == 0.0) {
     return false;
   }
+
+  saveTrajectoryStatistics(results, trajectory, trajectory_start_indices);
+
   trajectory_out = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory);
 
   return true;
@@ -985,6 +995,17 @@ void WholeBodyPlanningServer::waitForMap()
     while (!execution_completed_ && sdf_model_->isEmpty()) {
       first_esdf_update_condition_.wait(esdf_update_lock);
     }
+  }
+}
+void WholeBodyPlanningServer::saveTrajectoryStatistics(
+    const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results,
+    robot_trajectory::RobotTrajectory& trajectory, const std::vector<size_t>& trajectory_start_indices)
+{
+  if (!trajectory_statistics_save_folder_.empty() && end_of_path_reached_) {
+    std::string time_stamp = whole_body_posture_optimization::getTimestamp();
+    std::string save_path = trajectory_statistics_save_folder_ + "/trajectory_statistics-" + time_stamp + ".csv";
+    whole_body_posture_optimization::WholeBodyPostureOptimization::saveTrajectoryStatistics(results, trajectory, trajectory_start_indices, save_path);
+    ROS_INFO_STREAM("Saved trajectory statistics in " << save_path);
   }
 }
 
