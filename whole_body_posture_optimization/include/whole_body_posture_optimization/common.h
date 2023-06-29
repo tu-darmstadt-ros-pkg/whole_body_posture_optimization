@@ -50,6 +50,7 @@ struct CollisionObject {
 
 template <typename T> std::vector<T> computeForceAngleStabilities(const std::vector<Vector3<T>>& contact_points, const Vector3<T>& external_force, const Vector3<T>& com) {
   std::vector<T> stabilities;
+  stabilities.reserve(contact_points.size());
   for (unsigned int i = 0; i < contact_points.size(); i++) {
     Vector3<T> contact_point_p1 = contact_points[(i+1) % contact_points.size()];
 

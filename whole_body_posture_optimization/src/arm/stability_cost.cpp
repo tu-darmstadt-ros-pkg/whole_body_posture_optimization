@@ -7,8 +7,7 @@ StabilityCost::StabilityCost(const std::shared_ptr<RobotModel>& robot_model, con
   : full_state_(full_state), robot_model_(robot_model), contact_points_(contact_points), robot_pose_(robot_pose), previous_param_angles_(previous_param_angles),
     parameters_(parameters)
 {
-//  param_idx_to_joint_idx_ = robot_model_->getActuatedJointIndices(free_joints);
-  param_idx_to_joint_idx_ = getIndexMap(robot_model->getADTree()->getActuatedJointNames(), free_joints);
+  param_idx_to_joint_idx_ = robot_model_->getActiveJointIndices(free_joints);
 
   if (contact_points.empty()) {
     ROS_ERROR_STREAM("Creating stability error with empty contact points list.");

@@ -10,15 +10,15 @@
 
 bool joint_state_received_ = false;
 static std::vector<double> state_;
-static std::vector<std::string> actuated_joint_names_;
+static std::vector<std::string> active_joint_names_;
 
 static std::vector<double> flipper_state_;
 static std::vector<std::string> flipper_joint_names_;
 
 void jointStateCB(const sensor_msgs::JointStateConstPtr& joint_state_msg) {
   joint_state_received_ = true;
-  for (unsigned int joint_idx = 0; joint_idx < actuated_joint_names_.size(); ++joint_idx) {
-    auto it = std::find(joint_state_msg->name.begin(), joint_state_msg->name.end(), actuated_joint_names_[joint_idx]);
+  for (unsigned int joint_idx = 0; joint_idx < active_joint_names_.size(); ++joint_idx) {
+    auto it = std::find(joint_state_msg->name.begin(), joint_state_msg->name.end(), active_joint_names_[joint_idx]);
     if (it != joint_state_msg->name.end()) {
       size_t index = static_cast<size_t>(it - joint_state_msg->name.begin());
       state_[joint_idx] = joint_state_msg->position[index];
@@ -45,8 +45,8 @@ int main(int argc, char** argv) {
   ros::Publisher com_pub_2 = pnh.advertise<geometry_msgs::PointStamped>("com_pose_predictor", 10, true);
 
   whole_body_posture_optimization::RobotModel model(pnh);
-  actuated_joint_names_ = model.getActuatedJointNames();
-  state_.resize(actuated_joint_names_.size(), 0.0);
+  active_joint_names_ = model.getActiveJointNames();
+  state_.resize(active_joint_names_.size(), 0.0);
 
   ros::NodeHandle pose_predictor_nh(pnh, "pose_predictor");
   ros::NodeHandle shape_model_nh(pose_predictor_nh, "shape_model");

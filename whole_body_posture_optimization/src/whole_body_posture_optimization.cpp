@@ -64,7 +64,7 @@ bool WholeBodyPostureOptimization::loadParameters(const ros::NodeHandle &nh)
   }
   default_joint_state_ = std::make_shared<robot_state::RobotState>(robot_model_->getMoveitRobotState());
   default_joint_state_->setVariablePositions(default_joint_state_map);
-  default_joint_state_vec_ = getVariablePositions(default_joint_state_, robot_model_->getActuatedJointNames());
+  default_joint_state_vec_ = getVariablePositions(default_joint_state_, robot_model_->getActiveJointNames());
 
 
   nh.param("stability_limit", stability_limit_, 0.0);

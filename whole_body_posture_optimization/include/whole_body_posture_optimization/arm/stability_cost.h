@@ -21,7 +21,7 @@ public:
                  const StabilityCostParameters& parameters);
 
   template <typename T> bool operator()(T const* const* parameters, T* cost) const {
-    // Compose full state TODO: Directly compose state required by computeCenterOfMass internally
+    // Compose full state
     std::vector<T> joint_angles(full_state_.size());
     for (unsigned int i = 0; i < joint_angles.size(); ++i) {
       joint_angles[i] = T(full_state_[i]);
@@ -35,6 +35,7 @@ public:
     Vector3<T> com_world = robot_pose_.cast<T>() * com_base;
     // Cast contact points
     std::vector<Vector3<T>> contact_points_t;
+    contact_points_t.reserve(contact_points_.size());
     for (const Eigen::Vector3d& contact_point: contact_points_) {
       contact_points_t.push_back(contact_point.cast<T>());
     }

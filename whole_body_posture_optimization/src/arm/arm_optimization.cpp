@@ -30,7 +30,7 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   if (!loadLimits()) {
     ROS_ERROR_STREAM("Loading arm limits failed");
   }
-  param_idx_to_jnt_idx_ = getIndexMap(robot_model->getActuatedJointNames(), free_joints_);
+  param_idx_to_jnt_idx_ = getIndexMap(robot_model->getActiveJointNames(), free_joints_);
 
   // Load Allowed Collision Matrix (ACM)
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
@@ -244,12 +244,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
     // Add constraints
     opt.remove_inequality_constraints();
-    std::vector<int> param_idx_to_chain_idx = robot_model_->getParamToChainIndexMapping(free_joints_);
-    std::vector<std::size_t> chain_idx_to_jnt_idx = robot_model_->getChainToJointIndexMapping();
-    std::vector<double> default_chain_angles(chain_idx_to_jnt_idx.size());
-    for (unsigned int chain_idx = 0; chain_idx < default_chain_angles.size(); chain_idx++) {
-      default_chain_angles[chain_idx] = (*full_state)[chain_idx_to_jnt_idx[chain_idx]];
-    }
+    std::vector<std::size_t> param_idx_to_joint_idx = robot_model_->getActiveJointIndices(free_joints_);
     std::vector<std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>> environment_constraints;
     START_TIMING("Env. collision const. creation")
     // Environment collision constraints
@@ -258,7 +253,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
         CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, ENVIRONMENT));
         ceres::CostFunction* cost_function = SdfContactConstraint::Create(
-              robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, robot_pose, sdf_model_, collision_object);
+              robot_model_, free_joints_, param_idx_to_joint_idx, *full_state, robot_pose, sdf_model_, collision_object);
         std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
         wrapper->setName("constraint_environment_" + collision_link);
         environment_constraints.push_back(wrapper);
@@ -280,7 +275,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
       for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
         CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, SELF_COLLISION_TSDF));
         ceres::CostFunction* cost_function = SdfContactConstraint::Create(
-              robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, Eigen::Isometry3d::Identity(), robot_base_tsdf, collision_object);
+              robot_model_, free_joints_, param_idx_to_joint_idx, *full_state, Eigen::Isometry3d::Identity(), robot_base_tsdf, collision_object);
         std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
         wrapper->setName("constraint_self_collision_tsdf_" + collision_link);
         self_collision_tsdf_constraints.push_back(wrapper);
@@ -314,7 +309,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
             CollisionObject obj1(sphere1, link_name_1, getJointPadding(link_name_1, SELF_COLLISION));
             CollisionObject obj2(sphere2, link_name_2, getJointPadding(link_name_2, SELF_COLLISION));
             ceres::CostFunction* cost_function = SelfContactConstraint::Create(
-                  robot_model_, free_joints_, param_idx_to_chain_idx, default_chain_angles, obj1, obj2);
+                  robot_model_, free_joints_, param_idx_to_joint_idx, *full_state, obj1, obj2);
             std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> wrapper = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(cost_function, 0, history.addConstraint());
             wrapper->setName("constraint_self_collision_" + link_name_1 + "_vs_" + link_name_2);
             self_collision_constraints.push_back(wrapper);

@@ -24,7 +24,7 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   if (!loadLimits()) {
     ROS_ERROR_STREAM("Loading flipper limits failed");
   }
-  param_idx_to_jnt_idx_ = getIndexMap(robot_model_->getActuatedJointNames(), free_joints_);
+  param_idx_to_jnt_idx_ = getIndexMap(robot_model_->getActiveJointNames(), free_joints_);
 
   // Publisher
   support_polygon_pub_ = nh.advertise<visualization_msgs::MarkerArray>("support_polygon", 10, true);
@@ -108,15 +108,15 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   const std::vector<double>* full_state;
   std::vector<double> previous_joint_angles;
   if (previous_state) {
-    previous_joint_angles = getVariablePositions(previous_state, robot_model_->getActuatedJointNames());
+    previous_joint_angles = getVariablePositions(previous_state, robot_model_->getActiveJointNames());
     full_state = &previous_joint_angles;
   } else {
     full_state = &init_joint_angles;
   }
   std::unordered_map<std::string, double> initial_joint_update;
-  initial_joint_update.reserve(robot_model_->getActuatedJointNames().size());
+  initial_joint_update.reserve(robot_model_->getActiveJointNames().size());
   for (size_t j = 0; j < init_joint_angles.size(); ++j) {
-    initial_joint_update[robot_model_->getActuatedJointNames()[j]] = (*full_state)[j];
+    initial_joint_update[robot_model_->getActiveJointNames()[j]] = (*full_state)[j];
   }
   pose_predictor_->robotModel()->updateJointPositions(initial_joint_update);
 
