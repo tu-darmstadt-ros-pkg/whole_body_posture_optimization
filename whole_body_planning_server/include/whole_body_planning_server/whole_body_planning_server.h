@@ -24,6 +24,7 @@
 // Forward declarations
 namespace whole_body_posture_optimization {
   class WholeBodyPostureOptimization;
+  struct PostureOptimizationResult;
 }
 
 namespace sdf_contact_estimation {
@@ -72,6 +73,7 @@ private:
   static void enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr);
   std::string pathToString(const nav_msgs::Path& path) const;
   bool followPathServerIsActive() const;
+  void saveTrajectoryStatistics(const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results, robot_trajectory::RobotTrajectory& trajectory, const std::vector<size_t>& trajectory_start_indices);
 
   /// Callbacks
   ///! Path following action server interface
@@ -137,6 +139,7 @@ private:
   bool continuous_planning_;
   double execution_position_tolerance_;
   double execution_orientation_tolerance_;
+  std::string trajectory_statistics_save_folder_;
 
   // Subscribers
   ros::Subscriber path_sub_;
