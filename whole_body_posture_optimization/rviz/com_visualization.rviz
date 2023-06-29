@@ -50,7 +50,7 @@ Visualization Manager:
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
       Value: true
-    - Alpha: 1
+    - Alpha: 0.20000000298023224
       Class: rviz/RobotModel
       Collision Enabled: false
       Enabled: true
@@ -60,11 +60,6 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        arm_end_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
         arm_link_0:
           Alpha: 1
           Show Axes: false
@@ -95,6 +90,45 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        arm_rgbd_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_rgbd_cam_mount_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_sensor_box_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_tele_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_tele_cam_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_thermal_cam_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_thermal_cam_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_wide_angle_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_wide_angle_cam_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         autonomy_box_link:
           Alpha: 1
           Show Axes: false
@@ -105,10 +139,6 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        back_rgbd_cam_mount_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
         base_link:
           Alpha: 1
           Show Axes: false
@@ -144,31 +174,37 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        flipper_back_motor_link:
+        flipper_back_left_motor_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         flipper_back_right_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
+        flipper_back_right_motor_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         flipper_front_left_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        flipper_front_motor_link:
+        flipper_front_left_motor_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         flipper_front_right_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
+        flipper_front_right_motor_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         front_rgbd_cam_link:
           Alpha: 1
           Show Axes: false
@@ -178,71 +214,11 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        gripper_base:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_cam_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        gripper_cam_optical_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        gripper_grasp_main_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        gripper_grasp_tip_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        gripper_link_l1:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_link_l2:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_link_r1:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_link_r2:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_rgbd_cam_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_rgbd_cam_mount_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        gripper_sensor_module_mount_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
         gripper_servo_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        gripper_thermal_cam_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        gripper_thermal_cam_optical_frame:
+        gripper_tcp_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -250,49 +226,32 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        main_track_left_link:
+        left_finger_end_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        main_track_right_link:
+        left_finger_middle_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        mocap_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        sensor_head_mount_link:
+        manipulator_base_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        sensor_head_pitch_link:
+        navigation_module_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        sensor_head_rgbd_cam_link:
+        right_finger_end_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        sensor_head_rgbd_cam_mount_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        sensor_head_thermal_cam_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        sensor_head_thermal_cam_optical_frame:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-        sensor_head_yaw_link:
+        right_finger_middle_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -345,6 +304,17 @@ Visualization Manager:
       Topic: /com_visualisation_node/com
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Class: rviz/PointStamped
+      Color: 78; 154; 6
+      Enabled: true
+      History Length: 1
+      Name: Pose Predictor COM
+      Queue Size: 10
+      Radius: 0.10000000149011612
+      Topic: /com_visualisation_node/com_pose_predictor
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -373,7 +343,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 2.8199214935302734
+      Distance: 3.738469123840332
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -389,9 +359,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.814797043800354
+      Pitch: 0.599797248840332
       Target Frame: <Fixed Frame>
-      Yaw: 4.674935817718506
+      Yaw: 4.694936275482178
     Saved: ~
 Window Geometry:
   Displays:

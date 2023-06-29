@@ -8,7 +8,6 @@
   <!-- Joint state UI -->
   <rosparam subst_value="true">
     zeros:
-    zeros:
       arm_joint_1: -2
       arm_joint_2: 1.2
       arm_joint_4: 1
