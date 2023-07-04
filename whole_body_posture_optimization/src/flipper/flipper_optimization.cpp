@@ -187,8 +187,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   pose_predictor_->robotModel()->updateJointPositions(final_joint_update);
 
   hector_math::Pose<double> result_pose(robot_pose);
-//  result.stability = pose_predictor_->predictPoseAndContactInformation(result_pose, result.support_polygon, result.contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
-  result.stability = pose_predictor_->predictPoseAndSupportPolygon(result_pose, result.support_polygon);
+  result.stability = pose_predictor_->predictPoseAndContactInformation(result_pose, result.support_polygon, result.contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
   result.pose = result_pose.asTransform();
 
   ROS_INFO("New robot position: [%f, %f, %f]", result.pose.translation()(0), result.pose.translation()(1), result.pose.translation()(2));

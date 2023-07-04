@@ -90,8 +90,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
     hector_pose_prediction_interface::ContactInformation<double> contact_information;
 
     hector_math::Pose<double> result_pose(pose_sample);
-//    double stability = pose_predictor_->predictPoseAndContactInformation(result_pose, support_polygon, contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
-    double stability = pose_predictor_->predictPoseAndSupportPolygon(result_pose, support_polygon);
+    double stability = pose_predictor_->predictPoseAndContactInformation(result_pose, support_polygon, contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
     Eigen::Isometry3d result_pose_eigen = result_pose.asTransform();
 
     // Catch: Estimation failed or robot fell over
