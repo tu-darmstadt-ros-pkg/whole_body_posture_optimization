@@ -3,6 +3,7 @@
 #include <ros/console.h>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 
 namespace whole_body_planning_plotting_utils {
 
@@ -37,6 +38,17 @@ bool DataTable::saveToCsv(const std::string& file_name) const
 {
   if (data_.rows() == 0) {
     return true;
+  }
+  std::filesystem::path parent_directory = std::filesystem::path(file_name).parent_path();
+  try {
+    std::filesystem::create_directories(parent_directory);
+  } catch (const std::filesystem::filesystem_error& e) {
+    ROS_ERROR_STREAM(e.what());
+    return false;
+  }
+  catch (const std::bad_alloc& e) {
+    ROS_ERROR_STREAM(e.what());
+    return false;
   }
   std::ofstream file;
   file.open(file_name, std::ios::out);

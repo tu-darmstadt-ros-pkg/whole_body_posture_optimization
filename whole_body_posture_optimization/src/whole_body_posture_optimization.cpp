@@ -1,6 +1,7 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
 #include <iomanip>
+#include <filesystem>
 
 #include <pluginlib/class_loader.h>
 
@@ -24,6 +25,8 @@
 INIT_TIMING
 
 namespace whole_body_posture_optimization {
+
+namespace fs = std::filesystem;
 
 WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle& nh,
                                                            const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
@@ -543,6 +546,18 @@ void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOpti
 void WholeBodyPostureOptimization::saveTrajectoryStatistics(const std::vector<PostureOptimizationResult>& results, robot_trajectory::RobotTrajectory& trajectory,
                                                             const std::vector<size_t>& trajectory_start_indices, const std::string& save_path)
 {
+  fs::path path(save_path);
+  fs::path parent_directory = path.parent_path();
+  try {
+    fs::create_directories(parent_directory);
+  } catch (const fs::filesystem_error& e) {
+    ROS_ERROR_STREAM(e.what());
+    return;
+  }
+  catch (const std::bad_alloc& e) {
+    ROS_ERROR_STREAM(e.what());
+    return;
+  }
   std::ofstream file;
   file.open(save_path);
 
