@@ -244,7 +244,7 @@ int main(int argc, char** argv) {
       if (!logging_folder.empty()) {
         DataLog::getInstance().saveTablesToFolder(logging_folder);
       }
-      if (save_trajectory_statistics) {
+      if (save_trajectory_statistics && !result.empty() && result.back().success) {
         std::string time_stamp = whole_body_posture_optimization::getTimestamp();
         std::string save_path = trajectory_statistics_save_folder + "/trajectory_statistics-" + time_stamp + ".csv";
         whole_body_posture_optimization::WholeBodyPostureOptimization::saveTrajectoryStatistics(result, trajectory, trajectory_start_indices, save_path);

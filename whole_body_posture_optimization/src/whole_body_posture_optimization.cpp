@@ -546,6 +546,11 @@ void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOpti
 void WholeBodyPostureOptimization::saveTrajectoryStatistics(const std::vector<PostureOptimizationResult>& results, robot_trajectory::RobotTrajectory& trajectory,
                                                             const std::vector<size_t>& trajectory_start_indices, const std::string& save_path, ros::Time start_time)
 {
+  if (results.size() != trajectory_start_indices.size()) {
+    ROS_WARN_STREAM("Size of results does not match start indices.");
+    return;
+  }
+
   fs::path path(save_path);
   fs::path parent_directory = path.parent_path();
   try {
@@ -560,6 +565,7 @@ void WholeBodyPostureOptimization::saveTrajectoryStatistics(const std::vector<Po
   }
   std::ofstream file;
   file.open(save_path);
+
 
   file << "time, requested_position_x, requested_position_y, result_position_x, result_position_y, flipper_cost, arm_cost, flipper_stability, stability" << std::endl;
   for (unsigned int i = 0; i < results.size(); i++) {
