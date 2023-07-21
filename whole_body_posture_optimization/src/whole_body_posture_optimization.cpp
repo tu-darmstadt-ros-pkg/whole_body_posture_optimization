@@ -1,6 +1,7 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
 #include <iomanip>
+#include <filesystem>
 
 #include <pluginlib/class_loader.h>
 
@@ -24,6 +25,8 @@
 INIT_TIMING
 
 namespace whole_body_posture_optimization {
+
+namespace fs = std::filesystem;
 
 WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle& nh,
                                                            const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
@@ -541,17 +544,28 @@ void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOpti
 
 
 void WholeBodyPostureOptimization::saveTrajectoryStatistics(const std::vector<PostureOptimizationResult>& results, robot_trajectory::RobotTrajectory& trajectory,
-                                                            const std::vector<size_t>& trajectory_start_indices, const std::string& save_path)
+                                                            const std::vector<size_t>& trajectory_start_indices, const std::string& save_path, ros::Time start_time)
 {
+  fs::path path(save_path);
+  fs::path parent_directory = path.parent_path();
+  try {
+    fs::create_directories(parent_directory);
+  } catch (const fs::filesystem_error& e) {
+    ROS_ERROR_STREAM(e.what());
+    return;
+  }
+  catch (const std::bad_alloc& e) {
+    ROS_ERROR_STREAM(e.what());
+    return;
+  }
   std::ofstream file;
   file.open(save_path);
 
   file << "time, requested_position_x, requested_position_y, result_position_x, result_position_y, flipper_cost, arm_cost, flipper_stability, stability" << std::endl;
-  double time_from_start = 0.0;
   for (unsigned int i = 0; i < results.size(); i++) {
     const PostureOptimizationResult& result = results[i];
-    time_from_start = trajectory.getWayPointDurationFromStart(trajectory_start_indices[i]);
-    file << time_from_start << ", ";
+    double time = trajectory.getWayPointDurationFromStart(trajectory_start_indices[i]) + start_time.toSec();
+    file << time << ", ";
     file << result.requested_pose.translation().x() << ", ";
     file << result.requested_pose.translation().y() << ", ";
     file << result.result_pose.translation().x() << ", ";

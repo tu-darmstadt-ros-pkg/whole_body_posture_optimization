@@ -4,7 +4,7 @@ project(whole_body_posture_optimization)
 #set(CMAKE_BUILD_TYPE "Debug")
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++14)
+add_compile_options(-std=c++17)
 
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED COMPONENTS

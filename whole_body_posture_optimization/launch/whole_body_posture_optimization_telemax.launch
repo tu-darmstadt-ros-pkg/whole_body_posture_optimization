@@ -22,14 +22,10 @@
     </rosparam>
 
     <rosparam subst_value="true" ns="heightmap">
-      map_bag_file_path: $(find whole_body_planning_data)/heightmap/lab.whm
+      map_bag_file_path: $(find whole_body_planning_data)/heightmap/gazebo_pallet_parcours.whm
     </rosparam>
 
-<!--    <param name="path_start" value="3.0"/>
-    <param name="path_stop" value="5.0"/>
-    <param name="path_step" value="0.02"/>-->
-
-<!--     <param name="stability_info_save_folder" value="$(find whole_body_posture_optimization)/data/planning"/> -->
+    <param name="trajectory_statistics_save_folder" value="$(find whole_body_planning_plotting_utils)/data/trajectory_plan"/>
 
     <!-- posture optimization lib parameters -->
     <param name="stepping" value="false"/>
