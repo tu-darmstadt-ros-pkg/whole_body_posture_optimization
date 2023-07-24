@@ -311,6 +311,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     } else {
       trajectory_world_poses.insert(trajectory_world_poses.end(), trajectory_world_poses_tmp.begin(), trajectory_world_poses_tmp.end());
       trajectory_fake_odom->append(trajectory_fake_odom_part, 0.0);
+      trajectory_start_indices.push_back(trajectory_fake_odom->getWayPointCount() - 1);
     }
 
     // Check if trajectory is long enough to perform time parameterization
