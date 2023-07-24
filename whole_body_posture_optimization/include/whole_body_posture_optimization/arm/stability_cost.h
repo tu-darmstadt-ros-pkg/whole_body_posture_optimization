@@ -54,7 +54,7 @@ public:
       return T(parameters_.exp_parameters[0]) * exp(T(parameters_.exp_parameters[1])*stability+T(parameters_.exp_parameters[2]));
     });
 //    for (unsigned int i = 0; i < stabilities.size(); i++) {
-//      ROS_INFO_STREAM("Stability transformed" << i << ": " << stabilities[i]);
+//      ROS_INFO_STREAM("Stability transformed " << i << ": " << stabilities[i]);
 //    }
 
     // Sum up and normalize by number of support vector edges

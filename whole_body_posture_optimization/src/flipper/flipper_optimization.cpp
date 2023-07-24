@@ -242,7 +242,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   flipper_multi_objective_cost_parameters_.verbose = true;
   if (flipper_multi_objective_cost_parameters_.verbose) {
     std::vector<double> gradient;
-    ROS_INFO_STREAM("Final cost: " << (*objective)(parameters, gradient));
   }
   flipper_multi_objective_cost_parameters_.verbose = cost_function_verbosity;
 
