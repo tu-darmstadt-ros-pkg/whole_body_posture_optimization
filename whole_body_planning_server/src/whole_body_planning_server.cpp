@@ -402,7 +402,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     } else {
       saveTrajectoryStatistics(results, *trajectory, trajectory_start_indices);
       // Send trajectory
-      std::lock_guard<std::mutex> lock(trajectory_mutex_);
+      std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_);
       if (execution_completed_) {
         ROS_DEBUG_STREAM("Stopping execution thread before execution");
         return;
@@ -885,9 +885,11 @@ void WholeBodyPlanningServer::stopMapUpdateThread()
 
 void WholeBodyPlanningServer::stopExecution()
 {
+  std::lock_guard<std::recursive_mutex> trajectory_lock(trajectory_mutex_);
   execution_completed_ = true;
   trajectory_.reset();
   trajectory_start_time_ = ros::Time();
+
   // We do not care about canceled goals
   if (driving_client_->getState() != actionlib::SimpleClientGoalState::LOST) {
     driving_client_->stopTrackingGoal();
@@ -900,7 +902,7 @@ void WholeBodyPlanningServer::executionWatchDog()
 {
   ros::Rate rate(10.0);
   while (!execution_completed_ && ros::ok())  {
-    std::unique_lock<std::mutex> trajectory_lock(trajectory_mutex_);
+    std::unique_lock<std::recursive_mutex> trajectory_lock(trajectory_mutex_);
     if (!trajectory_) {
       trajectory_lock.unlock();
       rate.sleep();

@@ -108,7 +108,7 @@ private:
   robot_trajectory::RobotTrajectoryPtr planned_trajectory_;
   robot_trajectory::RobotTrajectoryPtr trajectory_;
   ros::Time trajectory_start_time_;
-  mutable std::mutex trajectory_mutex_;
+  mutable std::recursive_mutex trajectory_mutex_;
   std::atomic<bool> end_of_path_reached_;
 
   std::unique_ptr<std::thread> execution_thread_;
