@@ -448,7 +448,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
     }
     trajectory_world_poses.insert(trajectory_world_poses.end(), world_poses.begin(), world_poses.end());
   }
-  trajectory_start_indices.push_back(trajectory_fake_odom.getWayPointCount()); // last index is size of trajectory
+  trajectory_start_indices.push_back(trajectory_fake_odom.getWayPointCount() - 1); // push last index
   // Debug: print out trajectories
   //  ROS_INFO_STREAM(vecToString(trajectory_start_index));
   //  ROS_INFO_STREAM(std::endl << robotTrajectoryToString(trajectory_with_world));
