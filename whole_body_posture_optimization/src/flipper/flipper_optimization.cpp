@@ -115,7 +115,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   }
   std::unordered_map<std::string, double> initial_joint_update;
   initial_joint_update.reserve(robot_model_->getActiveJointNames().size());
-  for (size_t j = 0; j < init_joint_angles.size(); ++j) {
+  for (size_t j = 0; j < full_state->size(); ++j) {
     initial_joint_update[robot_model_->getActiveJointNames()[j]] = (*full_state)[j];
   }
   pose_predictor_->robotModel()->updateJointPositions(initial_joint_update);
@@ -242,6 +242,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   flipper_multi_objective_cost_parameters_.verbose = true;
   if (flipper_multi_objective_cost_parameters_.verbose) {
     std::vector<double> gradient;
+    (*objective)(parameters, gradient);
   }
   flipper_multi_objective_cost_parameters_.verbose = cost_function_verbosity;
 
