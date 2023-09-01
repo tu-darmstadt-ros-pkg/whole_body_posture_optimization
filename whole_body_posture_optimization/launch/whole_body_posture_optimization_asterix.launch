@@ -36,8 +36,8 @@
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_asterix.yaml" command="load" />  
     
     <!-- pose predictor parameters -->
-    <param name="pose_predictor" value="hector_heightmap_pose_prediction::HeightmapPosePredictor"/>
-<!--     <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/> -->
+    <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>
+<!--     <param name="pose_predictor" value="hector_heightmap_pose_prediction::HeightmapPosePredictor"/> -->
 
     <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="sdf_pose_predictor"/>
     <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" ns="sdf_pose_predictor/shape_model" />

@@ -22,7 +22,7 @@
     </rosparam>
 
     <rosparam subst_value="true" ns="heightmap">
-      map_bag_file_path: $(find whole_body_planning_data)/heightmap/gazebo_pallet_parcours.whm
+      map_bag_file_path: $(find whole_body_planning_data)/heightmap/gazebo_pallet_parcours2.whm
     </rosparam>
 
     <param name="trajectory_statistics_save_folder" value="$(find whole_body_planning_plotting_utils)/data/trajectory_plan"/>
@@ -33,8 +33,8 @@
     <rosparam file="$(find whole_body_posture_optimization)/config/opt_$(arg telemax_config).yaml" command="load" />
 
     <!-- pose predictor parameters -->
-    <param name="pose_predictor" value="hector_heightmap_pose_prediction::HeightmapPosePredictor"/>
-<!--     <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/> -->
+<!--     <param name="pose_predictor" value="hector_heightmap_pose_prediction::HeightmapPosePredictor"/> -->
+    <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>
     <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="sdf_pose_predictor"/>
     <rosparam file="$(find sdf_contact_estimation)/config/$(arg telemax_config)_shape_config.yaml" command="load" ns="sdf_pose_predictor/shape_model" />
   </node>

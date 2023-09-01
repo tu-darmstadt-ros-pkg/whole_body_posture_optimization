@@ -95,6 +95,7 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
       float radius = static_cast<float>(sphere_representation->getCollisionSpheres()[j].radius_);
 
       // Cube around center with size radius + truncation_distance
+      // TODO: This method introduces an error because the computed coordinates do not fall into the voxel centers
       float voxel_size = tsdf->getTsdfLayerPtr()->voxel_size();
       for (float x = center.x() - radius - truncation_distance; x < center.x() + radius + truncation_distance; x += voxel_size) {
         for (float y = center.y() - radius - truncation_distance; y < center.y() + radius + truncation_distance; y += voxel_size) {
