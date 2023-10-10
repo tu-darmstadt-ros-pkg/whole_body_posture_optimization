@@ -55,6 +55,13 @@ public:
 
   robot_trajectory::RobotTrajectory computeOptimalTrajectory(const nav_msgs::Path& path, const robot_state::RobotStateConstPtr& start_state=robot_state::RobotStateConstPtr());
 
+  /**
+   * Return an optimized joint state for each pose in the given path. If start_state is set, the first pose of the path
+   * is assumed to be the current state and will not be optimized.
+   * @param path Input path
+   * @param start_state Optional start state
+   * @return Optimized joint states for each pose of the path
+   */
   std::vector<PostureOptimizationResult> findOptimalPostures(const nav_msgs::Path& path, const robot_state::RobotStateConstPtr& start_state=robot_state::RobotStateConstPtr());
   PostureOptimizationResult findOptimalPosture(const Eigen::Isometry3d& pose, const std::vector<double> &init_joint_angles, const robot_state::RobotStateConstPtr& previous_state=robot_state::RobotStateConstPtr());
   PostureOptimizationResult findOptimalPostureSplit(const Eigen::Isometry3d& pose, const std::vector<double> &init_joint_angles, const robot_state::RobotStateConstPtr& previous_state=robot_state::RobotStateConstPtr());

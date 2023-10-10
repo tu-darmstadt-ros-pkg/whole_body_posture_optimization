@@ -190,11 +190,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
     estimated_pose = sdf_contact_estimation::updatePoseFromLastResult(pose, previous_state->getJointTransform("world_virtual_joint"), true, false);
   }
 
-  // Re-run contact estimation at new position
-//  sdf_contact_estimation::ContactEstimationResult updated_contact;
-//  updated_contact false= flipper_optimization_->computeContactEstimation(*previous_joint_angles, estimated_pose, base_to_com);
-
-  // Optimize
+  // Optimize flippers
   ROS_INFO_STREAM("Estimated pose before optimization: " << poseToString(estimated_pose));
   FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(estimated_pose, init_joint_angles, previous_state);
   result.result_pose = flipper_result.pose;
@@ -357,6 +353,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
   double total_distance = odom_start[0];
   double total_rotation = odom_start[1];
   for (unsigned int i = 0; i < opt_result.size()-1; i++) {
+    ROS_INFO_STREAM("Planning trajectory from state " << i << " to " << i + 1);
     planning_interface::MotionPlanRequest req;
     req.group_name = complete_robot_group_;
     req.allowed_planning_time = 2.0;
