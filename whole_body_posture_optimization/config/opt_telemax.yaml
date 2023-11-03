@@ -4,18 +4,18 @@ default_joint_state:
   flipper_back_left_joint: 0.0
   flipper_back_right_joint: 0.0
   arm_joint_0: 0.0
-  arm_joint_1: -2.0
-  arm_joint_2: 1.2
+  #arm_joint_1: -2.0
+  #arm_joint_2: 1.2
   arm_joint_3: 0.0
-  arm_joint_4: 1.0
+  #arm_joint_4: 1.0
   arm_joint_5: 0.0
   gripper_joint: 0.0
   spin_lidar_spin_joint: 0.0
 
   # Folded position
-  #arm_joint_1: -2.36
-  #arm_joint_2: 2.32
-  #arm_joint_4: 2.16
+  arm_joint_1: -2.36
+  arm_joint_2: 2.32
+  arm_joint_4: 2.16
 
 optimization_type: split
 collision_group: arm_group
@@ -27,9 +27,14 @@ complete_robot_group: complete_robot_group
 complete_robot_with_world_group: complete_robot_with_world
 trajectory_planner: ompl_interface/OMPLPlanner  # [chomp_interface/CHOMPPlanner, lerp_interface/LERPPlanner, ompl_interface/OMPLPlanner, pilz_industrial_motion_planner::CommandPlanner]
 
+joint_limits:
+  flipper_front_left_joint: [-1.22, 1.22]
+  flipper_front_right_joint: [-1.22, 1.22]
+  flipper_back_left_joint: [-1.22, 1.22]
+  flipper_back_right_joint: [-1.22, 1.22]
 
 arm_optimization:
-  enabled: true
+  enabled: false
   solver:
     algorithm: LD_SLSQP
     #algorithm: LD_MMA
@@ -117,7 +122,7 @@ flipper_optimization:
     enabled: false
     algorithm: grid_search
     #search_resolution: 0.087 # 5 deg steps
-    search_resolution: 0.35 # 20 deg
+    search_resolution: 0.26 # 15 deg
     #search_resolution: 0.78 # 45 deg steps
   solver:
     enabled: true
@@ -139,8 +144,8 @@ flipper_optimization:
     #algorithm: GN_AGS
     #algorithm: G_MLSL
     #algorithm: G_MLSL_LDS
-    maxeval: 100
-    stopval: 0.0
+    maxeval: 500
+    stopval: -0.4
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1
