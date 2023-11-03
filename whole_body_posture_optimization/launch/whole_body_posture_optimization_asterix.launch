@@ -16,7 +16,7 @@
 <!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf -->
 <!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_man6.esdf -->
 <!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_obs2_hurdles_0_05.esdf -->
-      sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_oc_pallet_terrain2.esdf
+      sdf_file_path: $(find whole_body_planning_data)/sdf/gazebo/gazebo_oc_pallet_terrain2.esdf
       truncation_distance: 0.4
     </rosparam>
 
