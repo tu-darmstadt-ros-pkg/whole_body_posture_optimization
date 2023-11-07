@@ -109,6 +109,8 @@ private:
 
   robot_trajectory::RobotTrajectoryPtr planned_trajectory_;
   robot_trajectory::RobotTrajectoryPtr trajectory_;
+  nav_msgs::Path target_path_;
+  std::atomic<bool> new_path_received_;
   ros::Time trajectory_start_time_;
   mutable std::recursive_mutex trajectory_mutex_;
   std::atomic<bool> end_of_path_reached_;

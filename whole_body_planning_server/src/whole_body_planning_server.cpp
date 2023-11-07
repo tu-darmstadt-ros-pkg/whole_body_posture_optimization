@@ -19,6 +19,7 @@ namespace whole_body_planning_server {
 WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, const ros::NodeHandle& pnh)
   : nh_(nh),
   pnh_(pnh),
+  new_path_received_(false),
   end_of_path_reached_(false),
   execution_completed_(true),
   map_update_running_(true),
@@ -127,10 +128,18 @@ bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::Path path_msg, bool r
 
   // Preprocess path
   nav_msgs::Path path_smoothed = preprocessPath(path_msg, path_sampling_resolution_);
+  target_path_ = path_smoothed;
 
   if (!continuous_planning_) {
     return planAndExecutePathFull(path_smoothed, replanning);
   } else {
+    if (replanning) {
+      new_path_received_ = true;
+      return true;
+    } else {
+      new_path_received_ = false;
+    }
+    stopExecutionThread();
     execution_completed_ = false;
     execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, path_smoothed, replanning);
     execution_watchdog_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::executionWatchDog, this);
@@ -233,8 +242,43 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   robot_trajectory::RobotTrajectoryPtr trajectory;
   int time_parameterization_count = 0; // Number of waypoints with time parameterization attached (index of the first waypoint without t/p)
   Eigen::Vector2d fake_odom_pose = Eigen::Vector2d::Zero();
-  for (int current_traj_index = 0; current_traj_index < path_msg.poses.size() -1; ++current_traj_index) {
-    nav_msgs::Path path_slice = slicePath(path_msg, current_traj_index, current_traj_index + 2);
+  nav_msgs::Path target_path = path_msg;
+  for (int current_traj_index = 0; current_traj_index < target_path.poses.size() -1; ++current_traj_index) {
+    if (new_path_received_) {
+      new_path_received_ = false;
+      geometry_msgs::TransformStamped robot_transform;
+      getRobotPose(ros::Time::now(), robot_transform);
+
+      Eigen::Vector3d p1;
+      tf::vectorMsgToEigen(robot_transform.transform.translation, p1);
+
+      nav_msgs::Path new_path = target_path_;
+      unsigned int i = 0;
+      for (i = 0; i < new_path.poses.size(); ++i) {
+        Eigen::Vector3d p2;
+        tf::pointMsgToEigen(new_path.poses[i].pose.position, p2);
+        // Distance in x-y plane
+        double distance = (p2.block<2, 1>(0, 0) - p1.block<2, 1>(0, 0)).norm();
+        if (distance > planning_horizon_) break;
+      }
+      if (i < new_path.poses.size()) {
+        ROS_INFO_STREAM("Path updated");
+        ROS_INFO_STREAM("Current traj index: " << current_traj_index);
+        ROS_INFO_STREAM("Old path: " << pathToString(target_path));
+        ROS_INFO_STREAM("New path: " << pathToString(target_path_));
+
+        ROS_INFO_STREAM("Index outside of planning horizon: " << i);
+        ROS_INFO_STREAM("Fused path: " << pathToString(target_path));
+        nav_msgs::Path path_start = slicePath(target_path, 0, current_traj_index);
+        nav_msgs::Path path_end = slicePath(new_path, i-1, new_path.poses.size());
+        target_path = path_start;
+        target_path.poses.insert(target_path.poses.end(), path_end.poses.begin(), path_end.poses.end());
+      } else {
+        ROS_WARN_STREAM("New path does not contain points outside of planning horizon");
+      }
+    }
+
+    nav_msgs::Path path_slice = slicePath(target_path, current_traj_index, current_traj_index + 2);
 
     waitUntilPlanningHorizonReached(path_slice.poses.back().pose.position);
 
@@ -244,7 +288,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     }
     ROS_DEBUG_STREAM("Waypoint " << current_traj_index);
 
-    end_of_path_reached_ = current_traj_index == path_msg.poses.size() - 2;
+    end_of_path_reached_ = current_traj_index == target_path.poses.size() - 2;
 
     // Compute optimized postures
     std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimization_results;
@@ -359,7 +403,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       first_execution = false;
       if (replanning) {
         // Trajectory has to start here in time, because planning takes time and robot might not be at the start state anymore
-        start_time = path_msg.header.stamp;
+        start_time = target_path.header.stamp;
       } else {
         // If this is the first trajectory, future-date the starting time, so we do not miss the first waypoint
         start_time = ros::Time::now() + ros::Duration(0.1);
@@ -468,11 +512,17 @@ nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, do
 
 nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, int start_index, int end_index)
 {
-  if (end_index < start_index) {
-    throw std::invalid_argument("end_index (" + std::to_string(end_index) + ") is smaller than start_index (" + std::to_string(start_index) + ").");
-  }
   nav_msgs::Path path_slice;
   path_slice.header = path.header;
+
+  if (start_index > path.poses.size() || end_index < start_index) {
+    return path_slice;
+  }
+
+  if (end_index > path.poses.size()) {
+    end_index = path.poses.size();
+  }
+
   path_slice.poses.assign(path.poses.begin() + start_index, path.poses.begin() + end_index);
   return path_slice;
 }
@@ -553,7 +603,7 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
     // Check if incoming one is newer
     if (goal.getGoalID().stamp >= follow_path_goal_.getGoalID().stamp) {
       // Cancel previous goal
-      stopExecutionThread(); // Stop before goal is canceled
+//      stopExecutionThread(); // Stop before goal is canceled
       move_base_lite_msgs::FollowPathResult result;
       result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
       follow_path_goal_.setCanceled(result, "This goal has been preempted by a newer goal.");
@@ -571,11 +621,9 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
   goal.setAccepted();
   follow_path_goal_ = goal;
 
-  stopExecutionThread(); // Make sure any old thread is cleaned up
-
-
   // Plan and execute
   if (enabled_) {
+    ROS_INFO_STREAM("Replanning: " << goal_preempted);
     planAndExecutePath(goal.getGoal()->target_path, goal_preempted);
   } else {
     end_of_path_reached_ = true;
