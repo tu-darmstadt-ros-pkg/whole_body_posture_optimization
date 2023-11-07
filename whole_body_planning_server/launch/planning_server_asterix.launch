@@ -18,6 +18,7 @@
 
     <!-- sdf contact estimation lib parameters -->
     <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="pose_predictor"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/support_polygon_asterix.yaml" command="load" ns="pose_predictor"/>
     <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" ns="pose_predictor/shape_model" />
     
     <param name="trajectory_statistics_save_folder" value="$(find whole_body_planning_plotting_utils)/data/trajectory_plan"/>

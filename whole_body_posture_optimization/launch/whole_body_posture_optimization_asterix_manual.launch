@@ -67,6 +67,7 @@
     <!-- sdf contact estimation lib parameters -->
     <param name="pose_predictor" value="hector_heightmap_pose_prediction::HeightmapPosePredictor"/>
     <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="sdf_pose_predictor"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/support_polygon_asterix.yaml" command="load" ns="sdf_pose_predictor"/>
     <rosparam file="$(find sdf_contact_estimation)/config/asterix_shape_config.yaml" command="load" ns="sdf_pose_predictor/shape_model" />
     
     <remap from="~set_robot_pose" to="/whole_body_posture_optimization_node/interactive_marker/set_robot_pose"/>
