@@ -118,15 +118,33 @@ bool WholeBodyPlanningServer::loadTsdfFromPath(const std::string& tsdf_path)
   return true;
 }
 
-bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start, bool replanning)
-{
-  ROS_INFO_STREAM("Received new path, planning..");
+bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::Path path_msg, bool replanning) {
+  // Override path time with receive time
+  if (override_path_time_)
+    path_msg.header.stamp = ros::Time::now();
+
   map_frame_ = path_msg.header.frame_id;
 
-  // Path pre-processing
+  // Preprocess path
   nav_msgs::Path path_smoothed = preprocessPath(path_msg, path_sampling_resolution_);
-  nav_msgs::Path path_slice = slicePath(path_smoothed, planning_horizon_);
-  end_of_path_reached_ = (path_slice.poses.size() == path_smoothed.poses.size());
+
+  if (!continuous_planning_) {
+    return planAndExecutePathFull(path_smoothed, replanning);
+  } else {
+    execution_completed_ = false;
+    execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, path_smoothed, replanning);
+    execution_watchdog_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::executionWatchDog, this);
+    return true;
+  }
+}
+
+bool WholeBodyPlanningServer::planAndExecutePathFull(const nav_msgs::Path& path_msg, bool replanning)
+{
+  ROS_INFO_STREAM("Received new path, planning..");
+
+  // Path pre-processing
+  nav_msgs::Path path_slice = slicePath(path_msg, planning_horizon_);
+  end_of_path_reached_ = (path_slice.poses.size() == path_msg.poses.size());
   if (end_of_path_reached_) {
     ROS_INFO_STREAM("Slice reaches end of path");
   }
@@ -165,7 +183,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
                     " s. Planning time takes too long.");
   }
 
-  if (auto_start) {
+  if (auto_start_) {
     if (!executeTrajectoryWithWatchdog(*planned_trajectory_, start_time)) {
       ROS_ERROR_STREAM("Trajectory execution failed");
       if (followPathServerIsActive()) {
@@ -183,23 +201,15 @@ bool WholeBodyPlanningServer::planAndExecutePath(const nav_msgs::Path& path_msg,
 void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path& path_msg, bool replanning)
 {
   ROS_DEBUG_STREAM("Received new path, planning continuously..");
-  map_frame_ = path_msg.header.frame_id;
-
   waitForMap();
 
   // Path pre-processing
-  double path_sampling_resolution;
-  {
-    std::lock_guard<std::mutex> reconfigure_lock(reconfigure_mutex_);
-    path_sampling_resolution = path_sampling_resolution_;
-  }
-  nav_msgs::Path path_smoothed = preprocessPath(path_msg, path_sampling_resolution);
   const int trajectory_minimum_size = 4; // limited by time parameterization
   const int trajectory_overlap = 2;
-  if (path_smoothed.poses.size() < trajectory_minimum_size) {
+  if (path_msg.poses.size() < trajectory_minimum_size) {
     ROS_WARN_STREAM("Path too short for a whole-body trajectory. Driving directly to goal.");
     end_of_path_reached_ = true;
-    executeBaseTrajectory(path_smoothed);
+    executeBaseTrajectory(path_msg);
     return;
   }
 
@@ -213,7 +223,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   whole_body_posture_optimization::PostureOptimizationResult start_result;
   {
     std::lock_guard<std::mutex> lock(current_robot_state_mutex_);
-    updateRobotPose(path_smoothed);
+    updateRobotPose(path_msg);
     start_result.result_state = std::make_shared<robot_state::RobotState>(*current_robot_state_);
   }
   results.push_back(start_result);
@@ -223,8 +233,8 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   robot_trajectory::RobotTrajectoryPtr trajectory;
   int time_parameterization_count = 0; // Number of waypoints with time parameterization attached (index of the first waypoint without t/p)
   Eigen::Vector2d fake_odom_pose = Eigen::Vector2d::Zero();
-  for (int current_traj_index = 0; current_traj_index < path_smoothed.poses.size() -1; ++current_traj_index) {
-    nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
+  for (int current_traj_index = 0; current_traj_index < path_msg.poses.size() -1; ++current_traj_index) {
+    nav_msgs::Path path_slice = slicePath(path_msg, current_traj_index, current_traj_index + 2);
 
     waitUntilPlanningHorizonReached(path_slice.poses.back().pose.position);
 
@@ -234,7 +244,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     }
     ROS_DEBUG_STREAM("Waypoint " << current_traj_index);
 
-    end_of_path_reached_ = current_traj_index == path_smoothed.poses.size() - 2;
+    end_of_path_reached_ = current_traj_index == path_msg.poses.size() - 2;
 
     // Compute optimized postures
     std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimization_results;
@@ -289,8 +299,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
 
     // Check if trajectory is long enough to perform time parameterization
     // and covers enough distance to be executed by the vehicle controller
-    if (trajectory_fake_odom->getWayPointCount() < trajectory_minimum_size ||
-        trajectory_fake_odom->getWayPoint(trajectory_fake_odom->getWayPointCount()-1).getVariablePosition("world_virtual_joint/trans_x") < path_sampling_resolution) {
+    if (trajectory_fake_odom->getWayPointCount() < trajectory_minimum_size) {
       continue;
     }
 
@@ -430,8 +439,8 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
 
 nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, double distance)
 {
-  // Special case: always return original path if distance is <0
-  if (distance < 0) {
+  // Special case: always return original path if distance is <=0
+  if (distance <= 0) {
     return path;
   }
   // Sum up distance and add poses
@@ -565,21 +574,9 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
   stopExecutionThread(); // Make sure any old thread is cleaned up
 
 
-  // Override path time with receive time
-  nav_msgs::Path target_path = goal.getGoal()->target_path;
-  if (override_path_time_)
-    target_path.header.stamp = ros::Time::now();
-
   // Plan and execute
   if (enabled_) {
-    if (!continuous_planning_) {
-      planAndExecutePath(target_path, auto_start_, goal_preempted);
-    } else {
-      execution_completed_ = false;
-      execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, target_path, goal_preempted);
-      execution_watchdog_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::executionWatchDog, this);
-//      planAndExecutePathContinuous(target_path, goal_preempted);
-    }
+    planAndExecutePath(goal.getGoal()->target_path, goal_preempted);
   } else {
     end_of_path_reached_ = true;
     driving_client_->sendGoal(*goal.getGoal(),
@@ -713,7 +710,7 @@ std::string WholeBodyPlanningServer::pathToString(const nav_msgs::Path& path) co
 }
 
 void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {
-  planAndExecutePath(*path_msg, auto_start_);
+  planAndExecutePathFull(*path_msg, false);
 }
 
 void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
@@ -774,9 +771,13 @@ void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planni
   path_sampling_resolution_ = config.path_sampling_resolution;
   planning_horizon_ = config.planning_horizon;
   minimum_path_length_ = config.minimum_path_length;
+  if (minimum_path_length_ < path_sampling_resolution_) {
+    minimum_path_length_ = path_sampling_resolution_;
+    ROS_WARN_STREAM("Minimum path length cannot be less than path resolution. Setting minimum path length to " << minimum_path_length_);
+  }
   if (planning_horizon_ > 0 && minimum_path_length_ > planning_horizon_) {
     minimum_path_length_ = 0.9 * planning_horizon_;
-    ROS_WARN_STREAM("Minimum path length can't be greater than planning horizon. Setting minimum path length to " << minimum_path_length_);
+    ROS_WARN_STREAM("Minimum path length cannot be greater than planning horizon. Setting minimum path length to " << minimum_path_length_);
   }
   auto_start_ = config.auto_start;
   continuous_planning_ = config.continuous_planning;

@@ -41,10 +41,11 @@ public:
   ~WholeBodyPlanningServer();
   bool loadTsdfFromPath(const std::string& tsdf_path);
   /**
-   * @brief planAndExecutePath Plan and execute a whole-body plan along the given path
+   * @brief planAndExecutePathFull Plan and execute a whole-body plan along the given path
    * @param path_msg Path to drive
    */
-  bool planAndExecutePath(const nav_msgs::Path& path_msg, bool auto_start=true, bool replanning=false);
+  bool planAndExecutePath(nav_msgs::Path path_msg, bool replanning= false);
+  bool planAndExecutePathFull(const nav_msgs::Path& path_msg, bool replanning= false);
   void planAndExecutePathContinuous(const nav_msgs::Path& path_msg, bool replanning=false);
 private:
   void updateRobotPose(const nav_msgs::Path& path);
