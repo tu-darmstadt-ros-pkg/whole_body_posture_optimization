@@ -30,7 +30,8 @@ flipper_optimization:
   custom_solver:
     enabled: false
     algorithm: grid_search
-    search_resolution: 0.087 # 5 deg steps
+    #search_resolution: 0.087 # 5 deg steps
+    search_resolution: 0.174 # 10 deg steps
     #search_resolution: 0.78 # 45 deg steps
   solver:
     enabled: true
