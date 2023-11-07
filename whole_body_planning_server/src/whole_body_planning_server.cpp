@@ -226,34 +226,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   for (int current_traj_index = 0; current_traj_index < path_smoothed.poses.size() -1; ++current_traj_index) {
     nav_msgs::Path path_slice = slicePath(path_smoothed, current_traj_index, current_traj_index + 2);
 
-    // Wait till path is in planning horizon
-    bool too_far_away = false;
-    ros::Rate rate(10.0);
-    std::unique_lock<std::mutex> reconfigure_lock(reconfigure_mutex_);
-    if (planning_horizon_ > 0) {
-      reconfigure_lock.unlock();
-      do {
-        too_far_away = false;
-        // Get current pose
-        geometry_msgs::TransformStamped robot_transform;
-        if (getRobotPose(ros::Time::now(), robot_transform)) {
-          Eigen::Vector3d p1, p2;
-          tf::vectorMsgToEigen(robot_transform.transform.translation, p1);
-          tf::pointMsgToEigen(path_slice.poses.back().pose.position, p2);
-          // Distance in x-y plane
-          double distance = (p2.block<2, 1>(0, 0) - p1.block<2, 1>(0, 0)).norm();
-          {
-            std::lock_guard<std::mutex> lock(reconfigure_mutex_);
-            too_far_away = distance > planning_horizon_;
-          }
-          if (too_far_away && !execution_completed_) {
-            rate.sleep();
-          }
-        }
-      } while (too_far_away && !execution_completed_);
-    } else {
-      reconfigure_lock.unlock();
-    }
+    waitUntilPlanningHorizonReached(path_slice.poses.back().pose.position);
 
     if (execution_completed_) {
       ROS_DEBUG_STREAM("Execution thread stopped");
@@ -1000,6 +973,7 @@ void WholeBodyPlanningServer::waitForMap()
     }
   }
 }
+
 void WholeBodyPlanningServer::saveTrajectoryStatistics(
     const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results,
     robot_trajectory::RobotTrajectory& trajectory, const std::vector<size_t>& trajectory_start_indices)
@@ -1010,6 +984,37 @@ void WholeBodyPlanningServer::saveTrajectoryStatistics(
     if (whole_body_posture_optimization::WholeBodyPostureOptimization::saveTrajectoryStatistics(results, trajectory, trajectory_start_indices, save_path)) {
       ROS_INFO_STREAM("Saved trajectory statistics in " << save_path);
     }
+  }
+}
+
+void WholeBodyPlanningServer::waitUntilPlanningHorizonReached(const geometry_msgs::Point& planning_point)
+{
+  bool too_far_away = false;
+  ros::Rate rate(10.0);
+  std::unique_lock<std::mutex> reconfigure_lock(reconfigure_mutex_);
+  if (planning_horizon_ > 0) {
+    reconfigure_lock.unlock();
+    do {
+      too_far_away = false;
+      // Get current pose
+      geometry_msgs::TransformStamped robot_transform;
+      if (getRobotPose(ros::Time::now(), robot_transform)) {
+        Eigen::Vector3d p1, p2;
+        tf::vectorMsgToEigen(robot_transform.transform.translation, p1);
+        tf::pointMsgToEigen(planning_point, p2);
+        // Distance in x-y plane
+        double distance = (p2.block<2, 1>(0, 0) - p1.block<2, 1>(0, 0)).norm();
+        {
+          std::lock_guard<std::mutex> lock(reconfigure_mutex_);
+          too_far_away = distance > planning_horizon_;
+        }
+        if (too_far_away && !execution_completed_) {
+          rate.sleep();
+        }
+      }
+    } while (too_far_away && !execution_completed_);
+  } else {
+    reconfigure_lock.unlock();
   }
 }
 

@@ -74,6 +74,7 @@ private:
   std::string pathToString(const nav_msgs::Path& path) const;
   bool followPathServerIsActive() const;
   void saveTrajectoryStatistics(const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results, robot_trajectory::RobotTrajectory& trajectory, const std::vector<size_t>& trajectory_start_indices);
+  void waitUntilPlanningHorizonReached(const geometry_msgs::Point& planning_point);
 
   /// Callbacks
   ///! Path following action server interface
