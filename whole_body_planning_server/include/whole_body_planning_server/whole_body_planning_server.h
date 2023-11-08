@@ -68,6 +68,7 @@ private:
   void executionWatchDog();
 
   /// Util
+  nav_msgs::Path updatePath(const nav_msgs::Path& old_path, const nav_msgs::Path& new_path) const;
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance);
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, int start_index, int end_index);
   static nav_msgs::Path slicePathDirectDistance(const nav_msgs::Path& path, Eigen::Vector3d& p0, double distance_limit, bool invert=false, int search_start_index=0);
@@ -109,13 +110,18 @@ private:
   robot_state::RobotStatePtr current_robot_state_;
   mutable std::mutex current_robot_state_mutex_;
 
-  robot_trajectory::RobotTrajectoryPtr planned_trajectory_;
-  robot_trajectory::RobotTrajectoryPtr trajectory_;
-  nav_msgs::Path target_path_;
-  std::atomic<bool> new_path_received_;
-  ros::Time trajectory_start_time_;
-  mutable std::recursive_mutex trajectory_mutex_;
+  nav_msgs::Path goal_path_;
+  mutable std::mutex path_update_mutex_;
+  std::atomic<bool> path_updated_;
   std::atomic<bool> end_of_path_reached_;
+  std::atomic<int> current_path_index_;
+
+  robot_trajectory::RobotTrajectoryPtr planned_trajectory_; /// Planned but not yet executed trajectory
+
+  robot_trajectory::RobotTrajectoryPtr trajectory_; /// Trajectory currently in execution
+  ros::Time trajectory_start_time_; /// Start time of trajectory in execution
+  mutable std::recursive_mutex trajectory_mutex_;
+
 
   std::unique_ptr<std::thread> execution_thread_;
   std::unique_ptr<std::thread> execution_watchdog_thread_;

@@ -18,8 +18,7 @@ namespace whole_body_planning_server {
 
 WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, const ros::NodeHandle& pnh)
   : nh_(nh),
-  pnh_(pnh),
-  new_path_received_(false),
+  pnh_(pnh), path_updated_(false),
   end_of_path_reached_(false),
   execution_completed_(true),
   map_update_running_(true),
@@ -128,19 +127,19 @@ bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::Path path_msg, bool r
 
   // Preprocess path
   nav_msgs::Path path_smoothed = preprocessPath(path_msg, path_sampling_resolution_);
-  target_path_ = path_smoothed;
 
   if (!continuous_planning_) {
     return planAndExecutePathFull(path_smoothed, replanning);
   } else {
     if (replanning) {
-      new_path_received_ = true;
+      goal_path_ = updatePath(goal_path_, path_smoothed);
+      path_updated_ = true;
       return true;
-    } else {
-      new_path_received_ = false;
     }
     stopExecutionThread();
+    path_updated_ = false;
     execution_completed_ = false;
+    goal_path_ = path_smoothed;
     execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, path_smoothed, replanning);
     execution_watchdog_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::executionWatchDog, this);
     return true;
@@ -243,33 +242,14 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   int time_parameterization_count = 0; // Number of waypoints with time parameterization attached (index of the first waypoint without t/p)
   Eigen::Vector2d fake_odom_pose = Eigen::Vector2d::Zero();
   nav_msgs::Path target_path = path_msg;
-  for (int current_traj_index = 0; current_traj_index < target_path.poses.size() -1; ++current_traj_index) {
-    if (new_path_received_) {
-      new_path_received_ = false;
-
-      // Get current robot position
-      geometry_msgs::TransformStamped robot_transform;
-      getRobotPose(ros::Time::now(), robot_transform);
-      Eigen::Vector3d p0;
-      tf::vectorMsgToEigen(robot_transform.transform.translation, p0);
-
-      nav_msgs::Path new_slice = slicePathDirectDistance(target_path_, p0, planning_horizon_, true, 0);
-      if (!new_slice.poses.empty()) {
-        ROS_INFO_STREAM("Path updated");
-//        ROS_INFO_STREAM("Old path: " << pathToString(target_path));
-//        ROS_INFO_STREAM("New path: " << pathToString(target_path_));
-
-        nav_msgs::Path old_slice = slicePathDirectDistance(target_path, p0, planning_horizon_, false, current_traj_index);
-        target_path = old_slice;
-        appendPath(target_path, new_slice);
-//
-//        ROS_INFO_STREAM("Old slice: " << pathToString(old_slice));
-//        ROS_INFO_STREAM("New slice: " << pathToString(new_slice));
-//        ROS_INFO_STREAM("Fused path: " << pathToString(target_path));
-      }
+  for (current_path_index_ = 0; current_path_index_ < target_path.poses.size() -1; ++current_path_index_) {
+    if (path_updated_) {
+      std::lock_guard<std::mutex> lock(path_update_mutex_);
+      path_updated_ = false;
+      target_path = goal_path_;
     }
 
-    nav_msgs::Path path_slice = slicePath(target_path, current_traj_index, current_traj_index + 2);
+    nav_msgs::Path path_slice = slicePath(target_path, current_path_index_, current_path_index_ + 2);
 
     waitUntilPlanningHorizonReached(path_slice.poses.back().pose.position);
 
@@ -277,9 +257,9 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
       ROS_DEBUG_STREAM("Execution thread stopped");
       return;
     }
-    ROS_DEBUG_STREAM("Waypoint " << current_traj_index);
+    ROS_DEBUG_STREAM("Waypoint " << current_path_index_);
 
-    end_of_path_reached_ = current_traj_index == target_path.poses.size() - 2;
+    end_of_path_reached_ = current_path_index_ == target_path.poses.size() - 2;
 
     // Compute optimized postures
     std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimization_results;
@@ -1087,8 +1067,30 @@ nav_msgs::Path WholeBodyPlanningServer::slicePathDirectDistance(const nav_msgs::
   }
   return path_slice;
 }
+
 void WholeBodyPlanningServer::appendPath(nav_msgs::Path& path1, const nav_msgs::Path& path2) {
   path1.poses.insert(path1.poses.end(), path2.poses.begin(), path2.poses.end());
+}
+
+nav_msgs::Path WholeBodyPlanningServer::updatePath(const nav_msgs::Path& old_path, const nav_msgs::Path& new_path) const {
+  std::lock_guard<std::mutex> lock(path_update_mutex_);
+
+  // Get current robot position
+  geometry_msgs::TransformStamped robot_transform;
+  getRobotPose(ros::Time::now(), robot_transform);
+  Eigen::Vector3d p0;
+  tf::vectorMsgToEigen(robot_transform.transform.translation, p0);
+
+  // Create slices
+  nav_msgs::Path new_slice = slicePathDirectDistance(new_path, p0, planning_horizon_, true, 0);
+  if (new_slice.poses.empty()) {
+    return old_path;
+  }
+
+  nav_msgs::Path stitched_path = slicePathDirectDistance(old_path, p0, planning_horizon_, false, current_path_index_);
+  appendPath(stitched_path, new_slice);
+
+  return stitched_path;
 }
 
 }
