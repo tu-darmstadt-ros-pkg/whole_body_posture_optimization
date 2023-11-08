@@ -246,35 +246,26 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   for (int current_traj_index = 0; current_traj_index < target_path.poses.size() -1; ++current_traj_index) {
     if (new_path_received_) {
       new_path_received_ = false;
+
+      // Get current robot position
       geometry_msgs::TransformStamped robot_transform;
       getRobotPose(ros::Time::now(), robot_transform);
+      Eigen::Vector3d p0;
+      tf::vectorMsgToEigen(robot_transform.transform.translation, p0);
 
-      Eigen::Vector3d p1;
-      tf::vectorMsgToEigen(robot_transform.transform.translation, p1);
-
-      nav_msgs::Path new_path = target_path_;
-      unsigned int i = 0;
-      for (i = 0; i < new_path.poses.size(); ++i) {
-        Eigen::Vector3d p2;
-        tf::pointMsgToEigen(new_path.poses[i].pose.position, p2);
-        // Distance in x-y plane
-        double distance = (p2.block<2, 1>(0, 0) - p1.block<2, 1>(0, 0)).norm();
-        if (distance > planning_horizon_) break;
-      }
-      if (i < new_path.poses.size()) {
+      nav_msgs::Path new_slice = slicePathDirectDistance(target_path_, p0, planning_horizon_, true, 0);
+      if (!new_slice.poses.empty()) {
         ROS_INFO_STREAM("Path updated");
-        ROS_INFO_STREAM("Current traj index: " << current_traj_index);
-        ROS_INFO_STREAM("Old path: " << pathToString(target_path));
-        ROS_INFO_STREAM("New path: " << pathToString(target_path_));
+//        ROS_INFO_STREAM("Old path: " << pathToString(target_path));
+//        ROS_INFO_STREAM("New path: " << pathToString(target_path_));
 
-        ROS_INFO_STREAM("Index outside of planning horizon: " << i);
-        ROS_INFO_STREAM("Fused path: " << pathToString(target_path));
-        nav_msgs::Path path_start = slicePath(target_path, 0, current_traj_index);
-        nav_msgs::Path path_end = slicePath(new_path, i-1, new_path.poses.size());
-        target_path = path_start;
-        target_path.poses.insert(target_path.poses.end(), path_end.poses.begin(), path_end.poses.end());
-      } else {
-        ROS_WARN_STREAM("New path does not contain points outside of planning horizon");
+        nav_msgs::Path old_slice = slicePathDirectDistance(target_path, p0, planning_horizon_, false, current_traj_index);
+        target_path = old_slice;
+        appendPath(target_path, new_slice);
+//
+//        ROS_INFO_STREAM("Old slice: " << pathToString(old_slice));
+//        ROS_INFO_STREAM("New slice: " << pathToString(new_slice));
+//        ROS_INFO_STREAM("Fused path: " << pathToString(target_path));
       }
     }
 
@@ -515,12 +506,16 @@ nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, in
   nav_msgs::Path path_slice;
   path_slice.header = path.header;
 
-  if (start_index > path.poses.size() || end_index < start_index) {
+  if (start_index >= path.poses.size() || end_index <= start_index) {
     return path_slice;
   }
 
   if (end_index > path.poses.size()) {
     end_index = path.poses.size();
+  }
+
+  if (start_index < 0) {
+    start_index = 0;
   }
 
   path_slice.poses.assign(path.poses.begin() + start_index, path.poses.begin() + end_index);
@@ -1065,6 +1060,35 @@ void WholeBodyPlanningServer::waitUntilPlanningHorizonReached(const geometry_msg
   } else {
     reconfigure_lock.unlock();
   }
+}
+
+nav_msgs::Path WholeBodyPlanningServer::slicePathDirectDistance(const nav_msgs::Path& path, Eigen::Vector3d& p0,
+                                                                double distance_limit, bool invert, int search_start_index)
+{
+  int i;
+  for (i = search_start_index; i < path.poses.size(); ++i) {
+    Eigen::Vector3d p1;
+    tf::pointMsgToEigen(path.poses[i].pose.position, p1);
+    // Distance in x-y plane
+    double distance = (p0.block<2, 1>(0, 0) - p1.block<2, 1>(0, 0)).norm();
+    if (distance > distance_limit) break;
+  }
+  nav_msgs::Path path_slice;
+  //    path_slice.header = path.header;
+  //    if (i == path.poses.size()) {
+  //      ROS_WARN_STREAM("New path does not contain points outside of planning horizon");
+  //      return path_slice;
+  //    }
+  if (!invert) {
+    path_slice = slicePath(path, 0, i);
+  } else {
+    path_slice = slicePath(path, i, path.poses.size());
+
+  }
+  return path_slice;
+}
+void WholeBodyPlanningServer::appendPath(nav_msgs::Path& path1, const nav_msgs::Path& path2) {
+  path1.poses.insert(path1.poses.end(), path2.poses.begin(), path2.poses.end());
 }
 
 }

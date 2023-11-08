@@ -70,6 +70,8 @@ private:
   /// Util
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance);
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, int start_index, int end_index);
+  static nav_msgs::Path slicePathDirectDistance(const nav_msgs::Path& path, Eigen::Vector3d& p0, double distance_limit, bool invert=false, int search_start_index=0);
+  static void appendPath(nav_msgs::Path& path1, const nav_msgs::Path& path2);
   nav_msgs::Path extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const;
   static void enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr);
   std::string pathToString(const nav_msgs::Path& path) const;
