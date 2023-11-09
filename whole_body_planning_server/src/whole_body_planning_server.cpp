@@ -28,6 +28,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   planning_horizon_(-1),
   minimum_path_length_(0),
   path_sampling_resolution_(0.02),
+  path_stitching_tolerance_(0.15),
   override_path_time_(false),
   continuous_planning_(false),
   execution_position_tolerance_(0.0),
@@ -132,15 +133,20 @@ bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::Path path_msg, bool r
     return planAndExecutePathFull(path_smoothed, replanning);
   } else {
     if (replanning) {
-      goal_path_ = updatePath(goal_path_, path_smoothed);
-      path_updated_ = true;
-      return true;
+      if (updatePath(goal_path_, path_smoothed)) {
+        ROS_INFO_STREAM("Updated previous path");
+        path_updated_ = true;
+        return true;
+      } else {
+       ROS_INFO_STREAM("Path diverges from previous path. Resetting plan.");
+      }
     }
     stopExecutionThread();
+    stopExecution();
     path_updated_ = false;
     execution_completed_ = false;
     goal_path_ = path_smoothed;
-    execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, path_smoothed, replanning);
+    execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, path_smoothed, false);
     execution_watchdog_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::executionWatchDog, this);
     return true;
   }
@@ -598,7 +604,6 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
 
   // Plan and execute
   if (enabled_) {
-    ROS_INFO_STREAM("Replanning: " << goal_preempted);
     planAndExecutePath(goal.getGoal()->target_path, goal_preempted);
   } else {
     end_of_path_reached_ = true;
@@ -792,6 +797,7 @@ void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planni
   std::lock_guard<std::mutex> lock(reconfigure_mutex_);
   enabled_ = config.enabled;
   path_sampling_resolution_ = config.path_sampling_resolution;
+  path_stitching_tolerance_ = config.path_stitching_tolerance;
   planning_horizon_ = config.planning_horizon;
   minimum_path_length_ = config.minimum_path_length;
   if (minimum_path_length_ < path_sampling_resolution_) {
@@ -805,6 +811,7 @@ void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planni
   auto_start_ = config.auto_start;
   continuous_planning_ = config.continuous_planning;
 }
+
 void WholeBodyPlanningServer::updateRobotPose(const nav_msgs::Path& path)
 {
   Eigen::Isometry3d robot_pose_eigen;
@@ -1072,7 +1079,7 @@ void WholeBodyPlanningServer::appendPath(nav_msgs::Path& path1, const nav_msgs::
   path1.poses.insert(path1.poses.end(), path2.poses.begin(), path2.poses.end());
 }
 
-nav_msgs::Path WholeBodyPlanningServer::updatePath(const nav_msgs::Path& old_path, const nav_msgs::Path& new_path) const {
+bool WholeBodyPlanningServer::updatePath(nav_msgs::Path& old_path, const nav_msgs::Path& new_path) const {
   std::lock_guard<std::mutex> lock(path_update_mutex_);
 
   // Get current robot position
@@ -1084,13 +1091,24 @@ nav_msgs::Path WholeBodyPlanningServer::updatePath(const nav_msgs::Path& old_pat
   // Create slices
   nav_msgs::Path new_slice = slicePathDirectDistance(new_path, p0, planning_horizon_, true, 0);
   if (new_slice.poses.empty()) {
-    return old_path;
+    return true;
   }
+  nav_msgs::Path old_slice = slicePathDirectDistance(old_path, p0, planning_horizon_, false, current_path_index_);
 
-  nav_msgs::Path stitched_path = slicePathDirectDistance(old_path, p0, planning_horizon_, false, current_path_index_);
-  appendPath(stitched_path, new_slice);
+  // Check if slices connect well
+  double slice_distance = euclideanDistance2D(old_slice.poses.back().pose.position, new_slice.poses.front().pose.position);
+  bool slices_fit = slice_distance < path_stitching_tolerance_;
+  if (slices_fit) {
+    old_path = old_slice;
+    appendPath(old_path, new_slice);
+  }
+  return slices_fit;
+}
 
-  return stitched_path;
+double WholeBodyPlanningServer::euclideanDistance2D(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2) {
+  double x = p2.x - p1.x;
+  double y = p2.y - p1.y;
+  return std::sqrt(x * x + y * y);
 }
 
 }

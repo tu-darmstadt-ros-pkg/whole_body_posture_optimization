@@ -68,10 +68,11 @@ private:
   void executionWatchDog();
 
   /// Util
-  nav_msgs::Path updatePath(const nav_msgs::Path& old_path, const nav_msgs::Path& new_path) const;
+  bool updatePath(nav_msgs::Path& old_path, const nav_msgs::Path& new_path) const;
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, double distance);
   static nav_msgs::Path slicePath(const nav_msgs::Path& path, int start_index, int end_index);
   static nav_msgs::Path slicePathDirectDistance(const nav_msgs::Path& path, Eigen::Vector3d& p0, double distance_limit, bool invert=false, int search_start_index=0);
+  static double euclideanDistance2D(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2);
   static void appendPath(nav_msgs::Path& path1, const nav_msgs::Path& path2);
   nav_msgs::Path extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const;
   static void enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr);
@@ -147,6 +148,7 @@ private:
   double minimum_path_length_;
   std::string stability_info_save_folder_;
   double path_sampling_resolution_;
+  double path_stitching_tolerance_;
   bool override_path_time_;
   bool continuous_planning_;
   double execution_position_tolerance_;
