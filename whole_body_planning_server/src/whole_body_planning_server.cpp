@@ -1,11 +1,13 @@
 #include <whole_body_planning_server/whole_body_planning_server.h>
 
+#include <whole_body_planning_server/path_smoother.h>
+#include <whole_body_planning_server/util.h>
+
 #include <chrono>
 #include <thread>
 
 #include <sdf_contact_estimation/robot_model/shape_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
-#include <whole_body_planning_server/path_smoother.h>
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 
 #include <eigen_conversions/eigen_msg.h>
@@ -458,56 +460,6 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
   return path_copy;
 }
 
-nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, double distance)
-{
-  // Special case: always return original path if distance is <=0
-  if (distance <= 0) {
-    return path;
-  }
-  // Sum up distance and add poses
-  double current_distance = 0.0;
-  nav_msgs::Path path_slice;
-  path_slice.header = path.header;
-  for (const auto& pose: path.poses) {
-    if (path_slice.poses.empty()) {
-      path_slice.poses.push_back(pose);
-    } else {
-      Eigen::Vector3d p1, p2;
-      tf::pointMsgToEigen(path_slice.poses.back().pose.position, p1);
-      tf::pointMsgToEigen(pose.pose.position, p2);
-      double d = (p2 - p1).norm();
-      current_distance += d;
-
-      if (current_distance > distance) {
-        break;
-      }
-      path_slice.poses.push_back(pose);
-    }
-  }
-  return path_slice;
-}
-
-nav_msgs::Path WholeBodyPlanningServer::slicePath(const nav_msgs::Path& path, int start_index, int end_index)
-{
-  nav_msgs::Path path_slice;
-  path_slice.header = path.header;
-
-  if (start_index >= path.poses.size() || end_index <= start_index) {
-    return path_slice;
-  }
-
-  if (end_index > path.poses.size()) {
-    end_index = path.poses.size();
-  }
-
-  if (start_index < 0) {
-    start_index = 0;
-  }
-
-  path_slice.poses.assign(path.poses.begin() + start_index, path.poses.begin() + end_index);
-  return path_slice;
-}
-
 bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out)
 {
   std::lock_guard<std::mutex> lock(esdf_update_mutex_);
@@ -727,16 +679,6 @@ nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectory(const robot_tr
   return path;
 }
 
-std::string WholeBodyPlanningServer::pathToString(const nav_msgs::Path& path) const
-{
-  std::stringstream ss;
-  for (unsigned int i = 0; i < path.poses.size(); ++i) {
-    const geometry_msgs::Point& point = path.poses[i].pose.position;
-    ss << std::endl << i << ": [" << point.x << ", " << point.y << ", " << point.z << "]";
-  }
-  return ss.str();
-}
-
 void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {
   planAndExecutePathFull(*path_msg, false);
 }
@@ -844,23 +786,6 @@ void WholeBodyPlanningServer::stopExecutionThread()
   if (execution_watchdog_thread_) {
     execution_watchdog_thread_->join();
     execution_watchdog_thread_.reset();
-  }
-}
-
-void WholeBodyPlanningServer::enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr)
-{
-  const std::vector<std::string>& variable_names = robot_state_ptr->getVariableNames();
-  const moveit::core::RobotModelConstPtr& robot_model = robot_state_ptr->getRobotModel();
-  for (int j = 0; j < robot_state_ptr->getVariableCount(); ++j) {
-    const moveit::core::VariableBounds& bounds = robot_model->getVariableBounds(variable_names[j]);
-    if (bounds.acceleration_bounded_) {
-      double acceleration = robot_state_ptr->getVariableAcceleration(j);
-      if (acceleration > bounds.max_acceleration_) {
-        robot_state_ptr->setVariableAcceleration(j, bounds.max_acceleration_);
-      } else if (acceleration < bounds.min_acceleration_) {
-        robot_state_ptr->setVariableAcceleration(j, bounds.min_acceleration_);
-      }
-    }
   }
 }
 
@@ -1030,11 +955,8 @@ void WholeBodyPlanningServer::waitUntilPlanningHorizonReached(const geometry_msg
       // Get current pose
       geometry_msgs::TransformStamped robot_transform;
       if (getRobotPose(ros::Time::now(), robot_transform)) {
-        Eigen::Vector3d p1, p2;
-        tf::vectorMsgToEigen(robot_transform.transform.translation, p1);
-        tf::pointMsgToEigen(planning_point, p2);
         // Distance in x-y plane
-        double distance = (p2.block<2, 1>(0, 0) - p1.block<2, 1>(0, 0)).norm();
+        double distance = euclideanDistance2D<geometry_msgs::Vector3, geometry_msgs::Point>(robot_transform.transform.translation, planning_point);
         {
           std::lock_guard<std::mutex> lock(reconfigure_mutex_);
           too_far_away = distance > planning_horizon_;
@@ -1049,35 +971,6 @@ void WholeBodyPlanningServer::waitUntilPlanningHorizonReached(const geometry_msg
   }
 }
 
-nav_msgs::Path WholeBodyPlanningServer::slicePathDirectDistance(const nav_msgs::Path& path, Eigen::Vector3d& p0,
-                                                                double distance_limit, bool invert, int search_start_index)
-{
-  int i;
-  for (i = search_start_index; i < path.poses.size(); ++i) {
-    Eigen::Vector3d p1;
-    tf::pointMsgToEigen(path.poses[i].pose.position, p1);
-    // Distance in x-y plane
-    double distance = (p0.block<2, 1>(0, 0) - p1.block<2, 1>(0, 0)).norm();
-    if (distance > distance_limit) break;
-  }
-  nav_msgs::Path path_slice;
-  //    path_slice.header = path.header;
-  //    if (i == path.poses.size()) {
-  //      ROS_WARN_STREAM("New path does not contain points outside of planning horizon");
-  //      return path_slice;
-  //    }
-  if (!invert) {
-    path_slice = slicePath(path, 0, i);
-  } else {
-    path_slice = slicePath(path, i, path.poses.size());
-
-  }
-  return path_slice;
-}
-
-void WholeBodyPlanningServer::appendPath(nav_msgs::Path& path1, const nav_msgs::Path& path2) {
-  path1.poses.insert(path1.poses.end(), path2.poses.begin(), path2.poses.end());
-}
 
 bool WholeBodyPlanningServer::updatePath(nav_msgs::Path& old_path, const nav_msgs::Path& new_path) const {
   std::lock_guard<std::mutex> lock(path_update_mutex_);
@@ -1085,15 +978,13 @@ bool WholeBodyPlanningServer::updatePath(nav_msgs::Path& old_path, const nav_msg
   // Get current robot position
   geometry_msgs::TransformStamped robot_transform;
   getRobotPose(ros::Time::now(), robot_transform);
-  Eigen::Vector3d p0;
-  tf::vectorMsgToEigen(robot_transform.transform.translation, p0);
 
   // Create slices
-  nav_msgs::Path new_slice = slicePathDirectDistance(new_path, p0, planning_horizon_, true, 0);
+  nav_msgs::Path new_slice = slicePathDirectDistance(new_path, robot_transform.transform.translation, planning_horizon_, true, 0);
   if (new_slice.poses.empty()) {
     return true;
   }
-  nav_msgs::Path old_slice = slicePathDirectDistance(old_path, p0, planning_horizon_, false, current_path_index_);
+  nav_msgs::Path old_slice = slicePathDirectDistance(old_path, robot_transform.transform.translation, planning_horizon_, false, current_path_index_);
 
   // Check if slices connect well
   double slice_distance = euclideanDistance2D(old_slice.poses.back().pose.position, new_slice.poses.front().pose.position);
@@ -1103,12 +994,6 @@ bool WholeBodyPlanningServer::updatePath(nav_msgs::Path& old_path, const nav_msg
     appendPath(old_path, new_slice);
   }
   return slices_fit;
-}
-
-double WholeBodyPlanningServer::euclideanDistance2D(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2) {
-  double x = p2.x - p1.x;
-  double y = p2.y - p1.y;
-  return std::sqrt(x * x + y * y);
 }
 
 }
