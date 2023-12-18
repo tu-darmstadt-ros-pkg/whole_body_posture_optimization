@@ -136,11 +136,11 @@ bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::Path path_msg, bool r
   } else {
     if (replanning) {
       if (updatePath(goal_path_, path_smoothed)) {
-        ROS_INFO_STREAM("Updated previous path");
+        ROS_INFO_STREAM("Previous path has been updated");
         path_updated_ = true;
         return true;
       } else {
-       ROS_INFO_STREAM("Path diverges from previous path. Resetting plan.");
+       ROS_INFO_STREAM("New path diverges from previous path. Resetting plan.");
       }
     }
     stopExecutionThread();
