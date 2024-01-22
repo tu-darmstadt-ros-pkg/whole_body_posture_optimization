@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
 
   // Create pose predictor
   // Create robot model
-  ros::NodeHandle pose_predictor_nh(pnh, "pose_predictor");
+  ros::NodeHandle pose_predictor_nh(pnh, "sdf_pose_predictor");
   ros::NodeHandle shape_model_nh(pose_predictor_nh, "shape_model");
   auto shape_model = std::make_shared<sdf_contact_estimation::ShapeModel>(shape_model_nh);
   auto sdf_pose_predictor = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(pose_predictor_nh, shape_model, sdf_model);
@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
   WholeBodyPostureOptimization po(pnh, pose_predictor, sdf_model);
 
   // Load robot pose
-  std::vector<double> requested_pose_vec = pnh.param<std::vector<double>>("robot_pose", std::vector<double>(6, 0));
+  auto requested_pose_vec = pnh.param<std::vector<double>>("robot_pose", std::vector<double>(6, 0));
   if (requested_pose_vec.size() != 6) {
     ROS_WARN_STREAM("Requested pose vector has wrong size (" << requested_pose_vec.size() << ") instead of 6. Using identity.");
     requested_pose_vec.resize(6, 0);

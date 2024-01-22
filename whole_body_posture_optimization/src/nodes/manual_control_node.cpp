@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
   sdf_model->loadFromServer(sdf_model_nh);
 
   // Create pose predictor
-  std::string pose_predictor_name = pnh.param<std::string>("pose_predictor", "sdf_contact_estimation::SDFContactEstimation");
+  auto pose_predictor_name = pnh.param<std::string>("pose_predictor", "sdf_contact_estimation::SDFContactEstimation");
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor;
   if (pose_predictor_name == "sdf_contact_estimation::SDFContactEstimation") {
     ros::NodeHandle pose_predictor_nh(pnh, "sdf_pose_predictor");
