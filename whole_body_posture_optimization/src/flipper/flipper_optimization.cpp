@@ -66,16 +66,12 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   }
 
   // Set local optimizer
-//  std::string local_algorithm;
-//  if (nh.getParam("local_algorithm", local_algorithm)) {
-//    nlopt::opt local_opt(local_algorithm.c_str(), parameter_count_);
-//    ros::NodeHandle local_stopping_criteria_nh(nh_, "local_stopping_criteria");
-//    ceres_nlopt_wrapper::setParametersFromServer(local_stopping_criteria_nh, local_opt);
-//
-//    local_opt.set_lower_bounds(lower_bounds_);
-//    local_opt.set_upper_bounds(upper_bounds_);
-//    opt_.set_local_optimizer(local_opt); // makes a copy
-//  }
+  std::string local_algorithm;
+  bool use_local_solver = false;
+  if (nh.getParam("local_solver/enabled", use_local_solver) && use_local_solver) {
+    ros::NodeHandle local_solver_nh(nh, "local_solver");
+    local_opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(local_solver_nh, parameter_count_);
+  }
 }
 
 bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
@@ -99,6 +95,10 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
 
   // Construct solver
   nlopt::opt& opt = opt_server_->getOptimizer();
+  if (local_opt_server_) {
+    nlopt::opt& local_opt = local_opt_server_->getOptimizer();
+    opt.set_local_optimizer(local_opt); // makes a copy
+  }
 
   // Define parameter bounds
   opt.set_lower_bounds(lower_bounds_);

@@ -41,6 +41,7 @@ flipper_optimization:
     #algorithm: GN_DIRECT_L
     #algorithm: GN_ESCH
     #algorithm: GN_ISRES
+    #algorithm: GN_MLSL # needs local solver
     #algorithm: LN_COBYLA
     #algorithm: LN_BOBYQA
     #algorithm: LN_PRAXIS
@@ -49,11 +50,10 @@ flipper_optimization:
     maxeval: 100
     stopval: -1.0
 
-  #local_algorithm: LN_NELDERMEAD
-  #local_stopping_criteria:
-    #maxeval: 10
-    #ftol_rel: 1e-3
-    #xtol_rel: 1e-3
+  local_solver:
+    enabled: true
+    #algorithm: LN_NELDERMEAD
+    maxeval: 10
 
   joints:
     - flipper_front_joint
