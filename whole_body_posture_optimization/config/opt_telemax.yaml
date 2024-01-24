@@ -4,18 +4,18 @@ default_joint_state:
   flipper_back_left_joint: 0.0
   flipper_back_right_joint: 0.0
   arm_joint_0: 0.0
-  #arm_joint_1: -2.0
-  #arm_joint_2: 1.2
+  arm_joint_1: -2.0
+  arm_joint_2: 1.2
   arm_joint_3: 0.0
-  #arm_joint_4: 1.0
+  arm_joint_4: 1.0
   arm_joint_5: 0.0
   gripper_joint: 0.0
   spin_lidar_spin_joint: 0.0
 
   # Folded position
-  arm_joint_1: -2.36
-  arm_joint_2: 2.32
-  arm_joint_4: 2.16
+  #arm_joint_1: -2.36
+  #arm_joint_2: 2.32
+  #arm_joint_4: 2.16
 
 optimization_type: split
 collision_group: arm_group
@@ -34,31 +34,25 @@ joint_limits:
   flipper_back_right_joint: [-1.22, 1.22]
 
 arm_optimization:
-  enabled: false
+  enabled: true
   solver:
-    algorithm: LD_SLSQP
+    #algorithm: LD_SLSQP
     #algorithm: LD_MMA
-    #algorithm: LN_COBYLA
+    #algorithm: LD_CCSAQ
+    algorithm: LN_COBYLA
     #algorithm: LD_AUGLAG
     #algorithm: GN_ISRES
-    #maxtime: 0.200
-    maxeval: 100
+    #algorithm: GN_ORIG_DIRECT
+    maxtime: 0.500
+    #maxeval: 100
     #ftol_abs: 0.0001
     #xtol_abs: 0.001
-    xtol_rel: 0.005
-  #local_algorithm: LD_LBFGS
-  local_stopping_criteria:
-    #maxtime: 0.200
-    maxeval: 300
-    #ftol_abs: 0.0001
-    xtol_abs: 0.01
-  #sub_algorithm: LD_SLSQP
-  sub_stopping_criteria:
-    #maxtime: 0.200
-    maxeval: 300
-    #ftol_abs: 0.0001
-    #xtol_abs: 0.01
-    xtol_rel: 0.005
+    #xtol_rel: 0.005
+
+  local_solver:
+    enabled: false
+    algorithm: LD_SLSQP
+    maxeval: 100
   joints:
     #- arm_joint_0
     - arm_joint_1 # first pitch
@@ -122,8 +116,8 @@ flipper_optimization:
     enabled: false
     algorithm: grid_search
     #search_resolution: 0.087 # 5 deg steps
-    search_resolution: 0.26 # 15 deg
-    #search_resolution: 0.78 # 45 deg steps
+    #search_resolution: 0.26 # 15 deg
+    search_resolution: 0.78 # 45 deg steps
   solver:
     enabled: true
     algorithm: GN_DIRECT
@@ -145,7 +139,7 @@ flipper_optimization:
     #algorithm: G_MLSL
     #algorithm: G_MLSL_LDS
     maxeval: 500
-    stopval: -0.4
+    #stopval: -0.4
     #ftol_abs: 1e-3
     #ftol_rel: 9e-1
     #xtol_rel: 1e-1
