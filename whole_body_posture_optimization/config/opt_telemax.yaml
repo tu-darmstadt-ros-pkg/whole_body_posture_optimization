@@ -36,18 +36,18 @@ joint_limits:
 arm_optimization:
   enabled: true
   solver:
-    #algorithm: LD_SLSQP
+    algorithm: LD_SLSQP
     #algorithm: LD_MMA
     #algorithm: LD_CCSAQ
-    algorithm: LN_COBYLA
+    #algorithm: LN_COBYLA
     #algorithm: LD_AUGLAG
     #algorithm: GN_ISRES
-    #algorithm: GN_ORIG_DIRECT
-    maxtime: 0.500
+    maxtime: 0.2
     #maxeval: 100
     #ftol_abs: 0.0001
     #xtol_abs: 0.001
     #xtol_rel: 0.005
+    xtol_abs: 0.02
 
   local_solver:
     enabled: false
