@@ -215,6 +215,7 @@ int main(int argc, char** argv) {
   std::string logging_folder = pnh.param("flipper_optimization_logging_folder", std::string(""));
   if (!logging_folder.empty()) {
     DataLog::getInstance().getTable("flipper_optimization").enableLogging();
+    DataLog::getInstance().getTable("arm_optimization").enableLogging();
   }
 
   whole_body_posture_optimization::WholeBodyPostureOptimization po(pnh, pose_predictor, sdf_model);
