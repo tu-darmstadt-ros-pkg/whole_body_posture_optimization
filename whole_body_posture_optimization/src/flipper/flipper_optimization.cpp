@@ -213,9 +213,10 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
 
   // Write out probability distribution
   if (DataLog::getInstance().getTable("_" + PROBABILITY_DISTRIBUTION_TABLE_NAME).enabled()) {
-    const double range = 0.3;
+    const double range = 0.2;
     const double resolution = 0.001;
     const int num_samples = std::floor(range / resolution);
+    ROS_INFO_STREAM("Sampling PDF. Range: " << range << ", resolution: " << resolution << ", num. samples: " << num_samples);
 
     double orig_samples = flipper_multi_objective_cost_parameters_.num_pose_x_samples;
     double orig_resolution = flipper_multi_objective_cost_parameters_.sample_step_pose_x;
@@ -227,7 +228,8 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
     DataLog::getInstance().getTable("flipper_multi_objective_cost").enableLogging(false);
 
     std::vector<double> gradient;
-    (*objective)(parameters, gradient);
+    double cvar = (*objective)(parameters, gradient);
+    ROS_INFO_STREAM("CVaR: " << cvar);
 
     DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).enableLogging(false);
     DataLog::getInstance().getTable("flipper_multi_objective_cost").enableLogging();

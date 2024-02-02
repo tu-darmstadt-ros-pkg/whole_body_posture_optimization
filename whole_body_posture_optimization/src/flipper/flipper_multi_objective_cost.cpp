@@ -360,11 +360,12 @@ double FlipperMultiObjectiveCost::computeCVaR(std::vector<CostSample> samples, d
   for (unsigned int i = 1; i < samples.size(); ++i) {
     cum_sum_rel_prob.push_back(cum_sum_rel_prob[i - 1] + samples[i].relative_probability);
   }
+  double prob_sum = cum_sum_rel_prob.back();
+  std::transform(cum_sum_rel_prob.begin(), cum_sum_rel_prob.end(), cum_sum_rel_prob.begin(),
+                 [&prob_sum](double v) { return v / prob_sum; });
 
-  // Part, that we risk
-  double part = risk_level * cum_sum_rel_prob.back();
   // Value at risk
-  auto it = std::upper_bound(cum_sum_rel_prob.begin(), cum_sum_rel_prob.end(), part);
+  auto it = std::upper_bound(cum_sum_rel_prob.begin(), cum_sum_rel_prob.end(), risk_level);
   size_t start_index = it - cum_sum_rel_prob.begin();
   // Calculate weighted mean
   double sum = 0;
