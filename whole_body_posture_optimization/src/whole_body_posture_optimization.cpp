@@ -45,6 +45,7 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const ros::NodeHandle
 
   // Publishers
   trajectory_pub_ = nh_.advertise<moveit_msgs::DisplayTrajectory>("trajectory", 10, true);
+  sparse_trajectory_pub_ = nh_.advertise<moveit_msgs::DisplayTrajectory>("sparse_trajectory", 10, true);
   sdf_pub_ = nh_.advertise<voxblox_msgs::Layer>("planning_sdf", 10, true);
   path_pub_ = nh_.advertise<nav_msgs::Path>("input_path", 10, true);
 }
@@ -153,6 +154,14 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
       }
     }
   }
+
+  // Publish sparse path
+  robot_trajectory::RobotTrajectory sparse_trajectory(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
+  for (const auto& result: results) {
+    sparse_trajectory.addSuffixWayPoint(result.result_state, 1.0);
+  }
+  publishTrajectoryOnPub(sparse_trajectory_pub_, sparse_trajectory);
+
 
   return results;
 }
@@ -492,21 +501,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::addTimeParameter
 
 void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const ros::Time& start_time)
 {
-  if (robot_trajectory.empty()) {
-    return;
-  }
-  robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
-  trajectory_with_world.append(robot_trajectory, 0);
-
-  moveit_msgs::DisplayTrajectory display_msg;
-//  display_msg.model_id = "";
-  moveit::core::robotStateToRobotStateMsg(trajectory_with_world.getFirstWayPoint(), display_msg.trajectory_start);
-  moveit_msgs::RobotTrajectory trajectory_msg;
-  trajectory_with_world.getRobotTrajectoryMsg(trajectory_msg);
-  trajectory_msg.joint_trajectory.header.stamp = start_time;
-  display_msg.trajectory.push_back(trajectory_msg);
-
-  trajectory_pub_.publish(display_msg);
+  publishTrajectoryOnPub(trajectory_pub_, robot_trajectory, start_time);
 }
 
 void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOptimizationResult> &results)
@@ -581,6 +576,27 @@ bool WholeBodyPostureOptimization::saveTrajectoryStatistics(const std::vector<Po
 
   file.close();
   return true;
+}
+
+void WholeBodyPostureOptimization::publishTrajectoryOnPub(const ros::Publisher& pub,
+                                                          const robot_trajectory::RobotTrajectory& robot_trajectory,
+                                                          const ros::Time& start_time)
+{
+  if (robot_trajectory.empty()) {
+    return;
+  }
+  robot_trajectory::RobotTrajectory trajectory_with_world(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
+  trajectory_with_world.append(robot_trajectory, 0);
+
+  moveit_msgs::DisplayTrajectory display_msg;
+  //  display_msg.model_id = "";
+  moveit::core::robotStateToRobotStateMsg(trajectory_with_world.getFirstWayPoint(), display_msg.trajectory_start);
+  moveit_msgs::RobotTrajectory trajectory_msg;
+  trajectory_with_world.getRobotTrajectoryMsg(trajectory_msg);
+  trajectory_msg.joint_trajectory.header.stamp = start_time;
+  display_msg.trajectory.push_back(trajectory_msg);
+
+  pub.publish(display_msg);
 }
 
 }

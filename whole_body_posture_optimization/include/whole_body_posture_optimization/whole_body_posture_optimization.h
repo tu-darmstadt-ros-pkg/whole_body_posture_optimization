@@ -98,6 +98,8 @@ public:
   static void printResultInfo(const std::vector<PostureOptimizationResult>& results);
   static bool saveTrajectoryStatistics(const std::vector<PostureOptimizationResult>& results, robot_trajectory::RobotTrajectory& trajectory, const std::vector<size_t>& trajectory_start_indices, const std::string& save_path, ros::Time start_time=ros::Time(0));
 private:
+  void publishTrajectoryOnPub(const ros::Publisher& pub, const robot_trajectory::RobotTrajectory &robot_trajectory, const ros::Time& start_time=ros::Time(0));
+
   ros::NodeHandle nh_;
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
   sdf_contact_estimation::SdfModelPtr sdf_model_;
@@ -119,6 +121,7 @@ private:
   bool stepping_;
   int stepping_start_;
 
+  ros::Publisher sparse_trajectory_pub_;
   ros::Publisher trajectory_pub_;
   ros::Publisher sdf_pub_;
   ros::Publisher path_pub_;
