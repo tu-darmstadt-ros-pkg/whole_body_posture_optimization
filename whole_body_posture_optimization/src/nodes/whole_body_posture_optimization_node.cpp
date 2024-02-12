@@ -20,6 +20,7 @@ using whole_body_planning_plotting_utils::DataLog;
 
 nav_msgs::Path path_;
 bool new_path_received_ = false;
+double default_path_resolution;
 
 nav_msgs::Path createPath(double start_x, double stop_x, double step, const Eigen::Vector3d& offset=Eigen::Vector3d::Zero()) {
   nav_msgs::Path path;
@@ -121,7 +122,7 @@ void appendPath(nav_msgs::Path& base_path, const nav_msgs::Path& to_append) {
 
 }
 
-nav_msgs::Path createPath(const nav_msgs::Path& sparse_path) {
+nav_msgs::Path createPath(const nav_msgs::Path& sparse_path, double path_step=0.05) {
   // Just return short paths
   if (sparse_path.poses.size() < 2) {
     return sparse_path;
@@ -131,7 +132,7 @@ nav_msgs::Path createPath(const nav_msgs::Path& sparse_path) {
   nav_msgs::Path dense_path;
   dense_path.header = sparse_path.header;
   for (size_t i = 0; i < sparse_path.poses.size() - 1; ++i) {
-    nav_msgs::Path path_part = createStraightPath(sparse_path.poses[i], sparse_path.poses[i + 1], 0.05);
+    nav_msgs::Path path_part = createStraightPath(sparse_path.poses[i], sparse_path.poses[i + 1], path_step);
     appendPath(dense_path, path_part);
   }
   return dense_path;
@@ -154,7 +155,7 @@ void pathReceivedCallback(const nav_msgs::PathConstPtr& path_msg) {
 }
 
 void sparsePathReceivedCallback(const nav_msgs::PathConstPtr& path_msg) {
-  path_ = createPath(*path_msg);
+  path_ = createPath(*path_msg, default_path_resolution);
   new_path_received_ = true;
 }
 
@@ -163,6 +164,7 @@ int main(int argc, char** argv) {
   ros::NodeHandle pnh("~");
 
   // Subscribers
+  pnh.param("path_step", default_path_resolution, 0.05);
   ros::Subscriber sparse_path_sub = pnh.subscribe("sparse_goal_path", 10, &sparsePathReceivedCallback);
   ros::Subscriber path_sub = pnh.subscribe("goal_path", 10, &pathReceivedCallback);
 
