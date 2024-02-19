@@ -85,6 +85,7 @@ void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Isometr
 std::vector<double> getVariablePositions(const robot_state::RobotStateConstPtr& state, const std::vector<std::string>& variables);
 
 std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& trajectory);
+std::string robotTrajectoryToOdomString(const robot_trajectory::RobotTrajectory& trajectory);
 
 double computeTrajectoryDuration(const std::vector<robot_trajectory::RobotTrajectory>& trajectories);
 

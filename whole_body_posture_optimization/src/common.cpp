@@ -118,6 +118,26 @@ std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& tra
   return ss.str();
 }
 
+std::string robotTrajectoryToOdomString(const robot_trajectory::RobotTrajectory& trajectory)
+{
+  std::vector<unsigned int> indices;
+  std::vector<double> odom_x;
+  std::vector<double> odom_yaw;
+
+  for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
+    const robot_state::RobotState& state = trajectory.getWayPoint(i);
+    indices.push_back(i);
+    odom_x.push_back(state.getVariablePosition("world_virtual_joint/trans_x"));
+    odom_yaw.push_back(state.getVariablePosition("world_virtual_joint/trans_z"));
+  }
+  std::stringstream ss;
+  ss << std::endl;
+  ss << "Indices: " << vecToString(indices) << std::endl;
+  ss << "Odom X: " << vecToString(odom_x) << std::endl;
+  ss << "Odom Yaw: " << vecToString(odom_yaw) << std::endl;
+  return ss.str();
+}
+
 double computeTrajectoryDuration(const std::vector<robot_trajectory::RobotTrajectory>& trajectories) {
   double trajectory_duration = 0.0;
   for (const auto& trajectory: trajectories) {
