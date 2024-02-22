@@ -321,14 +321,30 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
                                                                                   std::vector<Eigen::Isometry3d>& trajectory_world_poses,
                                                                                   std::vector<size_t>& trajectory_start_indices)
 {
-  START_TIMING("Trajectory planning")
-  robot_trajectory::RobotTrajectory trajectory_fake_odom(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
-  if (opt_result.size() < 2) {
-    ROS_WARN_STREAM("Can't compute trajectory, path is empty.");
-    return trajectory_fake_odom;
-  }
   if (!opt_result.back().success) {
     ROS_WARN_STREAM("Posture optimization failed, can't compute trajectory");
+    robot_trajectory::RobotTrajectory empty(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
+    return empty;
+  }
+
+  // Copy states to vector
+  std::vector<robot_state::RobotStatePtr> states;
+  states.reserve(opt_result.size());
+  for (const auto& result: opt_result) {
+    states.push_back(result.result_state);
+  }
+
+  return computeTrajectory(states, odom_start, trajectory_world_poses, trajectory_start_indices);
+}
+
+robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajectory(
+    const std::vector<robot_state::RobotStatePtr>& states, const Eigen::Vector2d& odom_start,
+    std::vector<Eigen::Isometry3d>& trajectory_world_poses, std::vector<size_t>& trajectory_start_indices)
+{
+  START_TIMING("Trajectory planning")
+  robot_trajectory::RobotTrajectory trajectory_fake_odom(robot_model_->getMoveitRobotModel(), complete_robot_with_world_group_);
+  if (states.size() < 2) {
+    ROS_WARN_STREAM("Can't compute trajectory, path is empty.");
     return trajectory_fake_odom;
   }
 
@@ -361,7 +377,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
   // We use x/y position fields to track distance / rotation for time parameterization
   double total_distance = odom_start[0];
   double total_rotation = odom_start[1];
-  for (unsigned int i = 0; i < opt_result.size()-1; i++) {
+  for (unsigned int i = 0; i < states.size()-1; i++) {
     ROS_INFO_STREAM("Planning trajectory from state " << i << " to " << i + 1);
     planning_interface::MotionPlanRequest req;
     req.group_name = complete_robot_group_;
@@ -371,11 +387,11 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
     default_wp.max_corner.x = default_wp.max_corner.y = default_wp.max_corner.z = 1000;
 
     // Set start state
-    planning_scene->setCurrentState(*opt_result[i].result_state);
-    moveit::core::robotStateToRobotStateMsg(*opt_result[i].result_state, req.start_state);
+    planning_scene->setCurrentState(*states[i]);
+    moveit::core::robotStateToRobotStateMsg(*states[i], req.start_state);
 
     // set goal state
-    moveit_msgs::Constraints goal_constraint = kinematic_constraints::constructGoalConstraints(*opt_result[i+1].result_state, joint_model_group);
+    moveit_msgs::Constraints goal_constraint = kinematic_constraints::constructGoalConstraints(*states[i+1], joint_model_group);
     req.goal_constraints.clear();
     req.goal_constraints.push_back(goal_constraint);
 
@@ -395,8 +411,8 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
 
     // The moveit trajectory planner can't handle/interpolate the virtual world joint
     // So we do it ourselves and add the world virtual joint to all states
-    Eigen::Isometry3d start_pose = opt_result[i].result_state->getJointTransform("world_virtual_joint");
-    Eigen::Isometry3d end_pose = opt_result[i+1].result_state->getJointTransform("world_virtual_joint");
+    Eigen::Isometry3d start_pose = states[i]->getJointTransform("world_virtual_joint");
+    Eigen::Isometry3d end_pose = states[i+1]->getJointTransform("world_virtual_joint");
 
     Eigen::Vector3d start_position = start_pose.translation();
     Eigen::Vector3d end_position = end_pose.translation();
@@ -439,7 +455,7 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
     // Save start index of this trajectory part
     trajectory_start_indices.push_back(trajectory_fake_odom.getWayPointCount());
     // Append trajectory parts to full trajectory
-    if (i != opt_result.size()-2) {
+    if (i != states.size()-2) {
       // Append to full trajectory (minus the end point, which would be a duplicate of the next start)
       trajectory_fake_odom.append(*res.trajectory_, 0, 0, res.trajectory_->getWayPointCount()-1);
     } else {

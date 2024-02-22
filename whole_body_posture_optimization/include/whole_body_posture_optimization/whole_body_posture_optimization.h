@@ -84,6 +84,10 @@ public:
                                                       const Eigen::Vector2d& odom_start,
                                                       std::vector<Eigen::Isometry3d>& trajectory_world_poses,
                                                       std::vector<size_t>& trajectory_start_indices);
+  robot_trajectory::RobotTrajectory computeTrajectory(const std::vector<robot_state::RobotStatePtr>& states,
+                                                      const Eigen::Vector2d& odom_start,
+                                                      std::vector<Eigen::Isometry3d>& trajectory_world_poses,
+                                                      std::vector<size_t>& trajectory_start_indices);
   /**
    * Adds time parameterization to a trajectory with virtual world link with fake odom poses.
    * @param trajectory_fake_odom Trajectory with fake odom poses
