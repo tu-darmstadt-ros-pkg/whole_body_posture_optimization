@@ -63,8 +63,10 @@ public:
    * @return Optimized joint states for each pose of the path
    */
   std::vector<PostureOptimizationResult> findOptimalPostures(const nav_msgs::Path& path, const robot_state::RobotStateConstPtr& start_state=robot_state::RobotStateConstPtr());
-  PostureOptimizationResult findOptimalPosture(const Eigen::Isometry3d& pose, const std::vector<double> &init_joint_angles, const robot_state::RobotStateConstPtr& previous_state=robot_state::RobotStateConstPtr());
-  PostureOptimizationResult findOptimalPostureSplit(const Eigen::Isometry3d& pose, const std::vector<double> &init_joint_angles, const robot_state::RobotStateConstPtr& previous_state=robot_state::RobotStateConstPtr());
+  PostureOptimizationResult findOptimalPosture(const Eigen::Isometry3d& pose,
+                                               const std::vector<double> &init_joint_angles,
+                                               const robot_state::RobotStateConstPtr& previous_state=robot_state::RobotStateConstPtr(),
+                                               const robot_state::RobotStateConstPtr& last_solution=robot_state::RobotStateConstPtr());
 
   robot_trajectory::RobotTrajectory computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result);
   robot_trajectory::RobotTrajectory computeTimedTrajectory(const std::vector<PostureOptimizationResult>& opt_result,

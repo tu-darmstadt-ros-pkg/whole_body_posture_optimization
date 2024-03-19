@@ -25,6 +25,7 @@ public:
   double sample_step_pose_x;
   double pose_x_sigma;
   double risk_level;
+  double regularization_weight;
 protected:
   bool loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) override;
 private:

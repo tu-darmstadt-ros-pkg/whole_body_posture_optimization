@@ -20,7 +20,8 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
   num_pose_x_samples(0.0),
   sample_step_pose_x(0.05),
   pose_x_sigma(0.03),
-  risk_level(0.5)
+  risk_level(0.5),
+  regularization_weight(0.0)
 {}
 
 bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) {
@@ -43,6 +44,7 @@ bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const 
   registerParameter(nh, "sample_step_pose_x", sample_step_pose_x, 0.0, "Step size (in m) between samples", 0, 1);
   registerParameter(nh, "pose_x_sigma", pose_x_sigma, 0.03, "Standard deviation of the normal distribution used for sampling the x position", 0, 1);
   registerParameter(nh, "risk_level", risk_level, 0.5, "Risk level for CVaR (Conditional Value at Risk) computation", 0, 1);
+  registerParameter(nh, "regularization_weight", regularization_weight, 0.0, "Cost to keep the next solution close to the previous solution (if provided)", 0.0, 100);
   return true;
 }
 

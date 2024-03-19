@@ -167,22 +167,8 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
 }
 
 PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const Eigen::Isometry3d& pose, const std::vector<double>& init_joint_angles,
-                                                                           const robot_state::RobotStateConstPtr& previous_state)
-{
-  if (optimization_type_ == SPLIT) {
-    return findOptimalPostureSplit(pose, init_joint_angles, previous_state);
-  } else if (optimization_type_ == COMBINED) {
-    ROS_ERROR_STREAM("Combined optimization currently not supported.");
-//    return findOptimalPostureCombined(pose, init_joint_angles, previous_joint_angles, init_contact_result);
-    return {};
-  } else {
-    ROS_ERROR_STREAM("Unknown optimization type");
-    return {};
-  }
-}
-
-PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(const Eigen::Isometry3d& pose, const std::vector<double>& init_joint_angles,
-                                                                                const robot_state::RobotStateConstPtr& previous_state)
+                                                                           const robot_state::RobotStateConstPtr& previous_state,
+                                                                           const robot_state::RobotStateConstPtr& last_solution)
 {
   START_TIMING("findOptimalPostureSplit")
   ROS_INFO_STREAM("**********************************************");
@@ -201,7 +187,7 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPostureSplit(
 
   // Optimize flippers
   ROS_INFO_STREAM("Estimated pose before optimization: " << poseToString(estimated_pose));
-  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(estimated_pose, init_joint_angles, previous_state);
+  FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(estimated_pose, init_joint_angles, previous_state, last_solution);
   result.result_pose = flipper_result.pose;
   result.support_polygon = flipper_result.support_polygon;
   result.result_joint_angles = flipper_result.joint_state;

@@ -10,9 +10,10 @@ using whole_body_planning_plotting_utils::DataLog;
 namespace whole_body_posture_optimization {
 
 FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
-                                         const Eigen::Isometry3d &pose,
-                                         const robot_state::RobotStateConstPtr& previous_state,
-                                         const FlipperMultiObjectiveCostParameters& parameters)
+                                                     const Eigen::Isometry3d &pose,
+                                                     const robot_state::RobotStateConstPtr& previous_state,
+                                                     const FlipperMultiObjectiveCostParameters& parameters,
+                                                     const robot_state::RobotStateConstPtr& last_solution)
   : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose), parameters_(parameters)
 {
   param_idx_to_state_idx = getIndexMap<std::string>(pose_predictor_->robotModel()->jointNames(), free_joints_);
@@ -30,6 +31,9 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
     if (prev_support_polygon_.contact_hull_points.empty()) {
       ROS_WARN_STREAM("Failed to compute previous support polygon. Cannot compute impact costs.");
     }
+  }
+  if (last_solution) {
+    last_solution_ = getVariablePositions(last_solution, free_joints_);
   }
   if (DataLog::getInstance().getTable("flipper_multi_objective_cost").enabled()) {
     std::vector<std::string> data_labels = free_joints;
@@ -168,6 +172,14 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
       }
     }
 
+    double regularization_cost = 0;
+    if (!last_solution_.empty() && parameters_.regularization_weight > 0.0) {
+      for (unsigned int idx = 0; idx < last_solution_.size(); idx++) {
+        double angle_difference = last_solution_[idx] - flipper_angles[0][idx];
+        regularization_cost = std::max(lorentzian<double>(angle_difference, parameters_.lorentzian_sigma), regularization_cost);
+      }
+    }
+
     // *** State costs ** //
     // Penalize deviation from requested position
     Eigen::Isometry3d original_to_estimated = pose_.inverse() * result_pose_eigen;
@@ -259,7 +271,8 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
               + parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle
               + parameters_.position_deviation_weight * position_deviation_cost
               + parameters_.stability_weight * stability_cost
-              + parameters_.impact_weight * impact_cost;
+              + parameters_.impact_weight * impact_cost
+              + parameters_.regularization_weight * regularization_cost;
     double rel_prob = gaussianDistribution(offset, 0.0, parameters_.pose_x_sigma);
     samples.emplace_back(CostSample{local_cost, rel_prob});
 
@@ -334,10 +347,11 @@ ceres::CostFunction* FlipperMultiObjectiveCost::Create(const std::vector<std::st
                                                  const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                                  const Eigen::Isometry3d &pose,
                                                  const robot_state::RobotStateConstPtr& previous_state,
-                                                 const FlipperMultiObjectiveCostParameters&parameters)
+                                                 const FlipperMultiObjectiveCostParameters& parameters,
+                                                 const robot_state::RobotStateConstPtr& last_solution)
 {
   auto* cost_function = new ceres::DynamicNumericDiffCostFunction<FlipperMultiObjectiveCost>(
-      new FlipperMultiObjectiveCost(free_joints, pose_predictor, pose, previous_state, parameters));
+      new FlipperMultiObjectiveCost(free_joints, pose_predictor, pose, previous_state, parameters, last_solution));
 
   cost_function->AddParameterBlock(static_cast<int>(free_joints.size()));
   cost_function->SetNumResiduals(1);

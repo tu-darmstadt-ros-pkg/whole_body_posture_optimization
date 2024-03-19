@@ -22,7 +22,8 @@ public:
                       const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                       const Eigen::Isometry3d& pose,
                       const robot_state::RobotStateConstPtr& previous_state,
-                      const FlipperMultiObjectiveCostParameters& parameters);
+                      const FlipperMultiObjectiveCostParameters& parameters,
+                      const robot_state::RobotStateConstPtr& last_solution=robot_state::RobotStateConstPtr());
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
@@ -30,7 +31,8 @@ public:
                                      const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                      const Eigen::Isometry3d& pose,
                                      const robot_state::RobotStateConstPtr& previous_state,
-                                     const FlipperMultiObjectiveCostParameters&parameters);
+                                     const FlipperMultiObjectiveCostParameters& parameters,
+                                     const robot_state::RobotStateConstPtr& last_solution=robot_state::RobotStateConstPtr());
 private:
   struct CostSample {
     double cost;
@@ -48,6 +50,7 @@ private:
   Eigen::Isometry3d pose_;
   hector_math::Pose<double> pose_math_;
   std::vector<double> prev_flipper_param_angles_;
+  std::vector<double> last_solution_;
   Eigen::Isometry3d prev_pose_;
   Eigen::Vector3d prev_com_;
   hector_pose_prediction_interface::SupportPolygon<double> prev_support_polygon_;

@@ -88,7 +88,8 @@ bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
 }
 
 FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d &robot_pose, const std::vector<double>& init_joint_angles,
-                                                        const robot_state::RobotStateConstPtr& previous_state)
+                                                        const robot_state::RobotStateConstPtr& previous_state,
+                                                        const robot_state::RobotStateConstPtr& last_solution)
 {
   // Reset seed (for stochastic algorithms)
   nlopt_srand(0);
@@ -125,7 +126,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
   objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
       FlipperMultiObjectiveCost::Create(free_joints_, pose_predictor_, robot_pose, previous_state,
-                                        flipper_multi_objective_cost_parameters_), verbosity_level);
+                                        flipper_multi_objective_cost_parameters_, last_solution), verbosity_level);
 
   objective->setName("flipper_objective");
   objective->enableInfCheck(true);
