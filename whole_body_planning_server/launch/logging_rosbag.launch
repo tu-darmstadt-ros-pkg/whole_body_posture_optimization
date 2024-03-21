@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="log_folder" default="$(find obstacle_traversal_benchmark)"/>
+  <arg name="log_folder"/>
 
   <node pkg="rosbag" type="record" name="rosbag_record_standard_data" respawn="true" output="screen"
-        args="--repeat-latched -o $(arg log_folder)/bags/obstacle_traversal_record
+        args="--repeat-latched -o $(arg log_folder)/obstacle_traversal_record
           /tf
           /tf_static
           /joint_states
