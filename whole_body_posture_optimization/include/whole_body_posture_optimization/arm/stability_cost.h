@@ -9,7 +9,6 @@
 #include <ceres/ceres.h>
 
 #include <Eigen/Eigen>
-#include <math.h>
 
 namespace  whole_body_posture_optimization {
 
@@ -65,9 +64,15 @@ public:
     // Compute movement cost
     T movement_cost = T(0.0);
     if (!previous_param_angles_.empty()) {
+      T cost_sum = T(0.0);
       for (unsigned int idx = 0; idx < previous_param_angles_.size(); idx++) {
         T angle_diff = T(previous_param_angles_[idx]) - parameters[0][idx];
-        movement_cost += lorentzian<T>(angle_diff, T(parameters_.lorentzian_sigma));
+        T penalty = lorentzian<T>(angle_diff, T(parameters_.lorentzian_sigma));
+        movement_cost += penalty * penalty;
+        cost_sum += penalty;
+      }
+      if (cost_sum > T(0.0)) {
+        movement_cost /= cost_sum;
       }
       movement_cost /= T(previous_param_angles_.size()); // Normalize by joint count
     }
