@@ -873,6 +873,17 @@ void WholeBodyPlanningServer::executionWatchDog()
     whole_body_posture_optimization::updateMoveitRobotState(interpolated_state, interpolated_pose);
     moveit_msgs::DisplayRobotState robot_state_msg;
     moveit::core::robotStateToRobotStateMsg(interpolated_state, robot_state_msg.state);
+    std_msgs::ColorRGBA color;
+    color.a = 1.0;
+    color.r = 0;
+    color.g = 1.0;
+    color.b = 0;
+    for (const auto& link: trajectory_->getRobotModel()->getLinkModelNames()) {
+      moveit_msgs::ObjectColor object_color;
+      object_color.color = color;
+      object_color.id = link;
+      robot_state_msg.highlight_links.push_back(object_color);
+    }
     robot_state_pub_.publish(robot_state_msg);
 
     // Check position threshold
