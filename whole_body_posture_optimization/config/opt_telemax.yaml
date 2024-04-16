@@ -63,7 +63,7 @@ arm_optimization:
   # Environment collision
   environment_collision_default_padding: 0.15
   environment_collision_padding: {
-    arm_link_5: 0.5, # additional padding to cover fingers
+    arm_link_5: 0.3, # additional padding to cover fingers
   }
   # Self collision
   self_collision_default_padding: 0.05
