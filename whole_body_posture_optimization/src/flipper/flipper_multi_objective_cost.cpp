@@ -154,7 +154,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
           total_contact_area += point.surface_area;
         }
         if (total_contact_area > 0) {
-          turning_resistance /= total_contact_area; // TODO does this make sense?
+          turning_resistance /= total_contact_area;
         }
 
         double turning_angle = euler_angles(0);
