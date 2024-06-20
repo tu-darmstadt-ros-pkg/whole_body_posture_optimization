@@ -1,0 +1,773 @@
+Panels:
+  - Class: rviz/Displays
+    Help Height: 138
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Robot Collision Spheres1/Namespaces1
+        - /Support Polygon1
+        - /Support Polygon1/Namespaces1
+        - /Contact Points1
+        - /Contact Points1/Namespaces1
+        - /RobotState1
+        - /Trajectory1
+      Splitter Ratio: 0.5469200015068054
+    Tree Height: 1087
+  - Class: rviz/Selection
+    Name: Selection
+  - Class: rviz/Tool Properties
+    Expanded:
+      - /Publish Point1
+      - /Waypoint Tool1
+    Name: Tool Properties
+    Splitter Ratio: 0.5886790156364441
+  - Class: rviz/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+  - Class: rviz/Time
+    Name: Time
+    SyncMode: 0
+    SyncSource: ""
+Preferences:
+  PromptSaveOnExit: true
+Toolbars:
+  toolButtonStyle: 2
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 10
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: voxblox_rviz_plugin/VoxbloxMesh
+      Enabled: true
+      Name: VoxbloxMesh
+      Queue Size: 10
+      Topic: /whole_body_posture_optimization_node/sdf_map/mesh
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Class: grid_map_rviz_plugin/GridMap
+      Color: 200; 200; 200
+      Color Layer: elevation
+      Color Transformer: IntensityLayer
+      ColorMap: default
+      Enabled: false
+      Grid Cell Decimation: 1
+      Grid Line Thickness: 0.10000000149011612
+      Height Layer: elevation
+      Height Transformer: Layer
+      History Length: 1
+      Invert ColorMap: false
+      Max Color: 255; 255; 255
+      Max Intensity: 10
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: Heightmap
+      Show Grid Lines: true
+      Topic: /whole_body_posture_optimization_node/heightmap
+      Unreliable: false
+      Use ColorMap: true
+      Value: false
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: false
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: Robot TSDF
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.019999999552965164
+      Style: Boxes
+      Topic: /whole_body_posture_optimization_node/arm_optimization/robot_tsdf
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: false
+    - Class: rviz/MarkerArray
+      Enabled: false
+      Marker Topic: /whole_body_posture_optimization_node/collision_spheres
+      Name: Robot Collision Spheres
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: false
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /whole_body_posture_optimization_node/arm_optimization/support_polygon
+      Name: Support Polygon
+      Namespaces:
+        support_polygon: true
+        support_polygon_points: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /whole_body_posture_optimization_node/flipper_optimization/support_polygon
+      Name: Contact Points
+      Namespaces:
+        contact_points: true
+        stability_text: false
+        support_polygon: false
+        support_polygon_points: false
+        surface_normals: true
+      Queue Size: 100
+      Value: true
+    - Alpha: 1
+      Axes Length: 0.10000000149011612
+      Axes Radius: 0.019999999552965164
+      Class: rviz/Pose
+      Color: 255; 25; 0
+      Enabled: false
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: COM
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Axes
+      Topic: /whole_body_posture_optimization_node/arm_optimization/result_com
+      Unreliable: false
+      Value: false
+    - Attached Body Color: 150; 50; 150
+      Class: moveit_rviz_plugin/RobotState
+      Collision Enabled: false
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        arm_link_0:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_link_1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_link_2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_link_3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_link_4:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_link_5:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_rgbd_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_rgbd_cam_mount_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_sensor_box_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_tele_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_tele_cam_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_thermal_cam_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_thermal_cam_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_wide_angle_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_wide_angle_cam_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        autonomy_box_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        back_rgbd_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera360_center_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        camera360_left_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera360_left_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera360_right_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera360_right_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        chassis_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        flipper_back_left_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        flipper_back_right_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        flipper_front_left_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        flipper_front_right_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_rgbd_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_rgbd_cam_mount_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        gripper_servo_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        gripper_tcp_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        imu_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        left_finger_end_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        left_finger_middle_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        manipulator_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        navigation_module_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        right_finger_end_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        right_finger_middle_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        spin_lidar_laser_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        spin_lidar_mount_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        spin_lidar_mount_link_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+      Name: RobotState
+      Robot Alpha: 1
+      Robot Description: robot_description
+      Robot State Topic: /whole_body_posture_optimization_node/robot_state
+      Show All Links: true
+      Show Highlights: true
+      Value: true
+      Visual Enabled: true
+    - Class: moveit_rviz_plugin/Trajectory
+      Color Enabled: false
+      Enabled: true
+      Interrupt Display: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        arm_link_0:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_link_1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_link_2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_link_3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_link_4:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_link_5:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_rgbd_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_rgbd_cam_mount_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_sensor_box_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_tele_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_tele_cam_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_thermal_cam_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        arm_thermal_cam_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_wide_angle_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        arm_wide_angle_cam_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        autonomy_box_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        back_rgbd_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera360_center_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        camera360_left_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera360_left_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera360_right_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        camera360_right_optical_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        chassis_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        flipper_back_left_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        flipper_back_right_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        flipper_front_left_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        flipper_front_right_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_rgbd_cam_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        front_rgbd_cam_mount_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        gripper_servo_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        gripper_tcp_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        imu_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        left_finger_end_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        left_finger_middle_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        manipulator_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        navigation_module_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        right_finger_end_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        right_finger_middle_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        spin_lidar_laser_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        spin_lidar_mount_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        spin_lidar_mount_link_fixed:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+      Loop Animation: true
+      Name: Trajectory
+      Robot Alpha: 1
+      Robot Color: 150; 50; 150
+      Robot Description: robot_description
+      Show Robot Collision: false
+      Show Robot Visual: true
+      Show Trail: false
+      State Display Time: 3x
+      Trail Step Size: 1
+      Trajectory Topic: /whole_body_posture_optimization_node/trajectory
+      Use Sim Time: false
+      Value: true
+    - Class: rviz/InteractiveMarkers
+      Enable Transparency: true
+      Enabled: false
+      Name: InteractiveMarkers
+      Show Axes: false
+      Show Descriptions: true
+      Show Visual Aids: false
+      Update Topic: /whole_body_posture_optimization_node/interactive_marker/robot_pose/update
+      Value: false
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: false
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: ESDF slice
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.05000000074505806
+      Style: Flat Squares
+      Topic: /whole_body_posture_optimization_node/sdf_map/esdf_slice
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: false
+    - Class: hector_user_interface/UserInterface
+      Configuration:
+        Battery Topic: /battery
+        Branding: false
+        Connectivity Loss Navigation Topic: /connectivity_loss_return_navigation_node/state
+        Dash Height: 100
+        Maximum Latency: 150
+        Network Topic: /processed_connectivity
+        Robot Orientation View:
+          Back Left Flipper Joint: ""
+          Back Right Flipper Joint: ""
+          Front Left Flipper Joint: ""
+          Front Right Flipper Joint: ""
+          IMU Topic: /imu/data
+          Offsets:
+            Back Left Multiplier: 1
+            Back Left Offset: 0
+            Back Right Multiplier: 1
+            Back Right Offset: 0
+            Front Left Multiplier: 1
+            Front Left Offset: 0
+            Front Right Multiplier: 1
+            Front Right Offset: 0
+        TUDa Branding: false
+      Enabled: true
+      Live Reload: false
+      Name: UserInterface
+      Overlay Configuration:
+        robotActions:
+          actionStructure:
+            content:
+              - key: 7b2bb842-c3a2-4b52-8118-0a30805600a3
+                type: robotAction
+                uuid: 5a28a6d1-52ca-4563-ab57-9cf30716740d
+            type: directory
+            uuid: root
+          actions:
+            - evaluateParams: true
+              icon: ""
+              messageType: nav_msgs/Path
+              name: Plan Path
+              parallel: false
+              params: "var waypointTool = null;\nfor (var tool of rviz.toolManager.tools) {\n  if (tool.classId  != \"hector_user_interface/WaypointTool\") continue;\n  waypointTool = tool;\n  break;\n}\nvar poses = [];\nfor (var pose of waypointTool.tool.waypoints) {\n  poses.push({\n    header: {frame_id: waypointTool.tool.frame},\n    pose: {\n      position: pose.position,\n      orientation: {x: pose.orientation.x, \n                    y: pose.orientation.y,\n                    z: pose.orientation.z,\n                    w: pose.orientation.scalar}\n    }\n  });\n}\nreturn ({\n  \"header\": {\n    \"frame_id\": waypointTool.tool.frame,\n    \"seq\": 0,\n    \"stamp\": {\n      \"sec\": 0,\n      \"nsec\": 0\n    }\n  },\n  \"poses\": poses\n});"
+              subactions: ""
+              topic: /whole_body_posture_optimization_node/sparse_goal_path
+              type: topic
+              uuid: 7b2bb842-c3a2-4b52-8118-0a30805600a3
+              value: ""
+      Scale: 1
+      Value: true
+      Z-Index: 0
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Billboards
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /whole_body_posture_optimization_node/input_path
+      Unreliable: false
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Default Light: true
+    Fixed Frame: world
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz/Interact
+      Hide Inactive Objects: true
+    - Class: rviz/MoveCamera
+    - Class: rviz/Select
+    - Class: rviz/FocusCamera
+    - Class: rviz/Measure
+    - Class: rviz/PublishPoint
+      Single click: true
+      Topic: /clicked_point
+    - 3D Raycast: false
+      Class: hector_user_interface/WaypointTool
+      Hide Inactive Objects: true
+      Joint State Topic: joint_states
+      Robot Description: robot_description
+      Robot Model:
+        Alpha: 0.800000011920929
+        Color: 255; 255; 255
+        Use Collision Model: true
+      Visualize Robot: false
+  Value: true
+  Views:
+    Current:
+      Class: rviz/Orbit
+      Distance: 3.2215354442596436
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Field of View: 0.7853981852531433
+      Focal Point:
+        X: 6.2167649269104
+        Y: 0.010200134478509426
+        Z: 0.5006088614463806
+      Focal Shape Fixed Size: false
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.49479514360427856
+      Target Frame: <Fixed Frame>
+      Yaw: 4.44712495803833
+    Saved: ~
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 1507
+  Hide Left Dock: false
+  Hide Right Dock: true
+  QMainWindow State: 000000ff00000000fd00000004000000000000015600000523fc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afc0000003d00000523000000e60100001cfa000000000100000002fb000000100044006900730070006c0061007900730100000000000003e70000015600fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000000ffffffff0000009d00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d00610067006500000003880000069e0000000000000000fb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000003c005400720061006a006500630074006f007200790020002d0020005400720061006a006500630074006f0072007900200053006c0069006400650072000000051f000000410000004100ffffff000000010000015f00000bf8fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000006e00000bf8000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000089700000060fc0100000002fb0000000800540069006d0065010000000000000897000003bc00fffffffb0000000800540069006d006501000000000000045000000000000000000000073b0000052300000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Selection:
+    collapsed: false
+  Time:
+    collapsed: false
+  Tool Properties:
+    collapsed: false
+  Trajectory - Trajectory Slider:
+    collapsed: false
+  Views:
+    collapsed: true
+  Width: 2199
+  X: 2872
+  Y: 233
