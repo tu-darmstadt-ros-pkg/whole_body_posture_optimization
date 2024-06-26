@@ -527,7 +527,7 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
 //    ros::Duration time_until_start = start_time - now;
 //    time_until_start.sleep();
 //  }
-//  optimizer_->publishTrajectory(trajectory, start_time);
+  optimizer_->publishTrajectory(trajectory, start_time);
 
   return true;
 }
