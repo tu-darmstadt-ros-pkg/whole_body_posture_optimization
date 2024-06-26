@@ -53,6 +53,7 @@ private:
   nav_msgs::Path preprocessPath(const nav_msgs::Path& path, double path_sampling_resolution) const;
   bool generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out);
 
+  bool ensureActiveControllers(const robot_trajectory::RobotTrajectory& trajectory);
   bool executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time);
   bool executeTrajectoryWithWatchdog(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time);
   bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking=true, ros::Time start_time=ros::Time());

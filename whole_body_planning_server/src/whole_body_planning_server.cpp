@@ -31,7 +31,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   minimum_path_length_(0),
   path_sampling_resolution_(0.02),
   path_stitching_tolerance_(0.15),
-  override_path_time_(false),
+  override_path_time_(true),
   continuous_planning_(false),
   execution_position_tolerance_(0.0),
   execution_orientation_tolerance_(0.0)
@@ -380,6 +380,15 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     // Set start time once after the first trajectory part has been computed
     if (first_execution) {
       first_execution = false;
+      // Check if there are controllers that can handle the execution before sending the first trajectory
+      if (!ensureActiveControllers(*trajectory)) {
+        if (followPathServerIsActive()) {
+          move_base_lite_msgs::FollowPathResult result;
+          result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
+          follow_path_goal_.setAborted(result, "No controllers found that could execute the trajectory.");
+        }
+        break;
+      }
       if (replanning) {
         // Trajectory has to start here in time, because planning takes time and robot might not be at the start state anymore
         start_time = target_path.header.stamp;
@@ -404,25 +413,25 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
         follow_path_goal_.setAborted(result, "Planning time takes too long");
       }
       break;
-    } else {
-      saveTrajectoryStatistics(results, *trajectory, trajectory_start_indices);
-      // Send trajectory
-      std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_);
-      if (execution_completed_) {
-        ROS_DEBUG_STREAM("Stopping execution thread before execution");
-        return;
+    }
+
+    // Send trajectory
+    saveTrajectoryStatistics(results, *trajectory, trajectory_start_indices);
+    std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_);
+    if (execution_completed_) {
+      ROS_DEBUG_STREAM("Stopping execution thread before execution");
+      return;
+    }
+    if (!executeTrajectory(*trajectory, start_time)) {
+      ROS_ERROR_STREAM("Trajectory execution failed");
+      stopExecution();
+      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
+      if (followPathServerIsActive()) {
+        move_base_lite_msgs::FollowPathResult result;
+        result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
+        follow_path_goal_.setAborted(result, "Trajectory execution failed.");
       }
-      if (!executeTrajectory(*trajectory, start_time)) {
-        ROS_ERROR_STREAM("Trajectory execution failed");
-        stopExecution();
-        std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-        if (followPathServerIsActive()) {
-          move_base_lite_msgs::FollowPathResult result;
-          result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
-          follow_path_goal_.setAborted(result, "Trajectory execution failed.");
-        }
-        break;
-      }
+      break;
     }
   }
   ROS_DEBUG_STREAM("Execution thread completed");
@@ -487,6 +496,15 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot
   return true;
 }
 
+bool WholeBodyPlanningServer::ensureActiveControllers(const robot_trajectory::RobotTrajectory& trajectory) {
+  if (moveit_cpp_ptr_->getTrajectoryExecutionManager()->ensureActiveControllersForGroup(trajectory.getGroupName())) {
+    return true;
+  } else {
+    ROS_ERROR("Execution failed! No active controllers configured for group '%s'", trajectory.getGroupName().c_str());
+    return false;
+  }
+}
+
 bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time)
 {
   ROS_DEBUG_STREAM("Starting trajectory execution");
@@ -504,12 +522,12 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
   executeBaseTrajectory(trajectory, start_time);
 
   // Wait until start time to publish trajectory
-  ros::Time now = ros::Time::now();
-  if (start_time > now) {
-    ros::Duration time_until_start = start_time - now;
-    time_until_start.sleep();
-  }
-  optimizer_->publishTrajectory(trajectory, start_time);
+//  ros::Time now = ros::Time::now();
+//  if (start_time > now) {
+//    ros::Duration time_until_start = start_time - now;
+//    time_until_start.sleep();
+//  }
+//  optimizer_->publishTrajectory(trajectory, start_time);
 
   return true;
 }
@@ -586,9 +604,7 @@ void WholeBodyPlanningServer::followPathPreemptCallback(const actionlib::ActionS
 bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking, ros::Time start_time)
 {
   // Check if there are controllers that can handle the execution
-  if (!moveit_cpp_ptr_->getTrajectoryExecutionManager()->ensureActiveControllersForGroup(trajectory.getGroupName()))
-  {
-    ROS_ERROR("Execution failed! No active controllers configured for group '%s'", trajectory.getGroupName().c_str());
+  if (!ensureActiveControllers(trajectory)) {
     return false;
   }
 
