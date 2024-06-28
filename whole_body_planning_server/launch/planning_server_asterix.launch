@@ -24,7 +24,7 @@
     <param name="trajectory_statistics_save_folder" value="$(find whole_body_planning_plotting_utils)/data/trajectory_plan"/>
 
     <!-- esdf server parameters -->
-    <rosparam file="$(find whole_body_planning_server)/config/esdf_server_common.yaml" command="load" ns="esdf_server"/>
+    <rosparam file="$(find hector_sensor_proc_launch)/config/voxblox_common_config.yaml" command="load" ns="esdf_server"/>
     <param name="esdf_server/update_mesh_every_n_sec" value="0.0"/>
     <remap from="~/esdf_server/esdf_map_in" to="/esdf_server/esdf_map_out" />
   </node>
