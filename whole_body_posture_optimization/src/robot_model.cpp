@@ -63,7 +63,7 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
 {
   if (!init_tsdf) {
     ROS_ERROR_STREAM("TSDF is null");
-    return std::shared_ptr<voxblox::TsdfMap>();
+    return {};
   }
 
   // Create copy
