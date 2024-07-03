@@ -90,35 +90,31 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
   int num_pose_x_samples = std::floor(parameters_.num_pose_x_samples);
   num_pose_x_samples = (num_pose_x_samples < 1) ? 1 : num_pose_x_samples;
 
-
-  // Spawn worker threads
-  std::vector<std::promise<double>> cost_promises(num_pose_x_samples);
-  for (int offset_counter = 0; offset_counter < num_pose_x_samples; ++offset_counter) {
-    double offset = (offset_counter - std::floor(num_pose_x_samples/2.0)) * parameters_.sample_step_pose_x;
-    Eigen::Translation3d offset_trans(offset, 0, 0);
-    Eigen::Isometry3d pose_sample = pose_ * offset_trans;
-    workers_[offset_counter]->addTask([this, pose_sample, flipper_angles_vec, offset_counter, &cost_promises]() {
-      evaluateCostAsync(pose_sample, flipper_angles_vec, cost_promises[offset_counter]);
-    });
-  }
-
-  // Collect results
-  std::vector<CostSample> samples;
-  samples.reserve(num_pose_x_samples);
-  for (int offset_counter = 0; offset_counter < num_pose_x_samples; ++offset_counter) {
-    double offset = (offset_counter - std::floor(num_pose_x_samples/2.0)) * parameters_.sample_step_pose_x;
-    auto cost_future = cost_promises[offset_counter].get_future();
-    double local_cost = cost_future.get(); // Blocks until available
-    double rel_prob = gaussianDistribution(offset, 0.0, parameters_.pose_x_sigma);
-    CostSample sample{local_cost, rel_prob};
-    ROS_INFO_STREAM("Sample " << offset_counter << ": " << sample);
-    samples.emplace_back(sample);
-  }
-
-  // Compute final cost
-  if (samples.size() == 1) {
-    cost[0] = samples[0].cost;
+  if (num_pose_x_samples == 1) {
+    cost[0] = evaluateCost(pose_, flipper_angles_vec);
   } else {
+    // Spawn worker threads
+    std::vector<std::promise<double>> cost_promises(num_pose_x_samples);
+    for (int offset_counter = 0; offset_counter < num_pose_x_samples; ++offset_counter) {
+      double offset = (offset_counter - std::floor(num_pose_x_samples/2.0)) * parameters_.sample_step_pose_x;
+      Eigen::Translation3d offset_trans(offset, 0, 0);
+      Eigen::Isometry3d pose_sample = pose_ * offset_trans;
+      workers_[offset_counter]->addTask([this, pose_sample, flipper_angles_vec, offset_counter, &cost_promises]() {
+        evaluateCostAsync(pose_sample, flipper_angles_vec, cost_promises[offset_counter]);
+      });
+    }
+
+    // Collect results
+    std::vector<CostSample> samples;
+    samples.reserve(num_pose_x_samples);
+    for (int offset_counter = 0; offset_counter < num_pose_x_samples; ++offset_counter) {
+      double offset = (offset_counter - std::floor(num_pose_x_samples/2.0)) * parameters_.sample_step_pose_x;
+      auto cost_future = cost_promises[offset_counter].get_future();
+      double local_cost = cost_future.get(); // Blocks until available
+      double rel_prob = gaussianDistribution(offset, 0.0, parameters_.pose_x_sigma);
+      CostSample sample{local_cost, rel_prob};
+      samples.emplace_back(sample);
+    }
     cost[0] = computeCVaR(samples, parameters_.risk_level);
   }
 
