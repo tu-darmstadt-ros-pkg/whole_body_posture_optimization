@@ -1,6 +1,6 @@
 #include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost.h>
 
-#include <whole_body_posture_optimization/common.h>
+#include "whole_body_posture_optimization/util/common.h"
 #include <algorithm>
 #include <ceres/dynamic_numeric_diff_cost_function.h>
 #include <whole_body_planning_plotting_utils/data_log.h>

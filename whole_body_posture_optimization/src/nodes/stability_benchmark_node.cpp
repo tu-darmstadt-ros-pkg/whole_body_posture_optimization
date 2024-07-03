@@ -23,7 +23,7 @@
 #include <sdf_contact_estimation/visualisation.h>
 #include <sdf_contact_estimation/body_shapes/robot_shape_from_urdf.h>
 #include <whole_body_posture_optimization/robot_model.h>
-#include <whole_body_posture_optimization/common.h>
+#include "whole_body_posture_optimization/util/common.h"
 #include <voxblox_msgs/Layer.h>
 #include <voxblox/io/layer_io.h>
 

@@ -3,7 +3,7 @@
 #include <whole_body_posture_optimization/combined/sdf_contact_constraint_no_gradient.h>
 #include <whole_body_posture_optimization/combined/self_contact_constraint_no_gradient.h>
 
-#include <whole_body_posture_optimization/timing.h>
+#include "whole_body_posture_optimization/util/timing.h"
 
 namespace whole_body_posture_optimization {
 

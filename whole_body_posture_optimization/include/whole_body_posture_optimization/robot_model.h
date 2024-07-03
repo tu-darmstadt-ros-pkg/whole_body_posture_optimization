@@ -12,7 +12,7 @@
 #include <voxblox/core/tsdf_map.h>
 #include <voxblox_ros/conversions.h>
 
-#include <whole_body_posture_optimization/types.h>
+#include "whole_body_posture_optimization/util/types.h"
 
 namespace whole_body_posture_optimization {
 

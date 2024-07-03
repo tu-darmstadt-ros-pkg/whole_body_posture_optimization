@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <chrono>
 
-#include <whole_body_posture_optimization/common.h>
+#include "whole_body_posture_optimization/util/common.h"
 
 namespace whole_body_posture_optimization {
 

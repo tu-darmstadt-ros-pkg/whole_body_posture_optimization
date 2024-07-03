@@ -1,5 +1,5 @@
 #include <whole_body_posture_optimization/solvers/grid_search_optimizer.h>
-#include <whole_body_posture_optimization/common.h>
+#include "whole_body_posture_optimization/util/common.h"
 
 namespace whole_body_posture_optimization {
 

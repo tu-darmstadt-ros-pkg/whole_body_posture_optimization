@@ -1,6 +1,6 @@
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
 
-#include <whole_body_posture_optimization/timing.h>
+#include "whole_body_posture_optimization/util/timing.h"
 #include <whole_body_posture_optimization/solvers/optimizer_factory.h>
 
 #include <geometry_msgs/PoseStamped.h>

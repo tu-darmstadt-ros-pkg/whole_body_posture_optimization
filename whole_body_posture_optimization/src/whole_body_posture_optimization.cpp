@@ -19,8 +19,8 @@
 
 #include <eigen_conversions/eigen_msg.h>
 
-#include <whole_body_posture_optimization/timing.h>
-#include <whole_body_posture_optimization/common.h>
+#include "whole_body_posture_optimization/util/timing.h"
+#include "whole_body_posture_optimization/util/common.h"
 
 INIT_TIMING
 

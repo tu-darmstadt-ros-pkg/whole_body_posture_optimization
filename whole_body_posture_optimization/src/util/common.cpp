@@ -1,4 +1,4 @@
-#include <whole_body_posture_optimization/common.h>
+#include "whole_body_posture_optimization/util/common.h"
 
 #include <eigen_conversions/eigen_msg.h>
 #include <ctime>

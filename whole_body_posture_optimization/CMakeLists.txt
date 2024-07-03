@@ -46,8 +46,8 @@ catkin_package(
 set(HEADERS
   include/${PROJECT_NAME}/whole_body_posture_optimization.h
   include/${PROJECT_NAME}/robot_model.h
-  include/${PROJECT_NAME}/common.h
-  include/${PROJECT_NAME}/timing.h
+  include/${PROJECT_NAME}/util/common.h
+  include/${PROJECT_NAME}/util/timing.h
   include/${PROJECT_NAME}/arm/stability_cost.h
   include/${PROJECT_NAME}/arm/stability_cost_parameters.h
   include/${PROJECT_NAME}/arm/arm_optimization.h
@@ -64,13 +64,13 @@ set(HEADERS
 #  include/${PROJECT_NAME}/combined/sdf_contact_constraint_no_gradient.h
   include/${PROJECT_NAME}/optimization_parameters_base.h
   include/${PROJECT_NAME}/solvers/optimizer_factory.h
-  include/${PROJECT_NAME}/types.h
+  include/${PROJECT_NAME}/util/types.h
 )
 
 set(SOURCES
   src/whole_body_posture_optimization.cpp
   src/robot_model.cpp
-  src/common.cpp
+  src/util/common.cpp
   src/arm/stability_cost.cpp
   src/arm/stability_cost_parameters.cpp
   src/arm/arm_optimization.cpp
@@ -89,7 +89,7 @@ include_directories(
 )
 
 ## Declare a C++ library
-add_library(${PROJECT_NAME} ${HEADERS} ${SOURCES})
+add_library(${PROJECT_NAME} ${SOURCES})
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 

@@ -1,7 +1,7 @@
 #include <whole_body_posture_optimization/arm/arm_optimization.h>
 
-#include <whole_body_posture_optimization/timing.h>
-#include <whole_body_posture_optimization/common.h>
+#include "whole_body_posture_optimization/util/timing.h"
+#include "whole_body_posture_optimization/util/common.h"
 #include <whole_body_posture_optimization/arm/sdf_contact_constraint.h>
 #include <whole_body_posture_optimization/arm/self_contact_constraint.h>
 

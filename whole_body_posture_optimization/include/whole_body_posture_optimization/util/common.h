@@ -7,7 +7,7 @@
 #include <ceres_nlopt_wrapper/utils.h>
 #include <ceres/cost_function.h>
 #include <sdf_contact_estimation/util/utils.h>
-#include <whole_body_posture_optimization/types.h>
+#include "types.h"
 
 namespace whole_body_posture_optimization {
 

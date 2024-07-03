@@ -3,7 +3,7 @@
 #include <eigen_conversions/eigen_msg.h>
 
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
-#include <whole_body_posture_optimization/timing.h>
+#include "whole_body_posture_optimization/util/timing.h"
 
 #include <sdf_contact_estimation/robot_model/shape_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
