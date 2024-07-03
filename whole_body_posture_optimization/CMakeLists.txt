@@ -65,6 +65,7 @@ set(HEADERS
   include/${PROJECT_NAME}/optimization_parameters_base.h
   include/${PROJECT_NAME}/solvers/optimizer_factory.h
   include/${PROJECT_NAME}/util/types.h
+  include/${PROJECT_NAME}/util/worker_thread.h
 )
 
 set(SOURCES
@@ -81,7 +82,9 @@ set(SOURCES
 #  src/combined/combined_stability_cost.cpp
   src/optimization_parameters_base.cpp
   src/solvers/optimizer_base.cpp
-  src/solvers/grid_search_optimizer.cpp )
+  src/solvers/grid_search_optimizer.cpp
+  src/util/worker_thread.cpp
+)
 
 include_directories(
   include
