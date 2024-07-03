@@ -43,6 +43,7 @@ private:
       return os;
     }
   };
+  double evaluateCost(const Eigen::Isometry3d& pose_sample, const std::vector<double>& flipper_angles) const;
   double computeCVaR(std::vector<CostSample> samples, double risk_level) const;
 
   const std::vector<std::string>& free_joints_;
