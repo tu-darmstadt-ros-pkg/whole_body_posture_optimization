@@ -7,8 +7,10 @@
 #include <Eigen/Eigen>
 #include <hector_pose_prediction_interface/pose_predictor.h>
 #include <moveit/robot_state/robot_state.h>
+#include <future>
 
 #include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost_parameters.h>
+#include <whole_body_posture_optimization/util/worker_thread.h>
 #include <numeric>
 
 namespace whole_body_posture_optimization {
@@ -44,6 +46,7 @@ private:
     }
   };
   double evaluateCost(const Eigen::Isometry3d& pose_sample, const std::vector<double>& flipper_angles) const;
+  void evaluateCostAsync(const Eigen::Isometry3d& pose_sample, const std::vector<double>& flipper_angles, std::promise<double>& cost_promise) const;
   double computeCVaR(std::vector<CostSample> samples, double risk_level) const;
 
   const std::vector<std::string>& free_joints_;
@@ -58,6 +61,8 @@ private:
   std::vector<size_t> param_idx_to_state_idx;
 
   const FlipperMultiObjectiveCostParameters& parameters_;
+
+  std::vector<std::shared_ptr<WorkerThread>> workers_;
 };
 
 }

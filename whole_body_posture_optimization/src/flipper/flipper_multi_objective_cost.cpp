@@ -35,6 +35,13 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
   if (last_solution) {
     last_solution_ = getVariablePositions(last_solution, free_joints_);
   }
+
+  // Create worker threads
+  for (int i = 0; i < std::floor(parameters_.num_pose_x_samples); ++i) {
+    workers_.push_back(std::make_shared<WorkerThread>());
+  }
+
+  // Set up logging
   if (DataLog::getInstance().getTable("flipper_multi_objective_cost").enabled()) {
     std::vector<std::string> data_labels = free_joints;
     data_labels.emplace_back("offset_step");
@@ -74,25 +81,38 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
 {
   // *** Simulation ** //
   // Update joint state
-  std::vector<double> joint_angles_vec(flipper_angles[0], flipper_angles[0] + free_joints_.size());
+  std::vector<double> flipper_angles_vec(flipper_angles[0], flipper_angles[0] + free_joints_.size());
   for (unsigned int i = 0; i < free_joints_.size(); i++) {
-    pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], joint_angles_vec[i]);
+    pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], flipper_angles_vec[i]);
   }
 
   cost[0] = -std::numeric_limits<double>::max();
   int num_pose_x_samples = std::floor(parameters_.num_pose_x_samples);
   num_pose_x_samples = (num_pose_x_samples < 1) ? 1 : num_pose_x_samples;
-  std::vector<CostSample> samples;
-  samples.reserve(num_pose_x_samples);
 
+
+  // Spawn worker threads
+  std::vector<std::promise<double>> cost_promises(num_pose_x_samples);
   for (int offset_counter = 0; offset_counter < num_pose_x_samples; ++offset_counter) {
     double offset = (offset_counter - std::floor(num_pose_x_samples/2.0)) * parameters_.sample_step_pose_x;
     Eigen::Translation3d offset_trans(offset, 0, 0);
     Eigen::Isometry3d pose_sample = pose_ * offset_trans;
+    workers_[offset_counter]->addTask([this, pose_sample, flipper_angles_vec, offset_counter, &cost_promises]() {
+      evaluateCostAsync(pose_sample, flipper_angles_vec, cost_promises[offset_counter]);
+    });
+  }
 
-    double local_cost = evaluateCost(pose_sample, joint_angles_vec);
+  // Collect results
+  std::vector<CostSample> samples;
+  samples.reserve(num_pose_x_samples);
+  for (int offset_counter = 0; offset_counter < num_pose_x_samples; ++offset_counter) {
+    double offset = (offset_counter - std::floor(num_pose_x_samples/2.0)) * parameters_.sample_step_pose_x;
+    auto cost_future = cost_promises[offset_counter].get_future();
+    double local_cost = cost_future.get(); // Blocks until available
     double rel_prob = gaussianDistribution(offset, 0.0, parameters_.pose_x_sigma);
-    samples.emplace_back(CostSample{local_cost, rel_prob});
+    CostSample sample{local_cost, rel_prob};
+    ROS_INFO_STREAM("Sample " << offset_counter << ": " << sample);
+    samples.emplace_back(sample);
   }
 
   // Compute final cost
@@ -395,6 +415,13 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
 //          rel_prob;
 //      DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).addData(data);
 //    }
+}
+
+void FlipperMultiObjectiveCost::evaluateCostAsync(const Eigen::Isometry3d& pose_sample,
+                                                  const std::vector<double>& flipper_angles,
+                                                  std::promise<double>& cost_promise) const {
+  double cost = evaluateCost(pose_sample, flipper_angles);
+  cost_promise.set_value(cost);
 }
 
 }
