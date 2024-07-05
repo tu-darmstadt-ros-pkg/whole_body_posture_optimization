@@ -37,9 +37,7 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
   }
 
   // Create worker threads
-  for (int i = 0; i < std::floor(parameters_.num_pose_x_samples); ++i) {
-    workers_.push_back(std::make_shared<WorkerThread>());
-  }
+  worker_pool_ = std::make_shared<WorkerThreadPool>(parameters_.num_pose_x_samples);
 
   // Set up logging
   if (DataLog::getInstance().getTable("flipper_multi_objective_cost").enabled()) {
@@ -99,7 +97,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
       double offset = (offset_counter - std::floor(num_pose_x_samples/2.0)) * parameters_.sample_step_pose_x;
       Eigen::Translation3d offset_trans(offset, 0, 0);
       Eigen::Isometry3d pose_sample = pose_ * offset_trans;
-      workers_[offset_counter]->addTask([this, pose_sample, flipper_angles_vec, offset_counter, &cost_promises]() {
+      worker_pool_->addTask([this, pose_sample, flipper_angles_vec, offset_counter, &cost_promises]() {
         evaluateCostAsync(pose_sample, flipper_angles_vec, cost_promises[offset_counter]);
       });
     }

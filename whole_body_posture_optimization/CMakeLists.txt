@@ -66,6 +66,7 @@ set(HEADERS
   include/${PROJECT_NAME}/solvers/optimizer_factory.h
   include/${PROJECT_NAME}/util/types.h
   include/${PROJECT_NAME}/util/worker_thread.h
+  include/${PROJECT_NAME}/util/worker_thread_pool.h
 )
 
 set(SOURCES
@@ -84,6 +85,7 @@ set(SOURCES
   src/solvers/optimizer_base.cpp
   src/solvers/grid_search_optimizer.cpp
   src/util/worker_thread.cpp
+  src/util/worker_thread_pool.cpp
 )
 
 include_directories(

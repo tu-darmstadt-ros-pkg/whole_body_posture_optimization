@@ -10,7 +10,7 @@
 #include <future>
 
 #include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost_parameters.h>
-#include <whole_body_posture_optimization/util/worker_thread.h>
+#include <whole_body_posture_optimization/util/worker_thread_pool.h>
 #include <numeric>
 
 namespace whole_body_posture_optimization {
@@ -62,7 +62,7 @@ private:
 
   const FlipperMultiObjectiveCostParameters& parameters_;
 
-  std::vector<std::shared_ptr<WorkerThread>> workers_;
+  std::shared_ptr<WorkerThreadPool> worker_pool_;
 };
 
 }
