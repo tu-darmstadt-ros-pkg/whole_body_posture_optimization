@@ -115,7 +115,11 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
       CostSample sample{local_cost, rel_prob};
       samples.emplace_back(sample);
     }
+
     cost[0] = computeCVaR(samples, parameters_.risk_level);
+    if (std::isinf(cost[0])) {
+      cost[0] = std::numeric_limits<double>::max();
+    }
   }
 
   if (DataLog::getInstance().getTable("flipper_multi_objective_total_cost").enabled()) {
