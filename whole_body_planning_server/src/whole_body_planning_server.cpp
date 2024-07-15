@@ -31,7 +31,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   minimum_path_length_(0),
   path_sampling_resolution_(0.02),
   path_stitching_tolerance_(0.15),
-  override_path_time_(true),
+  override_path_time_(false),
   continuous_planning_(false),
   execution_position_tolerance_(0.0),
   execution_orientation_tolerance_(0.0)
@@ -40,7 +40,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
 //  pnh_.param<std::string>("map_frame", map_frame_, "map");
   pnh_.param<std::string>("base_frame", base_frame_, "base_link");
-  pnh_.param("override_path_time", override_path_time_, true);
+  pnh_.param("override_path_time", override_path_time_, false);
   pnh_.param("execution_position_tolerance", execution_position_tolerance_, 0.0);
   pnh_.param("execution_orientation_tolerance", execution_orientation_tolerance_, 0.0);
   pnh_.param("trajectory_statistics_save_folder", trajectory_statistics_save_folder_, std::string(""));
@@ -123,7 +123,7 @@ bool WholeBodyPlanningServer::loadTsdfFromPath(const std::string& tsdf_path)
 
 bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::Path path_msg, bool replanning) {
   // Override path time with receive time
-  if (override_path_time_)
+  if (override_path_time_ || path_msg.header.stamp == ros::Time(0))
     path_msg.header.stamp = ros::Time::now();
 
   map_frame_ = path_msg.header.frame_id;
