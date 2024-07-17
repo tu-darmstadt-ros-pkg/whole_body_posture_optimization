@@ -179,6 +179,7 @@ std::vector<Eigen::Vector3d> Pathsmoother3D::computeSmoothedPositions(const std:
   for(unsigned i = 1; i < samples.size() - 1; ++i)
   {
     Eigen::Vector3d p = Eigen::Vector3d::Zero();
+    p.z() = positions.front().z(); // Use the height of the first point
     double weight = 0;
     int step = std::min(static_cast<int>(i), static_cast<int>(samples.size() - 1) - static_cast<int>(i));
     for(unsigned j = i - step; j < i + step + 1; ++j)
@@ -188,11 +189,12 @@ std::vector<Eigen::Vector3d> Pathsmoother3D::computeSmoothedPositions(const std:
       double w_ij = gaussianWeight(samples[i], samples[j]);
       p(0) += (w_ij / weight) * samplesX[j](0);
       p(1) += (w_ij / weight) * samplesX[j](1);
-      p(2) += (w_ij / weight) * samplesX[j](2);
+//      p(2) += (w_ij / weight) * samplesX[j](2);
     }
     smoothed_positions.push_back(p);
   }
   smoothed_positions.push_back(positions.back());
+  smoothed_positions.back().z() = positions.front().z();
   return smoothed_positions;
 }
 
