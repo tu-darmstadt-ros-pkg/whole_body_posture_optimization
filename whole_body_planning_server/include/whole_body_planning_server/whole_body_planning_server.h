@@ -156,6 +156,7 @@ private:
 
   // Publishers
   ros::Publisher preprocessed_path_pub_;
+  ros::Publisher goal_path_pub_;
   ros::Publisher robot_state_pub_;
   ros::Publisher position_deviation_pub_;
   ros::Publisher orientation_deviation_pub_;

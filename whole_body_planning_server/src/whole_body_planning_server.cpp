@@ -47,6 +47,7 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
 
   // Publishers
   preprocessed_path_pub_ = pnh_.advertise<nav_msgs::Path>("preprocessed_path", 10, true);
+  goal_path_pub_ = pnh_.advertise<nav_msgs::Path>("goal_path", 10, true);
   robot_state_pub_ = pnh_.advertise<moveit_msgs::DisplayRobotState>("execution/goal_state", 10, false);
   position_deviation_pub_ = pnh_.advertise<std_msgs::Float64>("execution/position_deviation", 10, false);
   orientation_deviation_pub_ = pnh_.advertise<std_msgs::Float64>("execution/orientation_deviation", 10, false);
@@ -138,6 +139,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::Path path_msg, bool r
       if (updatePath(goal_path_, path_smoothed)) {
         ROS_INFO_STREAM("Previous path has been updated");
         path_updated_ = true;
+        goal_path_pub_.publish(goal_path_);
         return true;
       } else {
        ROS_INFO_STREAM("New path diverges from previous path. Resetting plan.");
@@ -148,6 +150,7 @@ bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::Path path_msg, bool r
     path_updated_ = false;
     execution_completed_ = false;
     goal_path_ = path_smoothed;
+    goal_path_pub_.publish(goal_path_);
     execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, path_smoothed, false);
     execution_watchdog_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::executionWatchDog, this);
     return true;
