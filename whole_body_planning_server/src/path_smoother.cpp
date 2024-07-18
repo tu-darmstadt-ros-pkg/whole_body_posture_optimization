@@ -216,12 +216,12 @@ std::vector<Eigen::Quaterniond> Pathsmoother3D::computeSmoothedOrientations(std:
       delta_vector.z() = 0; // If this is != 0, it leads to solutions rotated around X (local_robot_direction)
       q.setFromTwoVectors(reverse_factor * local_robot_direction, delta_vector);
 
-      if (i == 1) {
-        std::vector<Eigen::Quaterniond> orientations = discretizeOrientation(start_orientation, q);
-        smoothed_orientations.insert(smoothed_orientations.end(), orientations.begin(), orientations.end());
-        std::vector<Eigen::Vector3d> positions(orientations.size(), smoothed_positions.front());
-        smoothed_positions_out.insert(smoothed_positions_out.begin(), positions.begin(), positions.end());
-      }
+//      if (i == 1) {
+//        std::vector<Eigen::Quaterniond> orientations = discretizeOrientation(start_orientation, q);
+//        smoothed_orientations.insert(smoothed_orientations.end(), orientations.begin(), orientations.end());
+//        std::vector<Eigen::Vector3d> positions(orientations.size(), smoothed_positions.front());
+//        smoothed_positions_out.insert(smoothed_positions_out.begin(), positions.begin(), positions.end());
+//      }
 
       smoothed_orientations.push_back(q);
     }
