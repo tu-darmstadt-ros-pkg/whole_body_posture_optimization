@@ -1,0 +1,165 @@
+default_joint_state:
+    joint1: 0.0
+    joint2: 0.7
+    joint3: 0.0
+    joint4: 2.09
+    joint5: 0.0
+    joint6: 0.0
+    grasp_left: 0.0
+    grasp_right: 0.0
+    left_sprocket_axle: 0.0
+    right_sprocket_axle: 0.0
+    fl_flipper_joint: 0.0
+    fr_flipper_joint: 0.0
+    rl_flipper_joint: 0.0
+    rr_flipper_joint: 0.0
+
+optimization_type: split
+collision_group: arm
+
+stability_limit: 0.0
+front_tip_support_area_limit: 0.0  # disabled
+
+complete_robot_group: flippers
+complete_robot_with_world_group: flippers_with_world
+trajectory_planner: ompl_interface/OMPLPlanner  # [chomp_interface/CHOMPPlanner, lerp_interface/LERPPlanner, ompl_interface/OMPLPlanner, pilz_industrial_motion_planner::CommandPlanner]
+
+joint_limits:
+  fl_flipper_joint: [-1.57, 1.57]
+  fr_flipper_joint: [-1.57, 1.57]
+  rl_flipper_joint: [-1.57, 1.57]
+  rr_flipper_joint: [-1.57, 1.57]
+
+
+flipper_optimization:
+  custom_solver:
+    enabled: false
+    algorithm: grid_search
+    #search_resolution: 0.087 # 5 deg steps
+    search_resolution: 0.174 # 10 deg steps
+    #search_resolution: 0.78 # 45 deg steps
+  solver:
+    enabled: true
+    algorithm: GN_DIRECT
+    #algorithm: GN_AGS
+    #algorithm: GN_CRS2_LM
+    #algorithm: GN_DIRECT_L
+    #algorithm: GN_ESCH
+    #algorithm: GN_ISRES
+    #algorithm: GN_MLSL # needs local solver
+    #algorithm: LN_COBYLA
+    #algorithm: LN_BOBYQA
+    #algorithm: LN_PRAXIS
+    #algorithm: LN_NELDERMEAD
+    #algorithm: LN_SBPLX
+    #algorithm: GD_STOGO
+    maxeval: 500
+    #stopval: -1.0
+
+  local_solver:
+    enabled: false
+    #algorithm: LN_NELDERMEAD
+    maxeval: 10
+
+  joints:
+    - fl_flipper_joint
+    - fr_flipper_joint
+    - rl_flipper_joint
+    - rr_flipper_joint
+
+  cost_parameters:
+    verbose: false
+    # state costs
+    stability_weight: 1.0
+    stability_nominal_value: 1.5
+    stability_exp_parameters_a: 14.0
+    stability_exp_parameters_b: -2.6
+    stability_exp_parameters_c: 0.3
+    support_area_weight: 0
+    track_contact_weight: 8
+    track_contact_nominal_value: 0.2
+    body_contact_weight: 50
+    roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
+    position_deviation_weight: 0
+    # transition costs
+    lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
+    movement_cost_weight: 0.1 #0.05  #0.2  #0.5
+    turning_resistance_weight: 10
+    impact_weight: 3.0
+    # uncertainty
+    num_pose_x_samples: 1
+    sample_step_pose_x: 0.01
+    pose_x_sigma: 0.03
+    risk_level: 0.8 # 0-1, 0 (high risk, mean), 1 (safe, maximum)
+    regularization_weight: 0.1
+  
+arm_optimization:
+  enabled: false
+  solver:
+    algorithm: LN_COBYLA
+    #maxtime: 0.200
+    maxeval: 300
+    #ftol_abs: 0.0001
+    #xtol_abs: 0.001
+    xtol_rel: 0.005
+  #local_algorithm: LD_LBFGS
+  local_stopping_criteria:
+    #maxtime: 0.200
+    maxeval: 300
+    #ftol_abs: 0.0001
+    xtol_abs: 0.01
+  #sub_algorithm: LD_SLSQP
+  sub_stopping_criteria:
+    #maxtime: 0.200
+    maxeval: 300
+    #ftol_abs: 0.0001
+    #xtol_abs: 0.01
+    xtol_rel: 0.005
+  joints:
+    #- joint1 # first yaw
+    - joint2 # first pitch
+    - joint3 # second pitch
+    - joint4 # third pitch
+    #- joint5 # second yaw
+    #- joint6 # last roll joint
+  environment_collision_default_padding: 0.15
+  environment_collision_padding: {
+  }
+  self_collision_default_padding: 0.05
+  self_collision_padding: {
+  }
+  self_collision_tsdf_default_padding: 0.005
+  self_collision_tsdf_padding: {
+  }
+  self_collision_tsdf_truncation_distance: 0.4
+  
+  cost_parameters:
+    function_scale: 1
+    exp_parameters_a: 14.0
+    exp_parameters_b: -2.6
+    exp_parameters_c: 0.3
+    lorentzian_sigma: 0.15
+    movement_cost_weight: 0.3
+
+  # moveable, but static regarding arm optimization
+  # i.e. flipper links
+  semi_static_link_names:
+    - fl_body
+    - fr_body
+    - rl_body
+    - rr_body
+    
+  static_link_names:
+    - base_link
+    - body
+    - left_idler
+    - left_sprocket
+    - right_idler
+    - right_sprocket_axle
+
+
+  
+## Debug
+posture_optimization_debug: false
+pose_predictor/debug: false
+
