@@ -269,8 +269,15 @@ bool RobotModel::getJointLimits(const std::string &joint_name, double &lower_lim
     ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
     return false;
   }
-  double urdf_upper_limit = joint->limits->upper;
-  double urdf_lower_limit = joint->limits->lower;
+  double urdf_upper_limit;
+  double urdf_lower_limit;
+  if (joint->type == urdf::Joint::CONTINUOUS) {
+    urdf_upper_limit = M_PI;
+    urdf_lower_limit = -M_PI;
+  } else {
+    urdf_upper_limit = joint->limits->upper;
+    urdf_lower_limit = joint->limits->lower;
+  }
 
   // Joint limits can be overridden by a parameter
   std::vector<double> limits;
