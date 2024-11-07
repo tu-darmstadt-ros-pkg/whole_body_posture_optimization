@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<launch>  
+  <!-- Load robot description -->
+  <param name="robot_description" command="xacro '$(find onix_gazebo_description)/urdf_xacro/onix_gazebo.urdf.xacro'" />
+  <param name="robot_description_semantic" textfile="$(find onix_moveit_config)/config/onix.srdf"/>
+  
+  <!-- Joint state UI -->
+  <rosparam subst_value="true">
+    zeros:
+      joint1: 0.0
+      joint2: 0.7
+      joint3: 0.0
+      joint4: 2.09
+      joint5: 0.0
+      joint6: 0.0
+      grasp_left: 0.0
+      grasp_right: 0.0
+      left_sprocket_axle: 0.0
+      right_sprocket_axle: 0.0
+      fl_flipper_joint: 0.0
+      fr_flipper_joint: 0.0
+      rl_flipper_joint: 0.0
+      rr_flipper_joint: 0.0
+  </rosparam>
+  <node name="joint_state_publisher_gui" pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" />
+  
+  <!-- Robot pose interactive marker -->
+  <node pkg="vigir_interactive_marker_pose_server" type="interactive_marker_pose_server" name="robot_pose_interactive_marker" output="screen" 
+      ns="whole_body_posture_optimization_node/interactive_marker">
+    <remap from="pose" to="set_robot_pose"/>
+    <param name="marker_name" value="robot_pose" />
+    <param name="frame_id" value="world" /> 
+
+    <remap from="~init_pose" to="/whole_body_posture_optimization_node/robot_pose"/>
+  </node> 
+  
+  <!-- Whole-body posture optimization -->
+  <node pkg="whole_body_posture_optimization" type="manual_control_node" name="whole_body_posture_optimization_node" output="screen" clear_params="true">
+    <!-- node parameters -->
+    <rosparam subst_value="true">
+      robot_pose: [-0.016852, 0.000000, 0.3, 0.000000, -0.000000, 0.000000]
+    </rosparam>
+    
+    <!-- load scenario -->
+    <rosparam subst_value="true" ns="sdf_map">
+      scenario: step_0.25
+      #voxel_size: 0.05
+      use_esdf: true
+<!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_step.esdf -->
+<!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_ramp.esdf- -->
+<!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_cinder_block.esdf -->
+<!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_man6.esdf -->
+<!--       sdf_file_path: $(find sdf_contact_estimation)/sdf/gazebo_obs2_hurdles.esdf -->
+      sdf_file_path: $(find whole_body_planning_data)/sdf/gazebo/gazebo_oc_pallet_terrain2.esdf
+      truncation_distance: 0.4
+    </rosparam>
+
+    <rosparam subst_value="true" ns="heightmap">
+      map_bag_file_path: $(find whole_body_planning_data)/heightmap/lab.whm
+    </rosparam>
+
+    <!-- posture optimization lib parameters -->
+    <rosparam file="$(find whole_body_posture_optimization)/config/opt_onix.yaml" command="load" />
+
+    <!-- sdf contact estimation lib parameters -->
+    <param name="pose_predictor" value="sdf_contact_estimation::SDFContactEstimation"/>
+<!--     <param name="pose_predictor" value="hector_heightmap_pose_prediction::HeightmapPosePredictor"/> -->
+    <rosparam file="$(find sdf_contact_estimation)/config/optimization.yaml" command="load" ns="sdf_pose_predictor"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/support_polygon_asterix.yaml" command="load" ns="sdf_pose_predictor"/>
+    <rosparam file="$(find sdf_contact_estimation)/config/onix_shape_config.yaml" command="load" ns="sdf_pose_predictor/shape_model" />
+    
+    <remap from="~set_robot_pose" to="/whole_body_posture_optimization_node/interactive_marker/set_robot_pose"/>
+  </node>
+
+  <!-- rviz ui -->
+  <include file="$(find whole_body_posture_optimization)/launch/rviz.launch"/>
+</launch>
