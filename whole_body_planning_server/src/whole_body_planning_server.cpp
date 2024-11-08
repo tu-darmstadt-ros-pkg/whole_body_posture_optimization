@@ -407,12 +407,12 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     ros::Time now = ros::Time::now();
     if (now > trajectory_end) {
       ROS_ERROR_STREAM("Trajectory end time is in the past by " << (now - trajectory_end).toSec() <<
-                      " s. Planning time takes too long.");
+                      " s. Planning takes too long.");
       // Fail and restart with a new path
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
       if (followPathServerIsActive()) {
         move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
+        result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
         follow_path_goal_.setAborted(result, "Planning time takes too long");
       }
       break;
