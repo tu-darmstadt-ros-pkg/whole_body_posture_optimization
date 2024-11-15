@@ -2,7 +2,7 @@
 <launch>
   <arg name="rviz" default="false"/>
   <!-- Load robot description -->
-  <param name="robot_description" command="xacro '$(find onix_gazebo_description)/urdf_xacro/onix_gazebo.urdf.xacro'" />
+  <param name="robot_description" command="xacro '$(find onix_chassis_description)/urdf/onix_complete.urdf.xacro' " />
   <param name="robot_description_semantic" textfile="$(find onix_moveit_config)/config/onix.srdf"/>
   
   <node pkg="whole_body_posture_optimization" type="whole_body_posture_optimization_node" name="whole_body_posture_optimization_node" output="screen" clear_params="true" ><!--launch-prefix="gdb -args"-->

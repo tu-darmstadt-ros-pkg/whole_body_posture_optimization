@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>  
   <!-- Load robot description -->
-  <param name="robot_description" command="xacro '$(find onix_gazebo_description)/urdf_xacro/onix_gazebo.urdf.xacro'" />
+  <param name="robot_description" command="xacro '$(find onix_chassis_description)/urdf/onix_complete.urdf.xacro' " />
   <param name="robot_description_semantic" textfile="$(find onix_moveit_config)/config/onix.srdf"/>
   
   <!-- Joint state UI -->
