@@ -7,8 +7,10 @@ default_joint_state:
     joint6: 0.0
     grasp_left: 0.0
     grasp_right: 0.0
-    left_sprocket_axle: 0.0
-    right_sprocket_axle: 0.0
+    fl_sprocket_axle: 0.0
+    fr_sprocket_axle: 0.0
+    rr_sprocket_axle: 0.0
+    rl_sprocket_axle: 0.0
     fl_flipper_joint: 0.0
     fr_flipper_joint: 0.0
     rl_flipper_joint: 0.0
