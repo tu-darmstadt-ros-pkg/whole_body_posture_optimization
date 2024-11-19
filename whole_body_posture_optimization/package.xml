@@ -24,6 +24,7 @@
   <depend>ad_kinematics</depend>
   <depend>move_base_lite_msgs</depend>
   <depend>ceres_nlopt_wrapper</depend>
+  <depend>ceres_catkin</depend>
   <depend>hector_stability_metrics</depend>
   <depend>ddynamic_reconfigure</depend>
   <depend>hector_heightmap_pose_prediction</depend>
