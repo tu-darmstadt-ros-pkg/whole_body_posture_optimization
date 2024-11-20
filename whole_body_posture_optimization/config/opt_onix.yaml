@@ -145,10 +145,10 @@ arm_optimization:
   # moveable, but static regarding arm optimization
   # i.e. flipper links
   semi_static_link_names:
-    - fl_body
-    - fr_body
-    - rl_body
-    - rr_body
+    - fl_track
+    - fr_track
+    - rl_track
+    - rr_track
     
   static_link_names:
     - base_link
@@ -157,6 +157,8 @@ arm_optimization:
     - left_sprocket
     - right_idler
     - right_sprocket_axle
+    - left_track
+    - right_track
 
 
   
