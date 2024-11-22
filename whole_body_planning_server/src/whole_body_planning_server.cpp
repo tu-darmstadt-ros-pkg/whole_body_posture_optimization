@@ -984,7 +984,7 @@ void WholeBodyPlanningServer::waitUntilPlanningHorizonReached(const geometry_msg
       too_far_away = false;
       // Get current pose
       geometry_msgs::TransformStamped robot_transform;
-      if (getRobotPose(0, robot_transform)) {
+      if (getRobotPose(ros::Time(0), robot_transform)) {
         // Distance in x-y plane
         double distance = euclideanDistance2D<geometry_msgs::Vector3, geometry_msgs::Point>(robot_transform.transform.translation, planning_point);
         {
