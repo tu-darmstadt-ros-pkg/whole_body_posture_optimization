@@ -42,9 +42,9 @@ flipper_optimization:
     #search_resolution: 0.78 # 45 deg steps
   solver:
     enabled: true
-    algorithm: GN_DIRECT
+    #algorithm: GN_DIRECT
     #algorithm: GN_AGS
-    #algorithm: GN_CRS2_LM
+    algorithm: GN_CRS2_LM
     #algorithm: GN_DIRECT_L
     #algorithm: GN_ESCH
     #algorithm: GN_ISRES
@@ -59,8 +59,8 @@ flipper_optimization:
     stopval: -1.0
 
   local_solver:
-    enabled: false
-    #algorithm: LN_NELDERMEAD
+    enabled: true
+    algorithm: LN_NELDERMEAD
     maxeval: 10
 
   joints:
@@ -72,7 +72,7 @@ flipper_optimization:
   cost_parameters:
     verbose: false
     # state costs
-    stability_weight: 1.0
+    stability_weight: 10.0
     stability_nominal_value: 2.8 # front: 3.2 - 3.3 / side: 2.6 - 2.9
     stability_exp_parameters_a: 14.0
     stability_exp_parameters_b: -2.6
