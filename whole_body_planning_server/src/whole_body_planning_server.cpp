@@ -447,7 +447,7 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
 
   // Replace first pose with current pose to account for driving direction and better planning initialization
   geometry_msgs::TransformStamped base_transform;
-  if (getRobotPose(path.header.stamp, base_transform)) {
+  if (getRobotPose(ros::Time(0), base_transform)) {
     path_copy.poses.front().pose.orientation = base_transform.transform.rotation;
     path_copy.poses.front().pose.position.x = base_transform.transform.translation.x;
     path_copy.poses.front().pose.position.y = base_transform.transform.translation.y;
@@ -1007,7 +1007,7 @@ bool WholeBodyPlanningServer::updatePath(nav_msgs::Path& old_path, const nav_msg
 
   // Get current robot position
   geometry_msgs::TransformStamped robot_transform;
-  getRobotPose(ros::Time::now(), robot_transform);
+  getRobotPose(ros::Time(0), robot_transform);
 
   // Create slices
   nav_msgs::Path new_slice = slicePathDirectDistance(new_path, robot_transform.transform.translation, planning_horizon_, true, 0);
