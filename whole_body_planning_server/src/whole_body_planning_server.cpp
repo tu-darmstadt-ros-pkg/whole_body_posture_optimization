@@ -419,7 +419,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     }
 
     // Send trajectory
-    saveTrajectoryStatistics(results, *trajectory, trajectory_start_indices);
+    saveTrajectoryStatistics(results, *trajectory, trajectory_start_indices, start_time);
     std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_);
     if (execution_completed_) {
       ROS_DEBUG_STREAM("Stopping execution thread before execution");
@@ -492,7 +492,8 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot
     return false;
   }
 
-  saveTrajectoryStatistics(results, trajectory, trajectory_start_indices);
+  saveTrajectoryStatistics(results, trajectory, trajectory_start_indices,
+                           ros::Time(0));
 
   trajectory_out = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory);
 
@@ -961,13 +962,14 @@ void WholeBodyPlanningServer::waitForMap()
 }
 
 void WholeBodyPlanningServer::saveTrajectoryStatistics(
-    const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results,
-    robot_trajectory::RobotTrajectory& trajectory, const std::vector<size_t>& trajectory_start_indices)
-{
+    const std::vector<whole_body_posture_optimization::PostureOptimizationResult> &results,
+    robot_trajectory::RobotTrajectory &trajectory,
+    const std::vector<size_t> &trajectory_start_indices,
+    const ros::Time &start_time) {
   if (!trajectory_statistics_save_folder_.empty() && end_of_path_reached_) {
     std::string time_stamp = whole_body_posture_optimization::getTimestamp();
     std::string save_path = trajectory_statistics_save_folder_ + "/trajectory_statistics-" + time_stamp + ".csv";
-    if (whole_body_posture_optimization::WholeBodyPostureOptimization::saveTrajectoryStatistics(results, trajectory, trajectory_start_indices, save_path)) {
+    if (whole_body_posture_optimization::WholeBodyPostureOptimization::saveTrajectoryStatistics(results, trajectory, trajectory_start_indices, save_path, start_time)) {
       ROS_INFO_STREAM("Saved trajectory statistics in " << save_path);
     }
   }

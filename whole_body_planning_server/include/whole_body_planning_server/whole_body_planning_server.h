@@ -72,7 +72,11 @@ private:
   bool updatePath(nav_msgs::Path& old_path, const nav_msgs::Path& new_path) const;
   nav_msgs::Path extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const;
   bool followPathServerIsActive() const;
-  void saveTrajectoryStatistics(const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results, robot_trajectory::RobotTrajectory& trajectory, const std::vector<size_t>& trajectory_start_indices);
+  void saveTrajectoryStatistics(
+      const std::vector<whole_body_posture_optimization::PostureOptimizationResult> &results,
+      robot_trajectory::RobotTrajectory &trajectory,
+      const std::vector<size_t> &trajectory_start_indices,
+      const ros::Time &start_time);
   void waitUntilPlanningHorizonReached(const geometry_msgs::Point& planning_point);
 
   /// Callbacks
