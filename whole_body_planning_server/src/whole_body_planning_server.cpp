@@ -445,9 +445,9 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
 {
   nav_msgs::Path path_copy = path;
 
-  // Replace first pose with current pose to account for driving direction and better planning initialization
+  // Replace first pose with actual robot pose to account for driving direction and improved planning initialization
   geometry_msgs::TransformStamped base_transform;
-  if (getRobotPose(ros::Time(0), base_transform)) {
+  if (getRobotPose(path.header.stamp, base_transform)) {
     path_copy.poses.front().pose.orientation = base_transform.transform.rotation;
     path_copy.poses.front().pose.position.x = base_transform.transform.translation.x;
     path_copy.poses.front().pose.position.y = base_transform.transform.translation.y;
@@ -857,14 +857,14 @@ void WholeBodyPlanningServer::executionWatchDog()
       continue;
     }
 
-    // Get current robot pose
-    ros::Time now = ros::Time::now();
+    // Get latest robot pose
     geometry_msgs::TransformStamped current_robot_pose_stamped;
-    getRobotPose(now, current_robot_pose_stamped);
+    getRobotPose(ros::Time(0), current_robot_pose_stamped);
     Eigen::Isometry3d current_robot_pose;
     tf::transformMsgToEigen(current_robot_pose_stamped.transform, current_robot_pose);
 
     // Find expected robot pose at current time
+    ros::Time now = current_robot_pose_stamped.header.stamp;
     ros::Duration duration_after_start = now - trajectory_start_time_;
     int before_index, after_index;
     double progress; // value between 0 and 1
