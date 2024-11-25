@@ -48,7 +48,7 @@ flipper_optimization:
     #algorithm: GN_DIRECT_L
     #algorithm: GN_ESCH
     #algorithm: GN_ISRES
-    #algorithm: GN_MLSL # needs local solver
+    #algorithm: GN_MLSL_LDS # needs local solver
     #algorithm: LN_COBYLA
     #algorithm: LN_BOBYQA
     #algorithm: LN_PRAXIS
@@ -56,7 +56,7 @@ flipper_optimization:
     #algorithm: LN_SBPLX
     #algorithm: GD_STOGO
     maxeval: 500
-    stopval: -1.0
+    #stopval: -1.0
 
   local_solver:
     enabled: true
