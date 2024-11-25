@@ -127,6 +127,8 @@ std::vector<T> mapListToSubset(const std::vector<T> &list, const std::vector<std
 
 Eigen::Vector3d quatToEuler(const Eigen::Quaterniond& quaternion, const std::string& convention = "zyx");
 
+std::string rosTimeToString(const ros::Time& time);
+
 }
 
 #endif

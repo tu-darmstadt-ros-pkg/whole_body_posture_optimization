@@ -181,4 +181,10 @@ std::vector<double> getVariablePositions(const robot_state::RobotStateConstPtr& 
   return positions;
 }
 
+std::string rosTimeToString(const ros::Time &time) {
+  std::stringstream ss;
+  ss << time.sec << "." << std::setw(9) << std::setfill('0') << time.nsec;
+  return ss.str();
+}
+
 }

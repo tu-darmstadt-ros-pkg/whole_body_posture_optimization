@@ -564,8 +564,8 @@ bool WholeBodyPostureOptimization::saveTrajectoryStatistics(const std::vector<Po
   file << "time, requested_position_x, requested_position_y, result_position_x, result_position_y, flipper_cost, arm_cost, flipper_stability, stability" << std::endl;
   for (unsigned int i = 0; i < results.size(); i++) {
     const PostureOptimizationResult& result = results[i];
-    double time = trajectory.getWayPointDurationFromStart(trajectory_start_indices[i]) + start_time.toSec();
-    file << time << ", ";
+    ros::Time time = start_time + ros::Duration(trajectory.getWayPointDurationFromStart(trajectory_start_indices[i]));
+    file << rosTimeToString(time) << ", ";
     file << result.requested_pose.translation().x() << ", ";
     file << result.requested_pose.translation().y() << ", ";
     file << result.result_pose.translation().x() << ", ";
