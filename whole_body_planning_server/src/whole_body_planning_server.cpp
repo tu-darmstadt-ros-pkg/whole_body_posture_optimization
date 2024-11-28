@@ -584,7 +584,7 @@ void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<mov
     driving_client_->sendGoal(*goal.getGoal(),
                               std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
                               FollowPathClient::SimpleActiveCallback(),
-                              FollowPathClient::SimpleFeedbackCallback());
+                              boost::bind(&WholeBodyPlanningServer::followPathClientFeedbackCb, this, _1));
   }
 }
 void WholeBodyPlanningServer::followPathPreemptCallback(const actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle& preempt)
@@ -665,7 +665,7 @@ void WholeBodyPlanningServer::executeBaseTrajectory(const nav_msgs::Path& path) 
   driving_client_->sendGoal(follow_path_goal,
                             std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
                             FollowPathClient::SimpleActiveCallback(),
-                            FollowPathClient::SimpleFeedbackCallback());
+                            boost::bind(&WholeBodyPlanningServer::followPathClientFeedbackCb, this, _1));
 }
 
 
@@ -751,6 +751,12 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const actionlib::Simp
       follow_path_goal_.setCanceled(*result, "Following path failed");
     }
   }
+}
+
+void WholeBodyPlanningServer::followPathClientFeedbackCb(
+    const move_base_lite_msgs::FollowPathFeedbackConstPtr &feedback) {
+  // Relay feedback
+  follow_path_goal_.publishFeedback(*feedback);
 }
 
 void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planning_server::PlanningServerConfig &config, uint32_t level)

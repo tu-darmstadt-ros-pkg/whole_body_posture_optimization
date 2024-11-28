@@ -92,6 +92,7 @@ private:
   ///! Follow path client
   void followPathClientDoneCallback(const actionlib::SimpleClientGoalState& state,
                                     const move_base_lite_msgs::FollowPathResultConstPtr& result);
+  void followPathClientFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr& feedback);
 
   void dynamicReconfigureCallback(const whole_body_planning_server::PlanningServerConfig &config, uint32_t level);
 
