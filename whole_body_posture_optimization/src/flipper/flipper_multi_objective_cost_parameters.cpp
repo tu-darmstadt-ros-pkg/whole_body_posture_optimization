@@ -25,17 +25,17 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
 {}
 
 bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) {
-  registerParameter(nh, "support_area_weight", support_area_weight, 1.0, "Support area weight", 0.0, 100);
-  registerParameter(nh, "movement_cost_weight", movement_cost_weight, 0.2, "Movement cost weight", 0.0, 100);
+  registerParameter(nh, "support_area_weight", support_area_weight, 0.0, "Support area weight", 0.0, 100);
+  registerParameter(nh, "movement_cost_weight", movement_cost_weight, 0.0, "Movement cost weight", 0.0, 100);
   registerParameter(nh, "lorentzian_sigma", lorentzian_sigma, 0.2, "Lorentzian sigma", 0.0, 10);
-  registerParameter(nh, "track_contact_weight", track_contact_weight, 2.0, "Track contact weight", 0.0, 100);
-  registerParameter(nh, "track_contact_nominal_value", track_contact_nominal_value, 10.0, "Track contact nominal value", 0.0, 10);
-  registerParameter(nh, "impact_weight", impact_weight, 1.0, "Impact penalty weight", 0.0, 100);
-  registerParameter(nh, "turning_resistance_weight", turning_resistance_weight, 1.0, "Turning resistance weight", 0.0, 100);
-  registerParameter(nh, "body_contact_weight", body_contact_weight, 4.0, "Body contact weight", 0.0, 10);
-  registerParameter(nh, "position_deviation_weight", position_deviation_weight, 10.0, "Position deviation weight", 0.0, 100);
+  registerParameter(nh, "track_contact_weight", track_contact_weight, 0.0, "Track contact weight", 0.0, 100);
+  registerParameter(nh, "track_contact_nominal_value", track_contact_nominal_value, 0.0, "Track contact nominal value", 0.0, 10);
+  registerParameter(nh, "impact_weight", impact_weight, 0.0, "Impact penalty weight", 0.0, 100);
+  registerParameter(nh, "turning_resistance_weight", turning_resistance_weight, 0.0, "Turning resistance weight", 0.0, 100);
+  registerParameter(nh, "body_contact_weight", body_contact_weight, 0.0, "Body contact weight", 0.0, 10);
+  registerParameter(nh, "position_deviation_weight", position_deviation_weight, 0.0, "Position deviation weight", 0.0, 100);
   registerParameter(nh, "roll_cost_weight", roll_cost_weight, 0.0, "Roll cost weight", 0.0, 10);
-  registerParameter(nh, "stability_weight", stability_weight, 1.0, "Stability cost weight", 0.0, 100);
+  registerParameter(nh, "stability_weight", stability_weight, 0.0, "Stability cost weight", 0.0, 100);
   registerParameter(nh, "stability_nominal_value", stability_nominal_value, 0.0, "Stability nominal value", 0.0, 10);
   registerParameter(nh, "stability_exp_parameters_a", stability_exp_parameters[0], 1.6, "Stability EXP parameter (a)", 0.0, 100);
   registerParameter(nh, "stability_exp_parameters_b", stability_exp_parameters[1], -1.7, "Stability EXP parameter (b)", -100.0, 0);
