@@ -1,0 +1,16 @@
+# Whole Body Optimization + dependencies
+- git: {local-name: src/whole_body_posture_optimization, uri: 'https://github.com/tu-darmstadt-ros-pkg/whole_body_posture_optimization.git', version: master}
+- git: {local-name: src/sdf_contact_estimation, uri: 'https://github.com/tu-darmstadt-ros-pkg/sdf_contact_estimation.git', version: main}
+
+# Differentiable kinematics
+- git: {local-name: src/ad_kinematics, uri: 'https://github.com/Martin-Oehler/ad_kinematics.git', version: master}
+
+# Use nlopt with ceres ad
+- git: {local-name: src/ceres_nlopt_wrapper, uri: 'https://github.com/Martin-Oehler/ceres_nlopt_wrapper.git', version: master}
+
+# Catkin-ized fork of nlopt
+# ros-noetic-nlopt is on 2.3 from 2012
+- git: {local-name: src/nlopt, uri: 'https://github.com/tu-darmstadt-ros-pkg/nlopt', version: master} 
+
+# Moveit fork until they fix their stuff
+- git: {local-name: src/moveit, uri: 'https://github.com/Martin-Oehler/moveit', version: revert-continuous-execution-removal}
