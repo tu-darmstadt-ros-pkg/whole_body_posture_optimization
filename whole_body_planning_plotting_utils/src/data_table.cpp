@@ -1,6 +1,6 @@
 #include <whole_body_planning_plotting_utils/data_table.h>
 
-#include <ros/console.h>
+#include <rclcpp/rclcpp.hpp>
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -13,7 +13,7 @@ DataTable::DataTable()
 void DataTable::initialize(const std::vector<std::string>& data_labels)
 {
   if (!labels_.empty()) {
-    ROS_ERROR_STREAM("Table has already been initialized.");
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("whole_body_planning_plotting_utils"), "Table has already been initialized.");
     return;
   }
   labels_ = data_labels;
@@ -22,11 +22,11 @@ void DataTable::initialize(const std::vector<std::string>& data_labels)
 void DataTable::addData(const Eigen::VectorXd& data)
 {
   if (labels_.empty()) {
-    ROS_ERROR_STREAM("Table has not been initialized yet");
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("whole_body_planning_plotting_utils"), "Table has not been initialized yet");
     return;
   }
-  if (data.size() != labels_.size()) {
-    ROS_ERROR_STREAM("Data has wrong size. Expected: " << labels_.size() << ", received: " << data.size());
+  if (static_cast<size_t>(data.size()) != labels_.size()) {
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("whole_body_planning_plotting_utils"), "Data has wrong size. Expected: " << labels_.size() << ", received: " << data.size());
     return;
   }
   Eigen::Index num_entries = data_.rows();
@@ -43,11 +43,11 @@ bool DataTable::saveToCsv(const std::string& file_name) const
   try {
     std::filesystem::create_directories(parent_directory);
   } catch (const std::filesystem::filesystem_error& e) {
-    ROS_ERROR_STREAM(e.what());
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("whole_body_planning_plotting_utils"), e.what());
     return false;
   }
   catch (const std::bad_alloc& e) {
-    ROS_ERROR_STREAM(e.what());
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("whole_body_planning_plotting_utils"), e.what());
     return false;
   }
   std::ofstream file;
@@ -73,7 +73,7 @@ bool DataTable::saveToCsv(const std::string& file_name) const
     file << std::endl;
   }
   file.close();
-  ROS_INFO_STREAM("Saved " << data_.rows() << " data points to '" << file_name << "'");
+  RCLCPP_INFO_STREAM(rclcpp::get_logger("whole_body_planning_plotting_utils"), "Saved " << data_.rows() << " data points to '" << file_name << "'");
   return true;
 }
 

@@ -10,7 +10,7 @@ StabilityCost::StabilityCost(const std::shared_ptr<RobotModel>& robot_model, con
   param_idx_to_joint_idx_ = robot_model_->getActiveJointIndices(free_joints);
 
   if (contact_points.empty()) {
-    ROS_ERROR_STREAM("Creating stability error with empty contact points list.");
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("whole_body_posture_optimization"), "Creating stability error with empty contact points list.");
   }
 }
 

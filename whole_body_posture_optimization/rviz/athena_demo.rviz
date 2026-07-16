@@ -1,0 +1,160 @@
+Panels:
+  - Class: rviz_common/Displays
+    Help Height: 70
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /DisplayRobotState1
+      Splitter Ratio: 0.5
+    Tree Height: 500
+  - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Enabled: true
+      Name: Grid
+      Plane: XY
+      Plane Cell Count: 20
+      Reference Frame: world
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: false
+      Name: TF
+      Value: false
+    - Class: moveit_rviz_plugin/RobotState
+      Enabled: true
+      Name: DisplayRobotState
+      Robot Description: robot_description
+      Robot State Topic: /robot_state
+      Value: true
+      Visual Enabled: true
+    - Class: rviz_default_plugins/InteractiveMarkers
+      Enabled: true
+      Interactive Markers Namespace: /robot_pose
+      Name: RobotPoseMarker
+      Value: true
+    - Class: rviz_default_plugins/InteractiveMarkers
+      Enabled: true
+      Interactive Markers Namespace: /plan_goal_marker
+      Name: PlanGoalMarkers
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: FlipperSupportPolygon
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /flipper_optimization/support_polygon
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: ArmSupportPolygon
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /arm_optimization/support_polygon
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: false
+      Name: CollisionSpheres
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /collision_spheres
+      Value: false
+    - Class: rviz_default_plugins/Pose
+      Enabled: true
+      Name: ResultCoM
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /arm_optimization/result_com
+      Value: true
+    - Class: voxblox_rviz_plugin/VoxbloxMesh
+      Enabled: true
+      Name: TerrainMesh
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /sdf_map/mesh
+      Value: true
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: false
+      Name: RobotTsdf
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /arm_optimization/robot_tsdf
+      Value: false
+    - Class: moveit_rviz_plugin/Trajectory
+      Enabled: true
+      Name: PlannedTrajectory
+      Robot Description: robot_description
+      Trajectory Topic: /trajectory
+      Loop Animation: true
+      State Display Time: 1x
+      Color Enabled: true
+      Robot Color: 255; 140; 0
+      Robot Alpha: 1
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Enabled: true
+      Name: InputPath
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /input_path
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: world
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/FocusCamera
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 4.5
+      Focal Point:
+        X: 0.5
+        Y: 0
+        Z: 0.3
+      Name: Current View
+      Pitch: 0.5
+      Target Frame: <Fixed Frame>
+      Yaw: 5.5
+    Saved: ~
+Window Geometry:
+  Height: 900
+  Width: 1400

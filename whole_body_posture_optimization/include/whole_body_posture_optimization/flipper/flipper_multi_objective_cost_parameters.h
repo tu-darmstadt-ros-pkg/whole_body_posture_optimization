@@ -27,7 +27,7 @@ public:
   double risk_level;
   double regularization_weight;
 protected:
-  bool loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) override;
+  bool loadParametersFromNamespaceImpl(const rclcpp::Node::SharedPtr& node) override;
 private:
 };
 

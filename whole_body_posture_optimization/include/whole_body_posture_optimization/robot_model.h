@@ -1,11 +1,13 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_ROBOT_MODEL_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_ROBOT_MODEL_H
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <urdf/model.h>
 #include <Eigen/Eigen>
-#include <moveit/robot_model_loader/robot_model_loader.h>
-#include <moveit/collision_distance_field/collision_distance_field_types.h>
+#include <moveit/robot_model_loader/robot_model_loader.hpp>
+#include <moveit/collision_distance_field/collision_distance_field_types.hpp>
+#include <moveit_msgs/msg/display_robot_state.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include <ad_kinematics/tree.h>
 
@@ -18,7 +20,7 @@ namespace whole_body_posture_optimization {
 
 class RobotModel {
 public:
-  RobotModel(ros::NodeHandle& nh);
+  RobotModel(const rclcpp::Node::SharedPtr& node);
 
   template <typename T>
   Vector3<T> computeCenterOfMass(const std::vector<T> &joint_angles) {
@@ -56,8 +58,8 @@ public:
   std::vector<std::string> getCollisionGroupNames();
   const std::vector<collision_detection::CollisionSphere>& getCollisionSpheres(const std::string& link_name);
 
-  robot_state::RobotState getMoveitRobotState() const;
-  robot_model::RobotModelPtr getMoveitRobotModel() const;
+  moveit::core::RobotState getMoveitRobotState() const;
+  moveit::core::RobotModelPtr getMoveitRobotModel() const;
 private:
   template <typename T>
   Vector3<T> computeCenterOfMassRecursive(const urdf::LinkSharedPtr& link, const std::vector<T> &joint_angles, const Affine3<T>& transform, T& total_mass) {
@@ -79,14 +81,14 @@ private:
   }
   void generateLinkBodyDecompositions(double resolution);
 
-  ros::NodeHandle nh_;
-  std::string robot_description_;
+  rclcpp::Node::SharedPtr node_;
+  std::string param_prefix_;
 
   std::vector<collision_detection::BodyDecompositionConstPtr> body_decompositions_;
   std::map<std::string, unsigned int> body_decomposition_index_map_;
 
   urdf::ModelInterfaceSharedPtr urdf_model_;
-  robot_model::RobotModelPtr moveit_robot_model_;
+  moveit::core::RobotModelPtr moveit_robot_model_;
 
   /// Contains all joints (revolute, prismatic, fixed, continuous, mimic)
   std::vector<std::string> joint_names_;
@@ -94,15 +96,15 @@ private:
   std::vector<std::string> active_joint_names_;
 
 
-  robot_state::RobotStatePtr moveit_robot_state_;
+  moveit::core::RobotStatePtr moveit_robot_state_;
   Eigen::Isometry3d robot_pose_;
   std::vector<double> joint_angles_;
 
   std::shared_ptr<ad_kinematics::Tree> ad_tree_;
   std::string collision_group_;
 
-  ros::Publisher robot_state_pub_;
-  ros::Publisher collision_spheres_pub_;
+  rclcpp::Publisher<moveit_msgs::msg::DisplayRobotState>::SharedPtr robot_state_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr collision_spheres_pub_;
 };
 
 }

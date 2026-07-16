@@ -1,9 +1,10 @@
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
 
 #include "whole_body_posture_optimization/util/timing.h"
+#include "whole_body_posture_optimization/util/parameter_utils.h"
 #include <whole_body_posture_optimization/solvers/optimizer_factory.h>
 
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <whole_body_planning_plotting_utils/data_log.h>
 #include <hector_pose_prediction_ros/visualization.h>
 
@@ -14,35 +15,34 @@ using whole_body_planning_plotting_utils::DataLog;
 
 using namespace hector_pose_prediction_interface;
 
-FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel> &robot_model,
+FlipperOptimization::FlipperOptimization(const rclcpp::Node::SharedPtr& node, const std::shared_ptr<RobotModel> &robot_model,
                                          const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor)
-  : nh_(nh), robot_model_(robot_model), pose_predictor_(pose_predictor), enabled_(true)
+  : node_(node), robot_model_(robot_model), pose_predictor_(pose_predictor), enabled_(true)
 {
-  if (!loadParameters(nh)) {
-    ROS_ERROR_STREAM("Loading flipper parameters failed.");
+  param_prefix_ = param_utils::paramPrefix(*node_);
+  if (!loadParameters(*node_)) {
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Loading flipper parameters failed.");
   }
   if (!loadLimits()) {
-    ROS_ERROR_STREAM("Loading flipper limits failed");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Loading flipper limits failed");
   }
   param_idx_to_jnt_idx_ = getIndexMap(robot_model_->getActiveJointNames(), free_joints_);
 
   // Publisher
-  support_polygon_pub_ = nh.advertise<visualization_msgs::MarkerArray>("support_polygon", 10, true);
+  support_polygon_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("support_polygon", rclcpp::QoS(10).transient_local());
 
   // Create nlopt optimizer
   parameter_count_ = static_cast<unsigned int>(free_joints_.size());
-  ros::NodeHandle solver_nh(nh, "solver");
-  opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(solver_nh, parameter_count_);
-  solver_nh.param("enabled", enabled_, enabled_);
+  opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(node_.get(), param_prefix_ + "solver", parameter_count_);
+  enabled_ = param_utils::param(*node_, param_prefix_ + "solver.enabled", enabled_);
 
   // Create custom solver
-  ros::NodeHandle custom_solver_nh(nh, "custom_solver");
+  bool custom_solver_enabled = param_utils::param(*node_, param_prefix_ + "custom_solver.enabled", false);
   std::string solver_name;
-  bool custom_solver_enabled = custom_solver_nh.param("enabled", false);
-  if (custom_solver_enabled && custom_solver_nh.getParam("algorithm", solver_name)) {
+  if (custom_solver_enabled && param_utils::getParam(*node_, param_prefix_ + "custom_solver.algorithm", solver_name)) {
     custom_solver_ = createSolverByName(solver_name);
     if (custom_solver_) {
-      custom_solver_->loadParametersFromNamespace(custom_solver_nh);
+      custom_solver_->loadParametersFromNamespace(*node_, param_prefix_ + "custom_solver.");
     }
   }
 
@@ -66,30 +66,28 @@ FlipperOptimization::FlipperOptimization(ros::NodeHandle &nh, const std::shared_
   }
 
   // Set local optimizer
-  std::string local_algorithm;
-  bool use_local_solver = false;
-  if (nh.getParam("local_solver/enabled", use_local_solver) && use_local_solver) {
-    ros::NodeHandle local_solver_nh(nh, "local_solver");
-    local_opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(local_solver_nh, parameter_count_);
+  bool use_local_solver = param_utils::param(*node_, param_prefix_ + "local_solver.enabled", false);
+  if (use_local_solver) {
+    local_opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(node_.get(), param_prefix_ + "local_solver", parameter_count_);
   }
 }
 
-bool FlipperOptimization::loadParameters(const ros::NodeHandle &nh)
+bool FlipperOptimization::loadParameters(rclcpp::Node& node)
 {
-  if(!nh.getParam("joints", free_joints_)) {
-    ROS_ERROR_STREAM("Failed to find parameter 'joints' in namespace'" << nh.getNamespace() << "'.");
+  if (!param_utils::getParam(node, param_prefix_ + "joints", free_joints_)) {
+    RCLCPP_ERROR_STREAM(node.get_logger(), "Failed to find parameter '" << param_prefix_ << "joints'.");
     return false;
   }
 
-  flipper_multi_objective_cost_parameters_.loadParametersFromNamespace(ros::NodeHandle(nh, "cost_parameters"));
-  ROS_INFO_STREAM(flipper_multi_objective_cost_parameters_.toString());
+  flipper_multi_objective_cost_parameters_.loadParametersFromNamespace(node_->create_sub_node("cost_parameters"));
+  RCLCPP_INFO_STREAM(node.get_logger(), flipper_multi_objective_cost_parameters_.toString());
 
   return true;
 }
 
 FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d &robot_pose, const std::vector<double>& init_joint_angles,
-                                                        const robot_state::RobotStateConstPtr& previous_state,
-                                                        const robot_state::RobotStateConstPtr& last_solution)
+                                                        const moveit::core::RobotStateConstPtr& previous_state,
+                                                        const moveit::core::RobotStateConstPtr& last_solution)
 {
   // Reset seed (for stochastic algorithms)
   nlopt_srand(0);
@@ -149,25 +147,25 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   double minf = custom_solver_minf;
 
   // Nlopt solver
-  nlopt::result nlopt_result;
+  nlopt::result nlopt_result = nlopt::FAILURE;
   try {
     if (enabled_) {
       nlopt_result = opt.optimize(parameters, minf);
     }
   }
   catch (const std::invalid_argument& e) {
-    ROS_ERROR_STREAM("Flipper optimization failed (invalid argument): " << e.what());
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Flipper optimization failed (invalid argument): " << e.what());
   }
   catch (const nlopt::roundoff_limited& e) {
-    ROS_ERROR_STREAM("Flipper optimization failed (roundoff_limited): " << e.what());
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Flipper optimization failed (roundoff_limited): " << e.what());
   }
   catch (const std::runtime_error& e) {
-    ROS_ERROR_STREAM("Flipper optimization failed (runtime error): " << e.what());
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Flipper optimization failed (runtime error): " << e.what());
   }
   STOP_TIMING_AVG
 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-  ROS_INFO_STREAM("Flipper optimization took " << objective->getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Flipper optimization took " << objective->getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                   << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf << ", " << ceres_nlopt_wrapper::resultToString(nlopt_result));
 
   // Compose result
@@ -191,7 +189,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   result.stability = pose_predictor_->predictPoseAndContactInformation(result_pose, result.support_polygon, result.contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
   result.pose = result_pose.asTransform();
 
-  ROS_INFO("New robot position: [%f, %f, %f]", result.pose.translation()(0), result.pose.translation()(1), result.pose.translation()(2));
+  RCLCPP_INFO(node_->get_logger(), "New robot position: [%f, %f, %f]", result.pose.translation()(0), result.pose.translation()(1), result.pose.translation()(2));
 
   // Logging
   if (DataLog::getInstance().getTable("flipper_optimization").enabled()) {
@@ -217,7 +215,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
     const double range = 0.2;
     const double resolution = 0.001;
     const int num_samples = std::floor(range / resolution);
-    ROS_INFO_STREAM("Sampling PDF. Range: " << range << ", resolution: " << resolution << ", num. samples: " << num_samples);
+    RCLCPP_INFO_STREAM(node_->get_logger(), "Sampling PDF. Range: " << range << ", resolution: " << resolution << ", num. samples: " << num_samples);
 
     double orig_samples = flipper_multi_objective_cost_parameters_.num_pose_x_samples;
     double orig_resolution = flipper_multi_objective_cost_parameters_.sample_step_pose_x;
@@ -230,7 +228,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
 
     std::vector<double> gradient;
     double cvar = (*objective)(parameters, gradient);
-    ROS_INFO_STREAM("CVaR: " << cvar);
+    RCLCPP_INFO_STREAM(node_->get_logger(), "CVaR: " << cvar);
 
     DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).enableLogging(false);
     DataLog::getInstance().getTable("flipper_multi_objective_cost").enableLogging();
@@ -250,10 +248,10 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   flipper_multi_objective_cost_parameters_.verbose = cost_function_verbosity;
 
   // Publish support polygon and contact information
-  visualization_msgs::MarkerArray support_polygon_marker_array;
+  visualization_msgs::msg::MarkerArray support_polygon_marker_array;
   deleteAllMarkers(support_polygon_pub_);
   visualization::addSupportPolygonWithContactInformationToMarkerArray(support_polygon_marker_array, result.support_polygon, result.contact_information, "world");
-  support_polygon_pub_.publish(support_polygon_marker_array);
+  support_polygon_pub_->publish(support_polygon_marker_array);
 
   return result;
 }

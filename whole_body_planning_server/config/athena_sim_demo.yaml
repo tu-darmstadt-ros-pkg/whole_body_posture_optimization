@@ -1,0 +1,15 @@
+# Planning server parameters for the Athena Gazebo simulation demos.
+/**:
+  ros__parameters:
+    use_sim_time: true  # the Gazebo sim runs on sim time; applies to all nodes in the process
+    base_frame: base_footprint_link
+    auto_start: true
+    override_path_time: true
+    # Watchdog thresholds disabled for the demo (0 = no limit)
+    execution_position_tolerance: 0.0
+    execution_orientation_tolerance: 0.0
+    path_sampling_resolution: 0.1
+    minimum_path_length: 0.3
+    path_stitching_tolerance: 0.3
+    reverse_allowed: true
+    ignore_goal_orientation: false

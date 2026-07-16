@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Eigen/Eigen>
 #include <deque>
-#include <nav_msgs/Path.h>
+#include <nav_msgs/msg/path.hpp>
 
 
 namespace whole_body_planning_server {
@@ -66,7 +66,7 @@ public:
      * @param path_in Path to be smoothed
      * @return Smoothed path
    */
-  nav_msgs::Path smooth(const nav_msgs::Path& path_in, bool reverse) const;
+  nav_msgs::msg::Path smooth(const nav_msgs::msg::Path& path_in, bool reverse) const;
 
   void setSmoothedPathDiscretization(double value);
   void setPathSmoothness(double value);

@@ -1,26 +1,27 @@
 #include "whole_body_posture_optimization/util/common.h"
 
-#include <eigen_conversions/eigen_msg.h>
 #include <ctime>
 #include <ceres/gradient_checker.h>
-#include <moveit/robot_state/conversions.h>
-
+#include <moveit/robot_state/conversions.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 
 namespace whole_body_posture_optimization {
 
-void deleteAllMarkers(const ros::Publisher& pub)
+static const rclcpp::Logger kLogger = rclcpp::get_logger("whole_body_posture_optimization");
+
+void deleteAllMarkers(const rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr& pub)
 {
-  visualization_msgs::MarkerArray array;
-  visualization_msgs::Marker marker;
-  marker.action = visualization_msgs::Marker::DELETEALL;
+  visualization_msgs::msg::MarkerArray array;
+  visualization_msgs::msg::Marker marker;
+  marker.action = visualization_msgs::msg::Marker::DELETEALL;
   marker.header.frame_id = "world"; // this has to be set correctly for the deletion to work
   array.markers.push_back(marker);
-  pub.publish(array);
+  pub->publish(array);
 }
 
 void updateMoveitRobotState(moveit::core::RobotState &state, const Eigen::Isometry3d &pose)
 {
-  sensor_msgs::JointState virtual_link_joint_states;
+  sensor_msgs::msg::JointState virtual_link_joint_states;
   virtual_link_joint_states.name.push_back("world_virtual_joint/trans_x");
   virtual_link_joint_states.name.push_back("world_virtual_joint/trans_y");
   virtual_link_joint_states.name.push_back("world_virtual_joint/trans_z");
@@ -67,9 +68,9 @@ bool checkGradient(const ceres::CostFunction* cost_function)
   double const* x_ptr = &x[0];
   double const *const *parameters_ptr = &x_ptr;
   if (!gradient_checker.Probe(parameters_ptr, 1e-5, &probe_results)) {
-    ROS_ERROR_STREAM("Gradient check failed. Max relative error: " << probe_results.maximum_relative_error);
-    ROS_ERROR_STREAM("Gradient: " << probe_results.jacobians[0]);
-    ROS_ERROR_STREAM("Numeric gradient: " << probe_results.numeric_jacobians[0]);
+    RCLCPP_ERROR_STREAM(kLogger, "Gradient check failed. Max relative error: " << probe_results.maximum_relative_error);
+    RCLCPP_ERROR_STREAM(kLogger, "Gradient: " << probe_results.jacobians[0]);
+    RCLCPP_ERROR_STREAM(kLogger, "Numeric gradient: " << probe_results.numeric_jacobians[0]);
     return false;
   }
   return true;
@@ -93,7 +94,7 @@ std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& tra
   }
   ss << "]" << std::endl;
   for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
-    const robot_state::RobotState& state = trajectory.getWayPoint(i);
+    const moveit::core::RobotState& state = trajectory.getWayPoint(i);
     ss << i << ": ";
     ss << "t = " << trajectory.getWayPointDurationFromStart(i);
     // Position
@@ -125,7 +126,7 @@ std::string robotTrajectoryToOdomString(const robot_trajectory::RobotTrajectory&
   std::vector<double> odom_yaw;
 
   for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
-    const robot_state::RobotState& state = trajectory.getWayPoint(i);
+    const moveit::core::RobotState& state = trajectory.getWayPoint(i);
     indices.push_back(i);
     odom_x.push_back(state.getVariablePosition("world_virtual_joint/trans_x"));
     odom_yaw.push_back(state.getVariablePosition("world_virtual_joint/trans_z"));
@@ -172,7 +173,7 @@ Eigen::Vector3d quatToEuler(const Eigen::Quaterniond& quaternion, const std::str
   return angles;
 }
 
-std::vector<double> getVariablePositions(const robot_state::RobotStateConstPtr& state, const std::vector<std::string>& variables) {
+std::vector<double> getVariablePositions(const moveit::core::RobotStateConstPtr& state, const std::vector<std::string>& variables) {
   std::vector<double> positions;
   positions.reserve(variables.size());
   for (const std::string& variable: variables) {
@@ -181,9 +182,12 @@ std::vector<double> getVariablePositions(const robot_state::RobotStateConstPtr& 
   return positions;
 }
 
-std::string rosTimeToString(const ros::Time &time) {
+std::string rosTimeToString(const rclcpp::Time &time) {
+  const int64_t total_ns = time.nanoseconds();
+  const int64_t sec = total_ns / 1000000000LL;
+  const int64_t nsec = total_ns % 1000000000LL;
   std::stringstream ss;
-  ss << time.sec << "." << std::setw(9) << std::setfill('0') << time.nsec;
+  ss << sec << "." << std::setw(9) << std::setfill('0') << nsec;
   return ss.str();
 }
 

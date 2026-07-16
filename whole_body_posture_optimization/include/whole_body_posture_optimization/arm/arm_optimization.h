@@ -1,14 +1,18 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_ARM_OPTIMIZATION_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_ARM_OPTIMIZATION_H
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <Eigen/Eigen>
 
 #include <nlopt.hpp>
 
-#include <moveit/collision_detection/collision_matrix.h>
+#include <moveit/collision_detection/collision_matrix.hpp>
 #include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
 #include <ceres_nlopt_wrapper/nlopt_parameter_server.h>
+
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include <sdf_contact_estimation/sdf/sdf_model.h>
 #include <whole_body_posture_optimization/arm/stability_cost.h>
@@ -26,21 +30,22 @@ struct ArmOptimizationResult {
 
 class ArmOptimization {
 public:
-  ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model, const sdf_contact_estimation::SdfModelPtr& sdf_model);
+  ArmOptimization(const rclcpp::Node::SharedPtr& node, const std::shared_ptr<RobotModel>& robot_model, const sdf_contact_estimation::SdfModelPtr& sdf_model);
   ArmOptimizationResult optimize(const std::vector<double>& initial_angles, const std::vector<Eigen::Vector3d>& contact_hull_points, const Eigen::Isometry3d &robot_pose,
                                  const std::vector<double> &previous_joint_angles);
   bool getEnabled() const;
   void setEnabled(bool enabled);
 
 private:
-  bool loadParameters(const ros::NodeHandle &nh);
-  void loadAdditionalACMEntries(const ros::NodeHandle &nh);
+  bool loadParameters(rclcpp::Node& node);
+  void loadAdditionalACMEntries(rclcpp::Node& node);
   double getJointPadding(std::string joint_name, CollisionType collision_type);
   double getDefaultJointPadding(CollisionType collision_type);
   bool loadLimits();
   std::vector<double> jointVectorToParamVector(const std::vector<double> &joint_vec);
 
-  ros::NodeHandle nh_;
+  rclcpp::Node::SharedPtr node_;
+  std::string param_prefix_;
 
   std::shared_ptr<ceres_nlopt_wrapper::NloptParameterServer> opt_server_;
   std::shared_ptr<ceres_nlopt_wrapper::NloptParameterServer> local_opt_server_;
@@ -78,9 +83,9 @@ private:
   double self_collision_tsdf_voxel_size_;
   collision_detection::AllowedCollisionMatrix acm_;
 
-  ros::Publisher result_com_pub_;
-  ros::Publisher support_polygon_pub_;
-  ros::Publisher robot_tsdf_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr result_com_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr support_polygon_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr robot_tsdf_pub_;
 };
 
 }

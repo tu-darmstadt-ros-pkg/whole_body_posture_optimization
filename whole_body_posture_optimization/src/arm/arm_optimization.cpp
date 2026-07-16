@@ -2,15 +2,15 @@
 
 #include "whole_body_posture_optimization/util/timing.h"
 #include "whole_body_posture_optimization/util/common.h"
+#include "whole_body_posture_optimization/util/parameter_utils.h"
 #include <whole_body_posture_optimization/arm/sdf_contact_constraint.h>
 #include <whole_body_posture_optimization/arm/self_contact_constraint.h>
 
 #include <whole_body_planning_plotting_utils/data_log.h>
 #include <sdf_contact_estimation/visualisation.h>
-#include <moveit/planning_scene/planning_scene.h>
+#include <moveit/planning_scene/planning_scene.hpp>
 #include <chrono>
 #include <ceres_nlopt_wrapper/optimization_history.h>
-#include <eigen_conversions/eigen_msg.h>
 #include <hector_stability_metrics/metrics/normalized_energy_stability_margin.h>
 #include <hector_pose_prediction_ros/visualization.h>
 
@@ -20,22 +20,23 @@ using whole_body_planning_plotting_utils::DataLog;
 
 using namespace hector_pose_prediction_interface;
 
-ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<RobotModel>& robot_model,
+ArmOptimization::ArmOptimization(const rclcpp::Node::SharedPtr& node, const std::shared_ptr<RobotModel>& robot_model,
                                  const sdf_contact_estimation::SdfModelPtr& sdf_model)
-  : nh_(nh), robot_model_(robot_model), sdf_model_(sdf_model), enabled_(true), algorithm_("")
+  : node_(node), robot_model_(robot_model), sdf_model_(sdf_model), enabled_(true), algorithm_("")
 {
-  if (!loadParameters(nh)) {
-    ROS_ERROR_STREAM("Loading arm parameters failed.");
+  param_prefix_ = param_utils::paramPrefix(*node_);
+  if (!loadParameters(*node_)) {
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Loading arm parameters failed.");
   }
   if (!loadLimits()) {
-    ROS_ERROR_STREAM("Loading arm limits failed");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Loading arm limits failed");
   }
   param_idx_to_jnt_idx_ = getIndexMap(robot_model->getActiveJointNames(), free_joints_);
 
   // Load Allowed Collision Matrix (ACM)
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
   acm_ = planning_scene->getAllowedCollisionMatrix();
-  loadAdditionalACMEntries(nh_);
+  loadAdditionalACMEntries(*node_);
 
   // Precompute partial robot tsdf
   partial_robot_tsdf_ = robot_model_->computeTsdfFromRobotModel(static_link_names_, static_cast<float>(self_collision_tsdf_truncation_distance_), static_cast<float>(self_collision_tsdf_voxel_size_));
@@ -63,47 +64,45 @@ ArmOptimization::ArmOptimization(ros::NodeHandle &nh, const std::shared_ptr<Robo
   }
 
   //Publisher
-  result_com_pub_ = nh.advertise<geometry_msgs::PoseStamped>("result_com", 10, true);
-  support_polygon_pub_ = nh.advertise<visualization_msgs::MarkerArray>("support_polygon", 10, true);
-  robot_tsdf_pub_ = nh.advertise<pcl::PointCloud<pcl::PointXYZI>>("robot_tsdf", 10, true);
+  result_com_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("result_com", rclcpp::QoS(10).transient_local());
+  support_polygon_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("support_polygon", rclcpp::QoS(10).transient_local());
+  robot_tsdf_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("robot_tsdf", rclcpp::QoS(10).transient_local());
 
   // Create nlopt optimizer
-  opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(ros::NodeHandle(nh, "solver"), free_joints_.size());
+  opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(node_.get(), param_prefix_ + "solver", free_joints_.size());
 
   // Set local optimizer
-  std::string local_algorithm;
-  bool use_local_solver = false;
-  if (nh.getParam("local_solver/enabled", use_local_solver) && use_local_solver) {
-    ros::NodeHandle local_solver_nh(nh, "local_solver");
-    local_opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(local_solver_nh, free_joints_.size());
+  bool use_local_solver = param_utils::param(*node_, param_prefix_ + "local_solver.enabled", false);
+  if (use_local_solver) {
+    local_opt_server_ = std::make_shared<ceres_nlopt_wrapper::NloptParameterServer>(node_.get(), param_prefix_ + "local_solver", free_joints_.size());
   }
 }
 
-bool ArmOptimization::loadParameters(const ros::NodeHandle &nh)
+bool ArmOptimization::loadParameters(rclcpp::Node& node)
 {
   bool success = true;
-  if(!nh.getParam("joints", free_joints_)) {
-    ROS_ERROR_STREAM("Failed to find parameter 'joints' in namespace'" << nh.getNamespace() << "'.");
+  if (!param_utils::getParam(node, param_prefix_ + "joints", free_joints_)) {
+    RCLCPP_ERROR_STREAM(node.get_logger(), "Failed to find parameter '" << param_prefix_ << "joints'.");
     success = false;
   }
 
-  nh.param("environment_collision_default_padding", environment_collision_default_padding_, 0.0);
-  nh.param<std::map<std::string, double>>("environment_collision_padding", environment_collision_padding_map_, environment_collision_padding_map_);
+  environment_collision_default_padding_ = param_utils::param(node, param_prefix_ + "environment_collision_default_padding", 0.0);
+  environment_collision_padding_map_ = param_utils::getDoubleMap(node, param_prefix_ + "environment_collision_padding", environment_collision_padding_map_);
 
-  nh.param<std::vector<std::string>>("static_link_names", static_link_names_, static_link_names_);
-  nh.param<std::vector<std::string>>("semi_static_link_names", semi_static_link_names_, semi_static_link_names_);
-  nh.param("self_collision_default_padding", self_collision_default_padding_, 0.0);
-  nh.param<std::map<std::string, double>>("self_collision_padding", self_collision_padding_map_, self_collision_padding_map_);
-  nh.param("self_collision_tsdf_default_padding", self_collision_tsdf_default_padding_, 0.0);
-  nh.param<std::map<std::string, double>>("self_collision_tsdf_padding", self_collision_tsdf_padding_map_, self_collision_tsdf_padding_map_);
-  nh.param("self_collision_tsdf_truncation_distance", self_collision_tsdf_truncation_distance_, 0.4);
-  nh.param("self_collision_tsdf_voxel_size", self_collision_tsdf_voxel_size_, 0.05);
-  nh.param("self_collision_tsdf_allowed_links", self_collision_tsdf_allowed_links_, std::vector<std::string>());
-  nh.param("enabled", enabled_, enabled_);
-  nh.param<std::string>("algorithm", algorithm_, "LD_SLSQP");
+  static_link_names_ = param_utils::param(node, param_prefix_ + "static_link_names", static_link_names_);
+  semi_static_link_names_ = param_utils::param(node, param_prefix_ + "semi_static_link_names", semi_static_link_names_);
+  self_collision_default_padding_ = param_utils::param(node, param_prefix_ + "self_collision_default_padding", 0.0);
+  self_collision_padding_map_ = param_utils::getDoubleMap(node, param_prefix_ + "self_collision_padding", self_collision_padding_map_);
+  self_collision_tsdf_default_padding_ = param_utils::param(node, param_prefix_ + "self_collision_tsdf_default_padding", 0.0);
+  self_collision_tsdf_padding_map_ = param_utils::getDoubleMap(node, param_prefix_ + "self_collision_tsdf_padding", self_collision_tsdf_padding_map_);
+  self_collision_tsdf_truncation_distance_ = param_utils::param(node, param_prefix_ + "self_collision_tsdf_truncation_distance", 0.4);
+  self_collision_tsdf_voxel_size_ = param_utils::param(node, param_prefix_ + "self_collision_tsdf_voxel_size", 0.05);
+  self_collision_tsdf_allowed_links_ = param_utils::param(node, param_prefix_ + "self_collision_tsdf_allowed_links", std::vector<std::string>());
+  enabled_ = param_utils::param(node, param_prefix_ + "enabled", enabled_);
+  algorithm_ = param_utils::param(node, param_prefix_ + "algorithm", std::string("LD_SLSQP"));
 
-  stability_cost_params_.loadParametersFromNamespace(ros::NodeHandle(nh, "cost_parameters"));
-  ROS_INFO_STREAM(stability_cost_params_.toString());
+  stability_cost_params_.loadParametersFromNamespace(node_->create_sub_node("cost_parameters"));
+  RCLCPP_INFO_STREAM(node.get_logger(), stability_cost_params_.toString());
 
   return success;
 }
@@ -127,7 +126,6 @@ double ArmOptimization::getJointPadding(std::string joint_name, CollisionType co
     try {
       padding = padding_map->at(joint_name);
       found = true;
-//      ROS_DEBUG_STREAM("Using padding " << padding << " for link '" << joint_name << "'.");
     }  catch (const std::out_of_range&) {
       found = false;
     }
@@ -147,7 +145,7 @@ double ArmOptimization::getDefaultJointPadding(CollisionType collision_type)
     case ENVIRONMENT: return environment_collision_default_padding_;
     case SELF_COLLISION: return self_collision_default_padding_;
     case SELF_COLLISION_TSDF: return self_collision_tsdf_default_padding_;
-    default: ROS_WARN_STREAM("Unknown collision type. Defaulting to zero padding.");
+    default: RCLCPP_WARN_STREAM(node_->get_logger(), "Unknown collision type. Defaulting to zero padding.");
   }
   return 0.0;
 }
@@ -201,7 +199,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // immediately return if there are no contact points with the ground (error)
   if (contact_hull_points.empty()) {
-    ROS_ERROR_STREAM("No contact points with the ground, aborting arm optimization.");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "No contact points with the ground, aborting arm optimization.");
     result.stability = -1;
     result.center_of_mass = Eigen::Vector3d::Zero();
     return result;
@@ -239,7 +237,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     START_TIMING("Env. collision const. creation")
     // Environment collision constraints
     for (const std::string& collision_link: collision_link_names_) {
-      ROS_DEBUG_STREAM("Creating environment collision constraints for link: " << collision_link);
+      RCLCPP_DEBUG_STREAM(node_->get_logger(), "Creating environment collision constraints for link: " << collision_link);
       for (const collision_detection::CollisionSphere& sphere: robot_model_->getCollisionSpheres(collision_link)) {
         CollisionObject collision_object(sphere, collision_link, getJointPadding(collision_link, ENVIRONMENT));
         ceres::CostFunction* cost_function = SdfContactConstraint::Create(
@@ -250,7 +248,6 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
         opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
       }
     }
-  //  ROS_INFO_STREAM("Created " << environment_constraints.size() << " environment collision constraints.");
     STOP_TIMING_AVG
 
     // self-collision tsdf constraints
@@ -272,7 +269,6 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
         opt.add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
       }
     }
-  //  ROS_INFO_STREAM("Created " << self_collision_tsdf_constraints.size() << " self-collision tsdf constraints.");
     STOP_TIMING_AVG
 
     // self-collision distance constraints
@@ -288,7 +284,7 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
         collision_detection::AllowedCollision::Type allowed_collision_type;
         if (acm_.getAllowedCollision(link_name_1, link_name_2, allowed_collision_type)) {
           if (allowed_collision_type == collision_detection::AllowedCollision::ALWAYS) {
-            ROS_DEBUG_STREAM("Skipping collision between '" << link_name_1 << "' and '" << link_name_2 << "'.");
+            RCLCPP_DEBUG_STREAM(node_->get_logger(), "Skipping collision between '" << link_name_1 << "' and '" << link_name_2 << "'.");
             continue;
           }
         }
@@ -308,126 +304,84 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
         }
       }
     }
-  //  ROS_INFO_STREAM("Created " << self_collision_constraints.size() << " self-collision constraints.");
     STOP_TIMING_AVG
 
     // Fill in initial joint state
     std::vector<double> parameters = jointVectorToParamVector(initial_angles);
     ceres_nlopt_wrapper::applyBounds(lower_bounds_, upper_bounds_, parameters);
 
-  //  stability_cost.checkGradient(parameters);
-
     // Check for collisions in initialization
     std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
     if (!ceres_nlopt_wrapper::checkConstraints(parameters, environment_constraints, 0.001, constraint_violations)) {
-      ROS_WARN_STREAM("Detected environment collision before optimization!");
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Detected environment collision before optimization!");
       for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
-        ROS_WARN_STREAM(violation.toString());
+        RCLCPP_WARN_STREAM(node_->get_logger(), violation.toString());
       }
     }
     if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_tsdf_constraints, 0.001, constraint_violations)) {
-      ROS_WARN_STREAM("Detected self-collision with tsdf before optimization!");
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Detected self-collision with tsdf before optimization!");
       for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
-        ROS_WARN_STREAM(violation.toString());
+        RCLCPP_WARN_STREAM(node_->get_logger(), violation.toString());
       }
     }
     if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_constraints, 0.001, constraint_violations)) {
-      ROS_WARN_STREAM("Detected self-collision before optimization!");
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Detected self-collision before optimization!");
       for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
-        ROS_WARN_STREAM(violation.toString());
+        RCLCPP_WARN_STREAM(node_->get_logger(), violation.toString());
       }
     }
 
     START_TIMING("Arm optimization")
     double minf = std::nan("");
     auto start = std::chrono::high_resolution_clock::now();
-    nlopt::result nlopt_result;
+    nlopt::result nlopt_result = nlopt::FAILURE;
     try {
       nlopt_result = opt.optimize(parameters, minf);
     }
     catch (const std::invalid_argument& e) {
-      ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Optimization failed with invalid argument error: " << e.what());
     }
     catch (const nlopt::roundoff_limited& e) {
-      ROS_ERROR_STREAM("Optimization failed: " << e.what());
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Optimization failed: " << e.what());
     }
     catch (const std::runtime_error& e) {
-      ROS_ERROR_STREAM("Optimization failed: " << e.what());
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Optimization failed: " << e.what());
     }
 
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-    ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
+    RCLCPP_INFO_STREAM(node_->get_logger(), "Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                     << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf << ", " << ceres_nlopt_wrapper::resultToString(nlopt_result));
     result.iterations = stability_cost.getEvaluations();
     result.optimization_time = elapsed.count();
-    // Subsidiary optimization
-//    if (sub_opt_) {
-//      start = std::chrono::high_resolution_clock::now();
-//      stability_cost.resetEvaluationCounter();
-//      sub_opt_->set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, &stability_cost);
-//
-//      sub_opt_->remove_inequality_constraints();
-//      for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: environment_constraints) {
-//        sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
-//      }
-//      for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: self_collision_tsdf_constraints) {
-//        sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
-//      }
-//      for (const std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper>& wrapper: self_collision_constraints) {
-//        sub_opt_->add_inequality_constraint(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, wrapper.get(), 1e-8);
-//      }
-//
-//      try {
-//        nlopt_result = sub_opt_->optimize(parameters, minf);
-//        ROS_INFO_STREAM("Optimization returned " << ceres_nlopt_wrapper::resultToString(nlopt_result));
-//      }
-//      catch (const std::invalid_argument& e) {
-//        ROS_ERROR_STREAM("Optimization failed with invalid argument error: " << e.what());
-//      }
-//      catch (const nlopt::roundoff_limited& e) {
-//        ROS_ERROR_STREAM("Optimization failed: " << e.what());
-//      }
-//      catch (const std::runtime_error& e) {
-//        ROS_ERROR_STREAM("Optimization failed: " << e.what());
-//      }
-//
-//      elapsed = std::chrono::high_resolution_clock::now() - start;
-//      ROS_INFO_STREAM("Arm optimization took " << stability_cost.getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
-//                      << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf);
-//    }
 
     const ceres_nlopt_wrapper::OptimizationResult* best_result = history.getBestResult();
     if (best_result) {
       parameters = best_result->parameters;
     } else {
-      ROS_WARN_STREAM("Arm optimization history does not contain any valid solution.");
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Arm optimization history does not contain any valid solution.");
     }
 
 
-    ROS_INFO_STREAM("Arm optimization final solution: " << ceres_nlopt_wrapper::vecToString(parameters) << ", cost: " << minf);
+    RCLCPP_INFO_STREAM(node_->get_logger(), "Arm optimization final solution: " << ceres_nlopt_wrapper::vecToString(parameters) << ", cost: " << minf);
     STOP_TIMING_AVG
 
-  //  ROS_INFO_STREAM("History: " << std::endl << history.toString());
-
-
     // Check for collisions in solution
-  //  std::vector<ceres_nlopt_wrapper::ConstraintViolation> constraint_violations;
     if (!ceres_nlopt_wrapper::checkConstraints(parameters, environment_constraints, 0.001, constraint_violations)) {
-      ROS_WARN_STREAM("Detected environment collision!");
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Detected environment collision!");
       for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
-        ROS_WARN_STREAM(violation.toString());
+        RCLCPP_WARN_STREAM(node_->get_logger(), violation.toString());
       }
     }
     if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_tsdf_constraints, 0.001, constraint_violations)) {
-      ROS_WARN_STREAM("Detected self-collision with tsdf!");
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Detected self-collision with tsdf!");
       for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
-        ROS_WARN_STREAM(violation.toString());
+        RCLCPP_WARN_STREAM(node_->get_logger(), violation.toString());
       }
     }
     if (!ceres_nlopt_wrapper::checkConstraints(parameters, self_collision_constraints, 0.001, constraint_violations)) {
-      ROS_WARN_STREAM("Detected self-collision!");
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Detected self-collision!");
       for (const ceres_nlopt_wrapper::ConstraintViolation& violation: constraint_violations) {
-        ROS_WARN_STREAM(violation.toString());
+        RCLCPP_WARN_STREAM(node_->get_logger(), violation.toString());
       }
     }
     // Compose result
@@ -445,23 +399,21 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   // Compute stability and publish support polygon
   std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_hull_points, com_pose.translation());
-//  std::vector<double> stabilities;
-//  hector_stability_metrics::computeNormalizedEnergyStabilityMargin<double>(contact_hull_points, stabilities, com_pose.translation());
   auto min_stability_it = std::min_element(stabilities.begin(), stabilities.end());
   if (min_stability_it != stabilities.end()) {
     result.stability = *min_stability_it;
   } else {
-    ROS_ERROR_STREAM("Stability is empty.");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Stability is empty.");
     result.stability = -std::numeric_limits<double>::max();
   }
 
-  visualization_msgs::MarkerArray convex_hull_array_msg;
+  visualization_msgs::msg::MarkerArray convex_hull_array_msg;
   visualization::addSupportPolygonEdgesWithStabilityToMarkerArray(convex_hull_array_msg, contact_hull_points, stabilities, 6.0, "world",
                                                  "support_polygon");
   visualization::addContactPointsToMarkerArray(convex_hull_array_msg, contact_hull_points,
                                    Eigen::Vector4f(0, 1, 0, 1), "world", "support_polygon_points", 0.04);
   deleteAllMarkers(support_polygon_pub_);
-  support_polygon_pub_.publish(convex_hull_array_msg);
+  support_polygon_pub_->publish(convex_hull_array_msg);
 
   // Logging
   if (DataLog::getInstance().getTable("arm_optimization").enabled()) {
@@ -479,21 +431,16 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
 
   return result;
 }
-void ArmOptimization::loadAdditionalACMEntries(const ros::NodeHandle &nh)
+void ArmOptimization::loadAdditionalACMEntries(rclcpp::Node& node)
 {
-  XmlRpc::XmlRpcValue acm_array;
-  if (nh.getParam("self_collision_allowed_links", acm_array)) {
-    if (acm_array.getType() != XmlRpc::XmlRpcValue::TypeArray) {
-      ROS_WARN("Allowed collision matrix is not an array");
-      return;
-    }
-
-    for (int i = 0; i < acm_array.size(); ++i) { // NOLINT(modernize-loop-convert)
-      if (!acm_array[i].hasMember("link1") || !acm_array[i].hasMember("link2")) {
-        ROS_WARN("All collision operations must have two links");
-        continue;
-      }
-      acm_.setEntry(std::string(acm_array[i]["link1"]), std::string(acm_array[i]["link2"]), true);
+  // ROS 2 parameters do not support lists of dicts. The allowed link pairs are
+  // configured as a map from link name to a list of links instead:
+  //   self_collision_allowed_links:
+  //     arm_link_1: [arm_link_3]
+  const auto allowed_links = param_utils::getStringListMap(node, param_prefix_ + "self_collision_allowed_links");
+  for (const auto& [link1, links]: allowed_links) {
+    for (const std::string& link2: links) {
+      acm_.setEntry(link1, link2, true);
     }
   }
 }

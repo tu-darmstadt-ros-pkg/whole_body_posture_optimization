@@ -19,7 +19,7 @@ public:
     : robot_model_(robot_model), free_joints_(free_joints), param_idx_to_chain_idx_(param_idx_to_chain_idx), default_chain_angles_(default_chain_angles),
       obj1_(obj1), obj2_(obj2) {
     if (!robot_model_) {
-      ROS_ERROR_STREAM("Robot model is null!");
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger("whole_body_posture_optimization"), "Robot model is null!");
     }
   }
 

@@ -11,9 +11,9 @@ namespace whole_body_posture_optimization {
 
 FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::string>& free_joints, const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                                      const Eigen::Isometry3d &pose,
-                                                     const robot_state::RobotStateConstPtr& previous_state,
+                                                     const moveit::core::RobotStateConstPtr& previous_state,
                                                      const FlipperMultiObjectiveCostParameters& parameters,
-                                                     const robot_state::RobotStateConstPtr& last_solution)
+                                                     const moveit::core::RobotStateConstPtr& last_solution)
   : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose), parameters_(parameters)
 {
   param_idx_to_state_idx = getIndexMap<std::string>(pose_predictor_->robotModel()->jointNames(), free_joints_);
@@ -29,7 +29,7 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
     // Compute previous support polygon
     pose_predictor_->estimateSupportPolygon(hector_math::Pose<double>(prev_pose_), prev_support_polygon_);
     if (prev_support_polygon_.contact_hull_points.empty()) {
-      ROS_WARN_STREAM("Failed to compute previous support polygon. Cannot compute impact costs.");
+      RCLCPP_WARN_STREAM(rclcpp::get_logger("flipper_multi_objective_cost"), "Failed to compute previous support polygon. Cannot compute impact costs.");
     }
   }
   if (last_solution) {
@@ -136,9 +136,9 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
 ceres::CostFunction* FlipperMultiObjectiveCost::Create(const std::vector<std::string>& free_joints,
                                                  const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                                  const Eigen::Isometry3d &pose,
-                                                 const robot_state::RobotStateConstPtr& previous_state,
+                                                 const moveit::core::RobotStateConstPtr& previous_state,
                                                  const FlipperMultiObjectiveCostParameters& parameters,
-                                                 const robot_state::RobotStateConstPtr& last_solution)
+                                                 const moveit::core::RobotStateConstPtr& last_solution)
 {
   auto* cost_function = new ceres::DynamicNumericDiffCostFunction<FlipperMultiObjectiveCost>(
       new FlipperMultiObjectiveCost(free_joints, pose_predictor, pose, previous_state, parameters, last_solution));
@@ -369,7 +369,7 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
   return local_cost;
 
 //    if (parameters_.verbose) {
-//      ROS_INFO_STREAM("Flipper cost function (weighted value in brackets): " << std::endl <<
+//      RCLCPP_INFO_STREAM(rclcpp::get_logger("flipper_multi_objective_cost"), "Flipper cost function (weighted value in brackets): " << std::endl <<
 //                      "Support area: " << support_area << " (" << parameters_.support_area_weight * support_area << ")" << std::endl <<
 //                      "Track contact: " << track_contact_area << " (" << parameters_.track_contact_weight * track_contact_area << ")" << std::endl <<
 //                      "Body contact: " << body_contact_area << " (" << parameters_.body_contact_weight * body_contact_area << ")" << std::endl <<

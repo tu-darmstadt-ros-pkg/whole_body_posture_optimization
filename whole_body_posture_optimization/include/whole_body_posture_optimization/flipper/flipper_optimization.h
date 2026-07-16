@@ -6,6 +6,7 @@
 
 #include <sdf_contact_estimation/visualisation.h>
 #include <hector_pose_prediction_interface/pose_predictor.h>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include "whole_body_posture_optimization/util/common.h"
 #include <whole_body_posture_optimization/robot_model.h>
@@ -26,21 +27,22 @@ struct FlipperOptimizationResult {
 
 class FlipperOptimization {
 public:
-  FlipperOptimization(ros::NodeHandle& nh, const std::shared_ptr<RobotModel>& robot_model,
+  FlipperOptimization(const rclcpp::Node::SharedPtr& node, const std::shared_ptr<RobotModel>& robot_model,
                       const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor);
   FlipperOptimizationResult optimize(const Eigen::Isometry3d& robot_pose,
                                      const std::vector<double> &init_joint_angles,
-                                     const robot_state::RobotStateConstPtr& previous_state,
-                                     const robot_state::RobotStateConstPtr& last_solution=robot_state::RobotStateConstPtr());
+                                     const moveit::core::RobotStateConstPtr& previous_state,
+                                     const moveit::core::RobotStateConstPtr& last_solution=moveit::core::RobotStateConstPtr());
 
   bool enabled() const;
   void setEnabled(bool enabled);
 
 private:
-  bool loadParameters(const ros::NodeHandle &nh);
+  bool loadParameters(rclcpp::Node& node);
   bool loadLimits();
 
-  ros::NodeHandle nh_;
+  rclcpp::Node::SharedPtr node_;
+  std::string param_prefix_;
 
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<std::size_t> param_idx_to_jnt_idx_;
@@ -57,7 +59,7 @@ private:
 
   FlipperMultiObjectiveCostParameters flipper_multi_objective_cost_parameters_;
 
-  ros::Publisher support_polygon_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr support_polygon_pub_;
 };
 
 }

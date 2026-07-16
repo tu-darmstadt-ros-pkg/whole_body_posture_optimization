@@ -1,34 +1,33 @@
 #include <whole_body_posture_optimization/robot_model.h>
 
 #include "whole_body_posture_optimization/util/common.h"
+#include "whole_body_posture_optimization/util/parameter_utils.h"
 #include <sdf_contact_estimation/visualisation.h>
 
-#include <moveit/robot_state/conversions.h>
-#include <moveit_msgs/DisplayRobotState.h>
-#include <eigen_conversions/eigen_msg.h>
+#include <moveit/robot_state/conversions.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <tf2_eigen/tf2_eigen.hpp>
 
 
 namespace whole_body_posture_optimization {
 
-RobotModel::RobotModel(ros::NodeHandle &nh)
-  : nh_(nh)
+RobotModel::RobotModel(const rclcpp::Node::SharedPtr& node)
+  : node_(node)
 {
-  // Parameter loading
-  if(!nh.getParam("/robot_description", robot_description_)) {
-    ROS_ERROR_STREAM("Failed to load /robot_description.");
-  }
+  param_prefix_ = param_utils::paramPrefix(*node_);
 
-  if (!nh.getParam("collision_group", collision_group_)) {
-    ROS_WARN_STREAM("Failed to load collision group name.");
+  // Parameter loading
+  if (!param_utils::getParam(*node_, param_prefix_ + "collision_group", collision_group_)) {
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Failed to load collision group name.");
   }
 
   // Loading moveit model
-  robot_model_loader::RobotModelLoader robot_model_loader("robot_description", false);
+  robot_model_loader::RobotModelLoader robot_model_loader(node_, "robot_description", false);
   moveit_robot_model_ = robot_model_loader.getModel();
   if (!moveit_robot_model_.get()){
-    ROS_ERROR("Couldn't load robot model!");
+    RCLCPP_ERROR(node_->get_logger(), "Couldn't load robot model!");
   }
-  moveit_robot_state_ = std::make_shared<robot_state::RobotState>(moveit_robot_model_);
+  moveit_robot_state_ = std::make_shared<moveit::core::RobotState>(moveit_robot_model_);
 
   // Loading urdf
   urdf_model_ = moveit_robot_model_->getURDF();
@@ -43,9 +42,8 @@ RobotModel::RobotModel(ros::NodeHandle &nh)
   }
 
   // Publishers
-  ros::NodeHandle pnh("~");
-  robot_state_pub_ = pnh.advertise<moveit_msgs::DisplayRobotState>("robot_state", 10, true);
-  collision_spheres_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("collision_spheres", 10, true);
+  robot_state_pub_ = node_->create_publisher<moveit_msgs::msg::DisplayRobotState>("robot_state", rclcpp::QoS(10).transient_local());
+  collision_spheres_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("collision_spheres", rclcpp::QoS(10).transient_local());
 }
 
 std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance, float voxel_size, const std::vector<double>& joint_state)
@@ -62,7 +60,7 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
                                                                   const std::shared_ptr<voxblox::TsdfMap> &init_tsdf, const std::vector<double>& joint_state)
 {
   if (!init_tsdf) {
-    ROS_ERROR_STREAM("TSDF is null");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "TSDF is null");
     return {};
   }
 
@@ -82,7 +80,7 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
     try {
       index = body_decomposition_index_map_.at(link_name);
     } catch (const std::out_of_range&) {
-      ROS_WARN_STREAM("Didn't find a collision geometry for link '" << link_name << "'.");
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Didn't find a collision geometry for link '" << link_name << "'.");
       continue;
     }
 
@@ -130,12 +128,12 @@ std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const st
 void RobotModel::updateJointAngles(const std::vector<double>& joint_angles)
 {
   if (joint_angles.size() != active_joint_names_.size()) {
-    ROS_ERROR_STREAM("[RobotModel::updateJointAngles] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << active_joint_names_.size() << ")");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "[RobotModel::updateJointAngles] joint_angles size (" << joint_angles.size() << ") doesn't match number of joints in robot model (" << active_joint_names_.size() << ")");
     return;
   }
   joint_angles_ = joint_angles;
 
-  sensor_msgs::JointState joint_state_msg;
+  sensor_msgs::msg::JointState joint_state_msg;
   joint_state_msg.name = active_joint_names_;
   joint_state_msg.position = joint_angles;
   moveit::core::jointStateToRobotState(joint_state_msg, *moveit_robot_state_);
@@ -161,9 +159,9 @@ void RobotModel::publishRobotState(const Eigen::Isometry3d &robot_pose, const st
 
 void RobotModel::publishRobotState()
 {
-  moveit_msgs::DisplayRobotState robot_state_msg;
+  moveit_msgs::msg::DisplayRobotState robot_state_msg;
   moveit::core::robotStateToRobotStateMsg(*moveit_robot_state_, robot_state_msg.state);
-  robot_state_pub_.publish(robot_state_msg);
+  robot_state_pub_->publish(robot_state_msg);
 }
 
 void RobotModel::publishCollisionSpheres(const Eigen::Isometry3d &robot_pose, const std::vector<double> joint_angles)
@@ -174,34 +172,33 @@ void RobotModel::publishCollisionSpheres(const Eigen::Isometry3d &robot_pose, co
 
 void RobotModel::publishCollisionSpheres()
 {
-  visualization_msgs::MarkerArray marker_array;
+  visualization_msgs::msg::MarkerArray marker_array;
 
   float transparency = 0.5f;
 
   // creating colors
-  std_msgs::ColorRGBA robot_color;
+  std_msgs::msg::ColorRGBA robot_color;
   robot_color.r = 0;
   robot_color.b = 0.8f;
   robot_color.g = 0;
   robot_color.a = transparency;
 
-  std_msgs::ColorRGBA world_links_color;
+  std_msgs::msg::ColorRGBA world_links_color;
   world_links_color.r = 1.0f;
   world_links_color.g = 1.0f;
   world_links_color.b = 0;
   world_links_color.a = transparency;
 
   // creating sphere marker
-  visualization_msgs::Marker sphere_marker;
+  visualization_msgs::msg::Marker sphere_marker;
   sphere_marker.header.frame_id = "world";
-  sphere_marker.header.stamp = ros::Time(0);
-  sphere_marker.type = visualization_msgs::Marker::SPHERE;
-  sphere_marker.action = visualization_msgs::Marker::ADD;
+  sphere_marker.header.stamp = rclcpp::Time(0);
+  sphere_marker.type = visualization_msgs::msg::Marker::SPHERE;
+  sphere_marker.action = visualization_msgs::msg::Marker::ADD;
   sphere_marker.pose.orientation.x = 0;
   sphere_marker.pose.orientation.y = 0;
   sphere_marker.pose.orientation.z = 0;
   sphere_marker.pose.orientation.w = 1;
-//  sphere_marker.lifetime = ros::Duration(0);
 
   int id = 0;
 
@@ -226,7 +223,7 @@ void RobotModel::publishCollisionSpheres()
     sphere_representation->updatePose(moveit_robot_state_->getGlobalLinkTransform(link_name));
     for (unsigned int j = 0; j < sphere_representation->getCollisionSpheres().size(); j++)
     {
-      tf::pointEigenToMsg(sphere_representation->getSphereCenters()[j], sphere_marker.pose.position);
+      sphere_marker.pose.position = tf2::toMsg(Eigen::Vector3d(sphere_representation->getSphereCenters()[j]));
       sphere_marker.scale.x = sphere_marker.scale.y = sphere_marker.scale.z = 2 * sphere_representation->getCollisionSpheres()[j].radius_;
       sphere_marker.id = id;
       id++;
@@ -235,7 +232,7 @@ void RobotModel::publishCollisionSpheres()
     }
   }
 
-  collision_spheres_pub_.publish(marker_array);
+  collision_spheres_pub_->publish(marker_array);
 }
 
 std::vector<std::size_t> RobotModel::getActiveJointIndices(const std::vector<std::string> &joints) const
@@ -244,7 +241,7 @@ std::vector<std::size_t> RobotModel::getActiveJointIndices(const std::vector<std
   for (const std::string& joint: joints) {
     std::size_t idx = static_cast<std::size_t>(std::find(active_joint_names_.begin(), active_joint_names_.end(), joint) - active_joint_names_.begin());
     if (idx >= active_joint_names_.size()) {
-      ROS_ERROR_STREAM("Joint '" << joint << "' wasn't found in model.");
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Joint '" << joint << "' wasn't found in model.");
     }
     indices.push_back(idx);
   }
@@ -255,7 +252,7 @@ std::string RobotModel::getParentJointName(const std::string &link_name)
 {
   urdf::LinkConstSharedPtr link = urdf_model_->getLink(link_name);
   if (!link) {
-    ROS_ERROR_STREAM("Couldn't find link '" << link_name << "'.");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Couldn't find link '" << link_name << "'.");
     return "NOT FOUND";
   }
   return link->parent_joint->name;
@@ -266,7 +263,7 @@ bool RobotModel::getJointLimits(const std::string &joint_name, double &lower_lim
   // Load limits from URDF
   urdf::JointConstSharedPtr joint = urdf_model_->getJoint(joint_name);
   if (!joint) {
-    ROS_ERROR_STREAM("Couldn't find joint '" << joint_name << "'.");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Couldn't find joint '" << joint_name << "'.");
     return false;
   }
   double urdf_upper_limit;
@@ -281,10 +278,10 @@ bool RobotModel::getJointLimits(const std::string &joint_name, double &lower_lim
 
   // Joint limits can be overridden by a parameter
   std::vector<double> limits;
-  std::string parameter_name = "joint_limits/" + joint_name;
-  if (nh_.getParam(parameter_name, limits)) {
+  std::string parameter_name = param_prefix_ + "joint_limits." + joint_name;
+  if (param_utils::getParam(*node_, parameter_name, limits)) {
     if (limits.size() != 2) {
-      ROS_ERROR_STREAM("Parameter 'joint_limits/" << joint_name << "' is not size 2.");
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Parameter '" << parameter_name << "' is not size 2.");
       return false;
     }
     if (limits[0] < limits[1]) {
@@ -295,8 +292,8 @@ bool RobotModel::getJointLimits(const std::string &joint_name, double &lower_lim
       lower_limit = limits[1];
     }
     if (upper_limit > urdf_upper_limit || lower_limit < urdf_lower_limit) {
-      ROS_ERROR_STREAM("Configured joint limits '" << parameter_name << " exceed bounds.");
-      ROS_ERROR_STREAM(upper_limit << " > " << urdf_upper_limit << " or " << lower_limit << " < " << urdf_lower_limit);
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Configured joint limits '" << parameter_name << " exceed bounds.");
+      RCLCPP_ERROR_STREAM(node_->get_logger(), upper_limit << " > " << urdf_upper_limit << " or " << lower_limit << " < " << urdf_lower_limit);
       return false;
     }
     return true;
@@ -349,11 +346,11 @@ void RobotModel::generateLinkBodyDecompositions(double resolution)
   for (const moveit::core::LinkModel* link_model: link_models) {
     if (link_model->getShapes().empty())
     {
-      ROS_WARN("No collision geometry for link model %s though there should be", link_model->getName().c_str());
+      RCLCPP_WARN(node_->get_logger(), "No collision geometry for link model %s though there should be", link_model->getName().c_str());
       continue;
     }
 
-    ROS_DEBUG("Generating model for %s", link_model->getName().c_str());
+    RCLCPP_DEBUG(node_->get_logger(), "Generating model for %s", link_model->getName().c_str());
 
     collision_detection::BodyDecompositionConstPtr bd = std::make_shared<collision_detection::BodyDecomposition>(
       link_model->getShapes(), link_model->getCollisionOriginTransforms(), resolution, 0.0);
@@ -367,12 +364,12 @@ std::vector<std::string> RobotModel::getActiveJointNames() const
   return active_joint_names_;
 }
 
-robot_model::RobotModelPtr RobotModel::getMoveitRobotModel() const
+moveit::core::RobotModelPtr RobotModel::getMoveitRobotModel() const
 {
   return moveit_robot_model_;
 }
 
-robot_state::RobotState RobotModel::getMoveitRobotState() const
+moveit::core::RobotState RobotModel::getMoveitRobotState() const
 {
   return *moveit_robot_state_;
 }

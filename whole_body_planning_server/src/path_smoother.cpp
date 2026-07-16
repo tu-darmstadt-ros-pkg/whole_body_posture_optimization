@@ -1,10 +1,10 @@
 #include <whole_body_planning_server/path_smoother.h>
 
-#include <eigen_conversions/eigen_msg.h>
+#include <tf2_eigen/tf2_eigen.hpp>
 
 #include <cmath>
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
 namespace whole_body_planning_server {
 
@@ -66,7 +66,7 @@ void Pathsmoother3D::smooth(const std::deque<Eigen::Vector3d>& in_path, const Ei
         reverse = start_projection < 0.0; // Angle > 90° -> robot is pointing away from the path
 
         if(reverse)
-          ROS_DEBUG("[Pathsmoother3D] REVERSE! start_projection = %f", start_projection);
+          RCLCPP_DEBUG(rclcpp::get_logger("path_smoother"), "[Pathsmoother3D] REVERSE! start_projection = %f", start_projection);
       }
       else
       {
@@ -90,7 +90,7 @@ void Pathsmoother3D::smooth(const std::deque<Eigen::Vector3d>& in_path, const Ei
         reverse = distC && startC && endC;
 
         if(reverse)
-          ROS_WARN("[Pathsmoother3D] REVERSE! dist = %d, start = %d, end = %d", distC, startC, endC);
+          RCLCPP_WARN(rclcpp::get_logger("path_smoother"), "[Pathsmoother3D] REVERSE! dist = %d, start = %d, end = %d", distC, startC, endC);
       }
     }
   }
@@ -100,18 +100,18 @@ void Pathsmoother3D::smooth(const std::deque<Eigen::Vector3d>& in_path, const Ei
   out_smooth_orientations = smoothed_orientations;
 }
 
-nav_msgs::Path Pathsmoother3D::smooth(const nav_msgs::Path& path_in, bool reverse) const
+nav_msgs::msg::Path Pathsmoother3D::smooth(const nav_msgs::msg::Path& path_in, bool reverse) const
 {
   std::deque<Eigen::Vector3d> in_path;
   std::transform(path_in.poses.begin(), path_in.poses.end(), std::back_inserter(in_path),
-                 [](geometry_msgs::PoseStamped const & pose_)
+                 [](geometry_msgs::msg::PoseStamped const & pose_)
                  { return Eigen::Vector3d(pose_.pose.position.x, pose_.pose.position.y, pose_.pose.position.z); });
 
   Eigen::Quaterniond in_start_orientation;
   //  = geomEigen::Quaterniond2EigenQuat(robot_control_state.pose.orientation);
-  tf::quaternionMsgToEigen(path_in.poses.front().pose.orientation, in_start_orientation);
+  tf2::fromMsg(path_in.poses.front().pose.orientation, in_start_orientation);
   Eigen::Quaterniond in_end_orientation;
-  tf::quaternionMsgToEigen(path_in.poses.back().pose.orientation, in_end_orientation);
+  tf2::fromMsg(path_in.poses.back().pose.orientation, in_end_orientation);
 
   std::vector<Eigen::Vector3d> out_smoothed_positions;
   std::vector<Eigen::Quaterniond> out_smoothed_orientations;
@@ -119,14 +119,14 @@ nav_msgs::Path Pathsmoother3D::smooth(const nav_msgs::Path& path_in, bool revers
   smooth(in_path, in_start_orientation, in_end_orientation,
          out_smoothed_positions, out_smoothed_orientations, reverse);
 
-  nav_msgs::Path path_out;
+  nav_msgs::msg::Path path_out;
   path_out.header = path_in.header;
   path_out.poses.reserve(out_smoothed_positions.size());
   for (unsigned int i = 0; i < out_smoothed_positions.size(); i++) {
-    geometry_msgs::PoseStamped pose;
+    geometry_msgs::msg::PoseStamped pose;
     pose.header.frame_id = path_out.header.frame_id;
-    tf::pointEigenToMsg(out_smoothed_positions[i], pose.pose.position);
-    tf::quaternionEigenToMsg(out_smoothed_orientations[i], pose.pose.orientation);
+    pose.pose.position = tf2::toMsg(out_smoothed_positions[i]);
+    pose.pose.orientation = tf2::toMsg(out_smoothed_orientations[i]);
     path_out.poses.push_back(pose);
   }
 
@@ -147,7 +147,7 @@ std::vector<Eigen::Vector3d> Pathsmoother3D::computeSmoothedPositions(const std:
 {
   // The total distance is in accumulatedDistances(...).back()
   // => sample path along the accumulated (approx. for the time needed for the path).
-  // ROS_INFO("total linear distance = %f \n", distances.back());
+  // RCLCPP_INFO(rclcpp::get_logger("path_smoother"), "total linear distance = %f \n", distances.back());
 
   std::vector<Eigen::Vector3d> smoothed_positions;
   smoothed_positions.reserve(distances.back() / SMOOTHED_PATH_DISCRETIZATION + 1);

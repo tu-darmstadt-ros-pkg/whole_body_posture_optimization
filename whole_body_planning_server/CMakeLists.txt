@@ -1,144 +1,106 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.16)
 project(whole_body_planning_server)
 
-# set(CMAKE_BUILD_TYPE "Debug")
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
 
-add_compile_options(-std=c++14)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra)
+endif()
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(whole_body_posture_optimization REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(voxblox_ros REQUIRED)
+find_package(voxblox_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
+find_package(moveit_msgs REQUIRED)
+find_package(moveit_ros_planning REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
+
+set(THIS_PACKAGE_DEPENDENCIES
+  rclcpp
+  rclcpp_action
   whole_body_posture_optimization
   tf2_ros
+  tf2_eigen
+  voxblox_ros
   voxblox_msgs
-  actionlib
   nav_msgs
-  move_base_lite_msgs
+  nav2_msgs
   moveit_msgs
-  moveit_ros_planning_interface
+  moveit_ros_planning
   sensor_msgs
-  eigen_conversions
-  dynamic_reconfigure
+  std_msgs
+  geometry_msgs
 )
 
-## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
-
-
-################################################
-## Declare ROS dynamic reconfigure parameters ##
-################################################
-
-## Generate dynamic reconfigure parameters in the 'cfg' folder
-generate_dynamic_reconfigure_options(
- cfg/PlanningServer.cfg
-)
-
-###################################
-## catkin specific configuration ##
-###################################
-## The catkin_package macro generates cmake config files for your package
-## Declare things to be passed to dependent projects
-## INCLUDE_DIRS: uncomment this if your package contains header files
-## LIBRARIES: libraries you create in this project that dependent projects also need
-## CATKIN_DEPENDS: catkin_packages dependent projects also need
-## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES whole_body_planning_server
-  CATKIN_DEPENDS whole_body_posture_optimization tf2_ros voxblox_msgs actionlib nav_msgs move_base_lite_msgs moveit_msgs moveit_ros_planning_interface sensor_msgs eigen_conversions dynamic_reconfigure
-#  DEPENDS system_lib
-)
-
-catkin_add_env_hooks(50.export.whole_body_planning_server SHELLS bash)
-
-###########
-## Build ##
-###########
-
-## Specify additional locations of header files
-## Your package locations should be listed before other locations
-include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-)
-
-## Declare a C++ library
-add_library(${PROJECT_NAME}
-  include/${PROJECT_NAME}/whole_body_planning_server.h
-  include/${PROJECT_NAME}/path_smoother.h
-  include/${PROJECT_NAME}/util.h
+add_library(${PROJECT_NAME} SHARED
   src/whole_body_planning_server.cpp
-  src/path_smoother.cpp
   src/util.cpp
-)
-add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
-target_link_libraries(${PROJECT_NAME}
-  ${catkin_LIBRARIES}
+  src/path_smoother.cpp
 )
 
-## Declare a C++ executable
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+
+ament_target_dependencies(${PROJECT_NAME} PUBLIC ${THIS_PACKAGE_DEPENDENCIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC Eigen3::Eigen)
+
 add_executable(${PROJECT_NAME}_node src/whole_body_planning_server_node.cpp)
-add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} )
-target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
+target_link_libraries(${PROJECT_NAME}_node PRIVATE ${PROJECT_NAME})
 
-## Declare a C++ executable
 add_executable(driving_controller_node src/driving_controller_node.cpp)
-add_dependencies(driving_controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} )
-target_link_libraries(driving_controller_node ${PROJECT_NAME})
+target_link_libraries(driving_controller_node PRIVATE ${PROJECT_NAME})
 
 #############
 ## Install ##
 #############
 
-# all install targets should use catkin DESTINATION variables
-# See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
+install(DIRECTORY
+  config
+  launch
+  rviz
+  DESTINATION share/${PROJECT_NAME}
+  PATTERN "ros1_legacy" EXCLUDE
+)
 
-## Mark executable scripts (Python etc.) for installation
-## in contrast to setup.py, you can choose the destination
-# install(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
 
-## Mark executables for installation
-## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
-# install(TARGETS ${PROJECT_NAME}_node
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+install(TARGETS ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
 
-## Mark libraries for installation
-## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
-# install(TARGETS ${PROJECT_NAME}
-#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-# )
+install(TARGETS ${PROJECT_NAME}_node driving_controller_node
+  DESTINATION lib/${PROJECT_NAME}
+)
 
-## Mark cpp header files for installation
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   PATTERN ".svn" EXCLUDE
-# )
+install(PROGRAMS
+  scripts/ground_seed_publisher.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
-## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILES
-#   # myfile1
-#   # myfile2
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_dependencies(${THIS_PACKAGE_DEPENDENCIES} Eigen3)
 
-#############
-## Testing ##
-#############
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(${PROJECT_NAME}_test test/test_planning_server_util.cpp)
+  target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
+endif()
 
-## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_whole_body_planning_server.cpp)
-# if(TARGET ${PROJECT_NAME}-test)
-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
-# endif()
-
-## Add folders to be run by python nosetests
-# catkin_add_nosetests(test)
+ament_package()

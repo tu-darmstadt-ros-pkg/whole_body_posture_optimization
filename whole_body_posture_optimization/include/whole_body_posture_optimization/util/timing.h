@@ -1,7 +1,7 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION__TIMING_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION__TIMING_H
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
 #include <iostream>
 #include <sstream>
@@ -10,6 +10,8 @@
 #include <chrono>
 
 #include "whole_body_posture_optimization/util/common.h"
+
+#define WBPO_TIMING_LOGGER rclcpp::get_logger("whole_body_posture_optimization.timing")
 
 namespace whole_body_posture_optimization {
 
@@ -115,7 +117,7 @@ namespace whole_body_posture_optimization {
         double t = elapsed_seconds.count() * 1000.0;
 
         if (print)
-          ROS_INFO_STREAM("Time '" << tp.name.c_str() << "': " << t << " ms");
+          RCLCPP_INFO_STREAM(WBPO_TIMING_LOGGER, "Time '" << tp.name.c_str() << "': " << t << " ms");
         return t;
       }
       return 0;
@@ -136,7 +138,7 @@ namespace whole_body_posture_optimization {
         double t = elapsed_seconds.count() * 1000.0;
 
         if (print && !Timing::dont_print_times_)
-          ROS_INFO_STREAM("Time " << tp.name.c_str() << ": " << t << " ms");
+          RCLCPP_INFO_STREAM(WBPO_TIMING_LOGGER, "Time " << tp.name.c_str() << ": " << t << " ms");
 
         if (id >= 0)
         {
@@ -173,7 +175,7 @@ namespace whole_body_posture_optimization {
       int column_width_name = 0;
       for (auto it = begin(Timing::timing_infos_); it != end(Timing::timing_infos_); ++it) {
         const TimingInfo &info = it->second;
-        if (info.name.size() > column_width_name) {
+        if (static_cast<int>(info.name.size()) > column_width_name) {
           column_width_name = info.name.size();
         }
       }
@@ -193,7 +195,7 @@ namespace whole_body_posture_optimization {
         ss << "|" << std::setw(column_width_name) << info.name << "|" << std::setw(column_width_avg) << avg << "|" << std::setw(column_width_max) << info.max << "|"
            << std::setw(column_width_sum) << info.total_time << "|" << std::setw(column_width_count) << info.counter << "|" << std::endl;
       }
-      ROS_INFO_STREAM(ss.str());
+      RCLCPP_INFO_STREAM(WBPO_TIMING_LOGGER, ss.str());
     }
 
     static void printAverageTimes()
@@ -203,10 +205,10 @@ namespace whole_body_posture_optimization {
       {
         const TimingInfo &at = iter->second;
         double avgTime = at.total_time / at.counter;
-        ROS_INFO_STREAM("Average time '" << at.name.c_str() << "': " << avgTime << " ms [" << at.counter << "]");
+        RCLCPP_INFO_STREAM(WBPO_TIMING_LOGGER, "Average time '" << at.name.c_str() << "': " << avgTime << " ms [" << at.counter << "]");
       }
       if (Timing::start_counter_ != Timing::stop_counter_)
-        ROS_INFO_STREAM("Problem: " << Timing::start_counter_ << " calls of startTiming and " << Timing::stop_counter_ << " calls of stopTiming.");
+        RCLCPP_INFO_STREAM(WBPO_TIMING_LOGGER, "Problem: " << Timing::start_counter_ << " calls of startTiming and " << Timing::stop_counter_ << " calls of stopTiming.");
     }
 
     static void printTimeSums()
@@ -216,10 +218,10 @@ namespace whole_body_posture_optimization {
       {
         const TimingInfo &at = iter->second;
         const double timeSum = at.total_time;
-        ROS_INFO_STREAM("Time sum " << at.name.c_str() << ": " << timeSum << " ms");
+        RCLCPP_INFO_STREAM(WBPO_TIMING_LOGGER, "Time sum " << at.name.c_str() << ": " << timeSum << " ms");
       }
       if (Timing::start_counter_ != Timing::stop_counter_)
-        ROS_INFO_STREAM("Problem: " << Timing::start_counter_ << " calls of startTiming and " << Timing::stop_counter_ << " calls of stopTiming. ");
+        RCLCPP_INFO_STREAM(WBPO_TIMING_LOGGER, "Problem: " << Timing::start_counter_ << " calls of startTiming and " << Timing::stop_counter_ << " calls of stopTiming. ");
     }
   };
 }

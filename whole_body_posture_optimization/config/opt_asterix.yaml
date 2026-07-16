@@ -1,170 +1,154 @@
-default_joint_state:
-  arm_joint_0: 1.15
-  arm_joint_1: -1.48
-  arm_joint_2: 1.47
-  arm_joint_3: -1.51
-  arm_joint_4: -1.65
-  arm_joint_5: -3.03
-  gripper_servo_joint: 0.0
-  spin_lidar_spin_joint: 0.0
-  flipper_front_joint: -1.57
-  flipper_back_joint: -1.57
-  sensor_head_yaw_joint: 0.0
-  sensor_head_pitch_joint: 0.0
+# ROS 2 parameter file (former private-namespace parameters of the optimization node)
+/**:
+  ros__parameters:
+    default_joint_state:
+      arm_joint_0: 1.15
+      arm_joint_1: -1.48
+      arm_joint_2: 1.47
+      arm_joint_3: -1.51
+      arm_joint_4: -1.65
+      arm_joint_5: -3.03
+      gripper_servo_joint: 0.0
+      spin_lidar_spin_joint: 0.0
+      flipper_front_joint: -1.57
+      flipper_back_joint: -1.57
+      sensor_head_yaw_joint: 0.0
+      sensor_head_pitch_joint: 0.0
 
-optimization_type: split
-collision_group: arm_group
+    optimization_type: split
+    collision_group: arm_group
 
-stability_limit: 0.0
-front_tip_support_area_limit: 0.0  # disabled
+    stability_limit: 0.0
+    front_tip_support_area_limit: 0.0  # disabled
 
-complete_robot_group: flipper_group
-complete_robot_with_world_group: flipper_group_with_world
-trajectory_planner: ompl_interface/OMPLPlanner  # [chomp_interface/CHOMPPlanner, lerp_interface/LERPPlanner, ompl_interface/OMPLPlanner, pilz_industrial_motion_planner::CommandPlanner]
+    complete_robot_group: flipper_group
+    complete_robot_with_world_group: flipper_group_with_world
+    trajectory_planner: ompl_interface/OMPLPlanner  # [chomp_interface/CHOMPPlanner, lerp_interface/LERPPlanner, ompl_interface/OMPLPlanner, pilz_industrial_motion_planner::CommandPlanner]
 
-joint_limits:
-  flipper_front_joint: [-3.054, 0]
-  flipper_back_joint: [-3.054, 0]
+    joint_limits:
+      flipper_front_joint: [-3.054, 0.0]
+      flipper_back_joint: [-3.054, 0.0]
 
-flipper_optimization:
-  custom_solver:
-    enabled: false
-    algorithm: grid_search
-    #search_resolution: 0.087 # 5 deg steps
-    search_resolution: 0.174 # 10 deg steps
-    #search_resolution: 0.78 # 45 deg steps
-  solver:
-    enabled: true
-    algorithm: GN_DIRECT
-    #algorithm: GN_AGS
-    #algorithm: GN_CRS2_LM
-    #algorithm: GN_DIRECT_L
-    #algorithm: GN_ESCH
-    #algorithm: GN_ISRES
-    #algorithm: GN_MLSL # needs local solver
-    #algorithm: LN_COBYLA
-    #algorithm: LN_BOBYQA
-    #algorithm: LN_PRAXIS
-    #algorithm: LN_NELDERMEAD
-    #algorithm: LN_SBPLX
-    #algorithm: GD_STOGO
-    maxeval: 100
-    stopval: -1.0
+    flipper_optimization:
+      custom_solver:
+        enabled: false
+        algorithm: grid_search
+        #search_resolution: 0.087 # 5 deg steps
+        search_resolution: 0.174 # 10 deg steps
+        #search_resolution: 0.78 # 45 deg steps
+      solver:
+        enabled: true
+        algorithm: GN_DIRECT
+        #algorithm: GN_AGS
+        #algorithm: GN_CRS2_LM
+        #algorithm: GN_DIRECT_L
+        #algorithm: GN_ESCH
+        #algorithm: GN_ISRES
+        #algorithm: GN_MLSL # needs local solver
+        #algorithm: LN_COBYLA
+        #algorithm: LN_BOBYQA
+        #algorithm: LN_PRAXIS
+        #algorithm: LN_NELDERMEAD
+        #algorithm: LN_SBPLX
+        #algorithm: GD_STOGO
+        maxeval: 100
+        stopval: -1.0
 
-  local_solver:
-    enabled: false
-    #algorithm: LN_NELDERMEAD
-    maxeval: 10
+      local_solver:
+        enabled: false
+        #algorithm: LN_NELDERMEAD
+        maxeval: 10
 
-  joints:
-    - flipper_front_joint
-    - flipper_back_joint
+      joints:
+        - flipper_front_joint
+        - flipper_back_joint
 
-  cost_parameters:
-    verbose: false
-    # state costs
-    stability_weight: 1.0
-    stability_nominal_value: 1.5
-    stability_exp_parameters_a: 14.0
-    stability_exp_parameters_b: -2.6
-    stability_exp_parameters_c: 0.3
-    support_area_weight: 0
-    track_contact_weight: 8
-    track_contact_nominal_value: 0.2
-    body_contact_weight: 50
-    roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
-    position_deviation_weight: 0
-    # transition costs
-    lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
-    movement_cost_weight: 0.1 #0.05  #0.2  #0.5
-    turning_resistance_weight: 10
-    impact_weight: 3.0
-    # uncertainty
-    num_pose_x_samples: 1
-    sample_step_pose_x: 0.01
-    pose_x_sigma: 0.03
-    risk_level: 0.8 # 0-1, 0 (high risk, mean), 1 (safe, maximum)
-    regularization_weight: 0.1
-  
-arm_optimization:
-  enabled: false
-  solver:
-    algorithm: LN_COBYLA
-    #maxtime: 0.200
-    maxeval: 300
-    #ftol_abs: 0.0001
-    #xtol_abs: 0.001
-    xtol_rel: 0.005
-  #local_algorithm: LD_LBFGS
-  local_stopping_criteria:
-    #maxtime: 0.200
-    maxeval: 300
-    #ftol_abs: 0.0001
-    xtol_abs: 0.01
-  #sub_algorithm: LD_SLSQP
-  sub_stopping_criteria:
-    #maxtime: 0.200
-    maxeval: 300
-    #ftol_abs: 0.0001
-    #xtol_abs: 0.01
-    xtol_rel: 0.005
-  joints:
-    - arm_joint_0
-    - arm_joint_1 # first pitch
-    - arm_joint_2 # second pitch
-    #- arm_joint_3 # middle roll joint
-    - arm_joint_4 # third pitch
-    #- arm_joint_5 # last roll joint
-  environment_collision_default_padding: 0.15
-  environment_collision_padding: {
-    arm_link_5: 0.30, # additional padding to cover fingers
-    arm_link_0: 0.0, # prevent permanent collision with ground
-  }
-  self_collision_default_padding: 0.05
-  self_collision_padding: {
-    arm_link_5: 0.1,
-  }
-  self_collision_tsdf_default_padding: 0.005
-  self_collision_tsdf_padding: {
-    arm_link_5: 0.3,
-    arm_link_2: 0.0
-  }
-  self_collision_tsdf_truncation_distance: 0.4
-  
-  cost_parameters:
-    function_scale: 1
-    exp_parameters_a: 14.0
-    exp_parameters_b: -2.6
-    exp_parameters_c: 0.3
-    lorentzian_sigma: 0.15
-    movement_cost_weight: 0.3
+      cost_parameters:
+        verbose: false
+        # state costs
+        stability_weight: 1.0
+        stability_nominal_value: 1.5
+        stability_exp_parameters_a: 14.0
+        stability_exp_parameters_b: -2.6
+        stability_exp_parameters_c: 0.3
+        support_area_weight: 0.0
+        track_contact_weight: 8.0
+        track_contact_nominal_value: 0.2
+        body_contact_weight: 50.0
+        roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
+        position_deviation_weight: 0.0
+        # transition costs
+        lorentzian_sigma: 0.05  #0.1 #0.01 #0.15
+        movement_cost_weight: 0.1 #0.05  #0.2  #0.5
+        turning_resistance_weight: 10.0
+        impact_weight: 3.0
+        # uncertainty
+        num_pose_x_samples: 1.0
+        sample_step_pose_x: 0.01
+        pose_x_sigma: 0.03
+        risk_level: 0.8 # 0-1, 0 (high risk, mean), 1 (safe, maximum)
+        regularization_weight: 0.1
 
-  # moveable, but static regarding arm optimization
-  # i.e. flipper links
-  semi_static_link_names:
-    - flipper_front_left_link
-    - flipper_front_right_link
-    - flipper_back_left_link
-    - flipper_back_right_link
-    
-  static_link_names:
-    - spin_lidar_laser_frame
-    - front_rgbd_cam_link
-    - back_rgbd_cam_link
-    #- chassis_link
-    - autonomy_box_link
-    - camera360_center_link
-    - main_track_left_link
-    - main_track_right_link
-    - sensor_head_mount_link
-    - sensor_head_pitch_link
-    - sensor_head_rgbd_cam_link
-    - sensor_head_yaw_link
-    - tracker_link
+    arm_optimization:
+      enabled: false
+      solver:
+        algorithm: LN_COBYLA
+        #maxtime: 0.200
+        maxeval: 300
+        #ftol_abs: 0.0001
+        #xtol_abs: 0.001
+        xtol_rel: 0.005
+      joints:
+        - arm_joint_0
+        - arm_joint_1 # first pitch
+        - arm_joint_2 # second pitch
+        #- arm_joint_3 # middle roll joint
+        - arm_joint_4 # third pitch
+        #- arm_joint_5 # last roll joint
+      environment_collision_default_padding: 0.15
+      environment_collision_padding:
+        arm_link_5: 0.30 # additional padding to cover fingers
+        arm_link_0: 0.0 # prevent permanent collision with ground
+      self_collision_default_padding: 0.05
+      self_collision_padding:
+        arm_link_5: 0.1
+      self_collision_tsdf_default_padding: 0.005
+      self_collision_tsdf_padding:
+        arm_link_5: 0.3
+        arm_link_2: 0.0
+      self_collision_tsdf_truncation_distance: 0.4
 
+      cost_parameters:
+        function_scale: 1.0
+        exp_parameters_a: 14.0
+        exp_parameters_b: -2.6
+        exp_parameters_c: 0.3
+        lorentzian_sigma: 0.15
+        movement_cost_weight: 0.3
 
-  
-## Debug
-posture_optimization_debug: false
-pose_predictor/debug: false
+      # moveable, but static regarding arm optimization
+      # i.e. flipper links
+      semi_static_link_names:
+        - flipper_front_left_link
+        - flipper_front_right_link
+        - flipper_back_left_link
+        - flipper_back_right_link
 
+      static_link_names:
+        - spin_lidar_laser_frame
+        - front_rgbd_cam_link
+        - back_rgbd_cam_link
+        #- chassis_link
+        - autonomy_box_link
+        - camera360_center_link
+        - main_track_left_link
+        - main_track_right_link
+        - sensor_head_mount_link
+        - sensor_head_pitch_link
+        - sensor_head_rgbd_cam_link
+        - sensor_head_yaw_link
+        - tracker_link
+
+    ## Debug
+    posture_optimization_debug: false
+    debug: false  # pose predictor debug (read from the node root by sdf_contact_estimation)

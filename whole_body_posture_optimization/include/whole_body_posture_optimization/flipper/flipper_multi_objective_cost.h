@@ -1,12 +1,12 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_FLIPPER_MULTI_OBJECTIVE_COST_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_FLIPPER_MULTI_OBJECTIVE_COST_H
 
-#include <ros/node_handle.h>
+#include <rclcpp/rclcpp.hpp>
 #include <ceres/cost_function.h>
 #include <sstream>
 #include <Eigen/Eigen>
 #include <hector_pose_prediction_interface/pose_predictor.h>
-#include <moveit/robot_state/robot_state.h>
+#include <moveit/robot_state/robot_state.hpp>
 #include <future>
 
 #include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost_parameters.h>
@@ -23,18 +23,18 @@ public:
   FlipperMultiObjectiveCost(const std::vector<std::string>& free_joints,
                       const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                       const Eigen::Isometry3d& pose,
-                      const robot_state::RobotStateConstPtr& previous_state,
+                      const moveit::core::RobotStateConstPtr& previous_state,
                       const FlipperMultiObjectiveCostParameters& parameters,
-                      const robot_state::RobotStateConstPtr& last_solution=robot_state::RobotStateConstPtr());
+                      const moveit::core::RobotStateConstPtr& last_solution=moveit::core::RobotStateConstPtr());
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
   static ceres::CostFunction* Create(const std::vector<std::string>& free_joints,
                                      const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                      const Eigen::Isometry3d& pose,
-                                     const robot_state::RobotStateConstPtr& previous_state,
+                                     const moveit::core::RobotStateConstPtr& previous_state,
                                      const FlipperMultiObjectiveCostParameters& parameters,
-                                     const robot_state::RobotStateConstPtr& last_solution=robot_state::RobotStateConstPtr());
+                                     const moveit::core::RobotStateConstPtr& last_solution=moveit::core::RobotStateConstPtr());
 private:
   struct CostSample {
     double cost;

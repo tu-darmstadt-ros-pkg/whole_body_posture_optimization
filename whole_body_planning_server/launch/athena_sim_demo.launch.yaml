@@ -1,0 +1,160 @@
+# Whole-body planning server demo on top of the Athena Gazebo simulation.
+#
+# Prereq: start the simulation separately (spawns Athena under /athena with
+# controllers, nav2 FollowPath server, self-filtered point clouds and TF).
+#
+#   ros2 launch whole_body_planning_server athena_sim_demo.launch.yaml
+#
+# Place the start/goal markers in RViz, right-click -> "Plan path": the server
+# builds a whole-body plan on the live voxblox ESDF and executes it (flippers
+# via MoveIt trajectory execution, base via the nav2 FollowPath controller).
+#
+# With continuous_planning:=true (see athena_sim_rolling_demo.launch.yaml) the
+# server plans ahead while driving and supports goal updates (re-planning).
+#
+# IMPORTANT: the sim starts with the flipper teleop controllers active. Switch
+# to the trajectory controller once before planning:
+#   ros2 control switch_controllers -c /athena/controller_manager \
+#     --deactivate flipper_velocity_to_position_controller flipper_velocity_controller \
+#     --activate flipper_trajectory_controller
+
+launch:
+- arg:
+    name: namespace
+    default: /athena
+- arg:
+    name: rviz
+    default: 'true'
+- arg:
+    name: continuous_planning
+    default: 'false'
+- arg:
+    name: planning_horizon
+    default: '-1.0'
+
+- push_ros_namespace:
+    namespace: $(var namespace)
+
+  # The robot is fully namespaced: TF lives on <ns>/tf[_static]
+- set_remap:
+    from: /tf
+    to: tf
+- set_remap:
+    from: /tf_static
+    to: tf_static
+
+  # SRDF with the injected flipper_group_with_world group. Published on a
+  # private topic so it does not race with the stock SRDF of the sim stack.
+- node:
+    pkg: whole_body_posture_optimization
+    exec: srdf_with_world_publisher.py
+    name: whole_body_srdf_publisher
+    output: screen
+    param:
+    - name: use_sim_time
+      value: true
+    - name: robot_type
+      value: athena
+    remap:
+    - from: robot_description_semantic
+      to: whole_body_planner/robot_description_semantic
+
+  # --- Ground seed: fill the ESDF hole under the robot at startup ---
+- node:
+    pkg: whole_body_planning_server
+    exec: ground_seed_publisher.py
+    name: ground_seed_publisher
+    output: screen
+    param:
+    - name: use_sim_time
+      value: true
+    - name: pointcloud_topic
+      value: pointcloud_1
+    - name: cloud_frame
+      value: base_link
+    - name: z_offset
+      value: 0.111  # base_link height above ground in the sim
+    remap:
+      # feed the seed into the planning server's internal voxblox input
+    - from: pointcloud_1
+      to: whole_body_planning_server_esdf_seed
+
+  # --- Whole-body planning server ---
+  # Includes an internal voxblox ESDF server (<node>_esdf_server) fed by the
+  # self-filtered front lidar cloud (same input as sdf_dp_flipper_planner).
+  # Note: no explicit node name here! It would generate a process-wide __node
+  # remap that also renames the internal esdf/moveit nodes (duplicate names).
+  # The executable's default node name is whole_body_planning_server.
+- node:
+    pkg: whole_body_planning_server
+    exec: whole_body_planning_server_node
+    output: screen
+    param:
+    - from: $(find-pkg-share sdf_dp_flipper_planner)/config/voxblox.yaml
+    - from: $(find-pkg-share whole_body_planning_server)/config/moveit_cpp.yaml
+    - from: $(find-pkg-share whole_body_planning_server)/config/athena_moveit_controllers.yaml
+    - from: $(find-pkg-share whole_body_planning_server)/config/athena_sim_demo.yaml
+    - from: $(find-pkg-share whole_body_posture_optimization)/config/opt_athena.yaml
+    - name: continuous_planning
+      value: $(var continuous_planning)
+    - name: planning_horizon
+      value: $(var planning_horizon)
+    - name: collision_links_config_file
+      value: $(find-pkg-share sdf_dp_flipper_planner)/config/athena_shape_config.yaml
+    remap:
+      # private SRDF (with injected world group)
+    - from: robot_description_semantic
+      to: whole_body_planner/robot_description_semantic
+      # our own follow_path action server (nav2's controller_server owns <ns>/follow_path)
+    - from: follow_path
+      to: whole_body_planner/follow_path
+      # driving client -> nav2 controller server
+    - from: /controller/follow_path
+      to: follow_path
+      # joint states are namespaced
+    - from: /joint_states
+      to: joint_states
+      # internal voxblox esdf server inputs (relative: <ns>/...)
+    - from: pointcloud_4
+      to: front_lidar/self_filter/filtered
+    - from: pointcloud_3
+      to: front_rgbd/depth/self_filter/filtered_point_cloud
+    - from: pointcloud_1
+      to: whole_body_planning_server_esdf_seed
+
+  # --- Plan request markers (right-click -> Plan path) ---
+- node:
+    pkg: whole_body_posture_optimization
+    exec: plan_goal_marker_node.py
+    name: plan_goal_marker
+    output: screen
+    param:
+    - name: use_sim_time
+      value: true
+    - name: frame_id
+      value: world
+    - name: goal_mode
+      value: action
+    - name: action_name
+      value: whole_body_planner/follow_path
+    - name: start_pose
+      value: [0.0, 0.0, 0.3, 0.0]
+    - name: goal_pose
+      value: [2.0, 0.0, 0.3, 0.0]
+
+  # --- RViz (namespaced TF) ---
+- node:
+    pkg: rviz2
+    exec: rviz2
+    name: rviz
+    output: screen
+    args: -d $(find-pkg-share whole_body_planning_server)/rviz/athena_sim_demo.rviz
+    if: $(var rviz)
+    param:
+    - name: use_sim_time
+      value: true
+    remap:
+    - from: /tf
+      to: tf
+    - from: /tf_static
+      to: tf_static

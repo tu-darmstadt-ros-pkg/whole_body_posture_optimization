@@ -14,7 +14,7 @@ public:
   double lorentzian_sigma;
   double function_scale;
 protected:
-  bool loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) override;
+  bool loadParametersFromNamespaceImpl(const rclcpp::Node::SharedPtr& node) override;
 private:
 };
 

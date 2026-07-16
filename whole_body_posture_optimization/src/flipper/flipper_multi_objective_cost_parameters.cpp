@@ -9,7 +9,6 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
   lorentzian_sigma(0.0),
   track_contact_weight(0.0),
   track_contact_nominal_value(0.0),
-  impact_weight(1.0),
   body_contact_weight(0.0),
   turning_resistance_weight(0.0),
   position_deviation_weight(0.0),
@@ -17,6 +16,7 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
   stability_weight(0.0),
   stability_nominal_value(0.0),
   stability_exp_parameters{0, 0, 0},
+  impact_weight(1.0),
   num_pose_x_samples(0.0),
   sample_step_pose_x(0.05),
   pose_x_sigma(0.03),
@@ -24,27 +24,27 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
   regularization_weight(0.0)
 {}
 
-bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const ros::NodeHandle& nh) {
-  registerParameter(nh, "support_area_weight", support_area_weight, 0.0, "Support area weight", 0.0, 100);
-  registerParameter(nh, "movement_cost_weight", movement_cost_weight, 0.0, "Movement cost weight", 0.0, 100);
-  registerParameter(nh, "lorentzian_sigma", lorentzian_sigma, 0.2, "Lorentzian sigma", 0.0, 10);
-  registerParameter(nh, "track_contact_weight", track_contact_weight, 0.0, "Track contact weight", 0.0, 100);
-  registerParameter(nh, "track_contact_nominal_value", track_contact_nominal_value, 0.0, "Track contact nominal value", 0.0, 10);
-  registerParameter(nh, "impact_weight", impact_weight, 0.0, "Impact penalty weight", 0.0, 100);
-  registerParameter(nh, "turning_resistance_weight", turning_resistance_weight, 0.0, "Turning resistance weight", 0.0, 100);
-  registerParameter(nh, "body_contact_weight", body_contact_weight, 0.0, "Body contact weight", 0.0, 10);
-  registerParameter(nh, "position_deviation_weight", position_deviation_weight, 0.0, "Position deviation weight", 0.0, 100);
-  registerParameter(nh, "roll_cost_weight", roll_cost_weight, 0.0, "Roll cost weight", 0.0, 10);
-  registerParameter(nh, "stability_weight", stability_weight, 0.0, "Stability cost weight", 0.0, 100);
-  registerParameter(nh, "stability_nominal_value", stability_nominal_value, 0.0, "Stability nominal value", 0.0, 10);
-  registerParameter(nh, "stability_exp_parameters_a", stability_exp_parameters[0], 1.6, "Stability EXP parameter (a)", 0.0, 100);
-  registerParameter(nh, "stability_exp_parameters_b", stability_exp_parameters[1], -1.7, "Stability EXP parameter (b)", -100.0, 0);
-  registerParameter(nh, "stability_exp_parameters_c", stability_exp_parameters[2], 0.0, "Stability EXP parameter (c)", 0.0, 10);
-  registerParameter(nh, "num_pose_x_samples", num_pose_x_samples, 0.0, "Number of samples for the probability distribution of the position in x-direction", 0, 1000);
-  registerParameter(nh, "sample_step_pose_x", sample_step_pose_x, 0.0, "Step size (in m) between samples", 0, 1);
-  registerParameter(nh, "pose_x_sigma", pose_x_sigma, 0.03, "Standard deviation of the normal distribution used for sampling the x position", 0, 1);
-  registerParameter(nh, "risk_level", risk_level, 0.5, "Risk level for CVaR (Conditional Value at Risk) computation", 0, 1);
-  registerParameter(nh, "regularization_weight", regularization_weight, 0.0, "Cost to keep the next solution close to the previous solution (if provided)", 0.0, 100);
+bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const rclcpp::Node::SharedPtr& node) {
+  registerParameter(node, "support_area_weight", support_area_weight, 0.0, "Support area weight", 0.0, 100);
+  registerParameter(node, "movement_cost_weight", movement_cost_weight, 0.0, "Movement cost weight", 0.0, 100);
+  registerParameter(node, "lorentzian_sigma", lorentzian_sigma, 0.2, "Lorentzian sigma", 0.0, 10);
+  registerParameter(node, "track_contact_weight", track_contact_weight, 0.0, "Track contact weight", 0.0, 100);
+  registerParameter(node, "track_contact_nominal_value", track_contact_nominal_value, 0.0, "Track contact nominal value", 0.0, 10);
+  registerParameter(node, "impact_weight", impact_weight, 0.0, "Impact penalty weight", 0.0, 100);
+  registerParameter(node, "turning_resistance_weight", turning_resistance_weight, 0.0, "Turning resistance weight", 0.0, 100);
+  registerParameter(node, "body_contact_weight", body_contact_weight, 0.0, "Body contact weight", 0.0, 100);
+  registerParameter(node, "position_deviation_weight", position_deviation_weight, 0.0, "Position deviation weight", 0.0, 100);
+  registerParameter(node, "roll_cost_weight", roll_cost_weight, 0.0, "Roll cost weight", 0.0, 10);
+  registerParameter(node, "stability_weight", stability_weight, 0.0, "Stability cost weight", 0.0, 100);
+  registerParameter(node, "stability_nominal_value", stability_nominal_value, 0.0, "Stability nominal value", 0.0, 10);
+  registerParameter(node, "stability_exp_parameters_a", stability_exp_parameters[0], 1.6, "Stability EXP parameter (a)", 0.0, 100);
+  registerParameter(node, "stability_exp_parameters_b", stability_exp_parameters[1], -1.7, "Stability EXP parameter (b)", -100.0, 0);
+  registerParameter(node, "stability_exp_parameters_c", stability_exp_parameters[2], 0.0, "Stability EXP parameter (c)", 0.0, 10);
+  registerParameter(node, "num_pose_x_samples", num_pose_x_samples, 0.0, "Number of samples for the probability distribution of the position in x-direction", 0, 1000);
+  registerParameter(node, "sample_step_pose_x", sample_step_pose_x, 0.0, "Step size (in m) between samples", 0, 1);
+  registerParameter(node, "pose_x_sigma", pose_x_sigma, 0.03, "Standard deviation of the normal distribution used for sampling the x position", 0, 1);
+  registerParameter(node, "risk_level", risk_level, 0.5, "Risk level for CVaR (Conditional Value at Risk) computation", 0, 1);
+  registerParameter(node, "regularization_weight", regularization_weight, 0.0, "Cost to keep the next solution close to the previous solution (if provided)", 0.0, 100);
   return true;
 }
 

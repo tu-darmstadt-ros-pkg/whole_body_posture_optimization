@@ -1,5 +1,6 @@
 #include <whole_body_posture_optimization/solvers/grid_search_optimizer.h>
 #include "whole_body_posture_optimization/util/common.h"
+#include "whole_body_posture_optimization/util/parameter_utils.h"
 
 namespace whole_body_posture_optimization {
 
@@ -9,9 +10,9 @@ GridSearchOptimizer::GridSearchOptimizer()
  : resolution_(0.1)
 {}
 
-void GridSearchOptimizer::loadParametersFromNamespace(const ros::NodeHandle& nh)
+void GridSearchOptimizer::loadParametersFromNamespace(rclcpp::Node& node, const std::string& prefix)
 {
-  nh.param("search_resolution", resolution_, 0.1);
+  resolution_ = param_utils::param(node, prefix + "search_resolution", 0.1);
 }
 
 nlopt::result GridSearchOptimizer::optimize(std::vector<double>& parameters, double& minf)

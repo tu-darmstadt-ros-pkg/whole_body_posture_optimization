@@ -9,22 +9,21 @@
 #include <sdf_contact_estimation/robot_model/shape_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
+#include <whole_body_posture_optimization/util/parameter_utils.h>
 
-#include <eigen_conversions/eigen_msg.h>
-#include <moveit_msgs/DisplayRobotState.h>
-#include <moveit/robot_state/conversions.h>
-#include <std_msgs/Float64.h>
-
+#include <tf2_eigen/tf2_eigen.hpp>
+#include <moveit/robot_state/conversions.hpp>
 
 namespace whole_body_planning_server {
 
-WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, const ros::NodeHandle& pnh)
-  : nh_(nh),
-  pnh_(pnh), path_updated_(false),
+namespace param_utils = whole_body_posture_optimization::param_utils;
+
+WholeBodyPlanningServer::WholeBodyPlanningServer(const rclcpp::Node::SharedPtr& node)
+  : node_(node),
+  path_updated_(false),
   end_of_path_reached_(false),
   execution_completed_(true),
   map_update_running_(true),
-  tf_listener_(tf_buffer_),
   enabled_(true),
   auto_start_(false),
   planning_horizon_(-1),
@@ -34,115 +33,195 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const ros::NodeHandle &nh, cons
   override_path_time_(false),
   continuous_planning_(false),
   execution_position_tolerance_(0.0),
-  execution_orientation_tolerance_(0.0)
+  execution_orientation_tolerance_(0.0),
+  reverse_allowed_(true),
+  ignore_goal_orientation_(false)
 {
-  // Parameters
-  pnh_.param<std::string>("stability_info_save_folder", stability_info_save_folder_, "");
-//  pnh_.param<std::string>("map_frame", map_frame_, "map");
-  pnh_.param<std::string>("base_frame", base_frame_, "base_link");
-  pnh_.param("override_path_time", override_path_time_, false);
-  pnh_.param("execution_position_tolerance", execution_position_tolerance_, 0.0);
-  pnh_.param("execution_orientation_tolerance", execution_orientation_tolerance_, 0.0);
-  pnh_.param("trajectory_statistics_save_folder", trajectory_statistics_save_folder_, std::string(""));
+  trajectory_start_time_ = rclcpp::Time(0, 0u, RCL_ROS_TIME);
+  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(node_->get_clock());
+  tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
+
+  loadParameters();
 
   // Publishers
-  preprocessed_path_pub_ = pnh_.advertise<nav_msgs::Path>("preprocessed_path", 10, true);
-  goal_path_pub_ = pnh_.advertise<nav_msgs::Path>("goal_path", 10, true);
-  robot_state_pub_ = pnh_.advertise<moveit_msgs::DisplayRobotState>("execution/goal_state", 10, false);
-  position_deviation_pub_ = pnh_.advertise<std_msgs::Float64>("execution/position_deviation", 10, false);
-  orientation_deviation_pub_ = pnh_.advertise<std_msgs::Float64>("execution/orientation_deviation", 10, false);
-
-  // Dynamic reconfigure
-  reconfigure_server_.setCallback(std::bind(&WholeBodyPlanningServer::dynamicReconfigureCallback,
-                                            this, std::placeholders::_1, std::placeholders::_2));
+  preprocessed_path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("preprocessed_path", rclcpp::QoS(10).transient_local());
+  goal_path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("goal_path", rclcpp::QoS(10).transient_local());
+  robot_state_pub_ = node_->create_publisher<moveit_msgs::msg::DisplayRobotState>("execution/goal_state", 10);
+  position_deviation_pub_ = node_->create_publisher<std_msgs::msg::Float64>("execution/position_deviation", 10);
+  orientation_deviation_pub_ = node_->create_publisher<std_msgs::msg::Float64>("execution/orientation_deviation", 10);
 
   // Create SDF Model
-  ros::NodeHandle esdf_server_nh(nh);
-  esdf_server_nh.setCallbackQueue(&esdf_server_queue_);
-  ros::NodeHandle esdf_server_pnh(pnh, "esdf_server");
-  esdf_server_pnh.setCallbackQueue(&esdf_server_queue_);
-  esdf_server_ = std::make_shared<voxblox::EsdfServer>(esdf_server_nh, esdf_server_pnh);
-  sdf_model_ = std::make_shared<sdf_contact_estimation::SdfModel>(pnh);
+  // The esdf server runs on its own node which is spun by the map update thread
+  // (replaces the ROS 1 custom callback queue)
+  esdf_node_ = std::make_shared<rclcpp::Node>(std::string(node_->get_name()) + "_esdf_server", node_->get_namespace());
+  esdf_server_ = std::make_shared<voxblox::EsdfServer>(esdf_node_);
+  sdf_model_ = std::make_shared<sdf_contact_estimation::SdfModel>(node_);
   sdf_model_->loadEsdf(esdf_server_->getEsdfMapPtr(), esdf_server_->getEsdfMaxDistance(), true);
 
   map_update_thread = std::make_unique<std::thread>(&WholeBodyPlanningServer::spinMapUpdate, this);
 
 
   // Create pose predictor
-  // Create robot model
-  ros::NodeHandle pose_predictor_nh(pnh, "pose_predictor");
-  ros::NodeHandle shape_model_nh(pose_predictor_nh, "shape_model");
-  auto shape_model = std::make_shared<sdf_contact_estimation::ShapeModel>(shape_model_nh);
-  auto sdf_pose_predictor = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(pose_predictor_nh, shape_model, sdf_model_);
+  // ShapeModel and SDFContactEstimation read their parameters from the node root
+  auto shape_model = std::make_shared<sdf_contact_estimation::ShapeModel>(node_);
+  auto sdf_pose_predictor = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(node_, shape_model, sdf_model_);
   sdf_pose_predictor->enableVisualisation(false);
   auto pose_predictor = std::static_pointer_cast<hector_pose_prediction_interface::PosePredictor<double>>(sdf_pose_predictor);
 
-  optimizer_ = std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(pnh, pose_predictor, sdf_model_);
-  current_robot_state_ = std::make_shared<robot_state::RobotState>(optimizer_->getRobotModel()->getMoveitRobotState());
+  optimizer_ = std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(node_, pose_predictor, sdf_model_);
+  current_robot_state_ = std::make_shared<moveit::core::RobotState>(optimizer_->getRobotModel()->getMoveitRobotState());
 
-  // Create moveit planner instance
-  moveit_cpp_ptr_ = std::make_shared<moveit_cpp::MoveItCpp>(pnh);
+  // Create moveit planner instance on its own node: MoveItCpp reads its
+  // configuration with plain get_parameter and therefore requires
+  // automatically_declare_parameters_from_overrides (process-level parameter
+  // files still apply to this node)
+  rclcpp::NodeOptions moveit_node_options;
+  moveit_node_options.automatically_declare_parameters_from_overrides(true);
+  moveit_node_ = std::make_shared<rclcpp::Node>(std::string(node_->get_name()) + "_moveit", node_->get_namespace(), moveit_node_options);
+  moveit_cpp_ptr_ = std::make_shared<moveit_cpp::MoveItCpp>(moveit_node_);
+  moveit_spin_running_ = true;
+  moveit_spin_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::spinMoveitNode, this);
 
   // Connect vehicle controller action client
-  ROS_INFO_STREAM("Waiting for vehicle controller client..");
-  driving_client_ = std::make_shared<FollowPathClient>(nh_, "/controller/follow_path", true);
-  if (!driving_client_->waitForServer(ros::Duration(5))) {
-    ROS_ERROR_STREAM("Timed out waiting for driving action server.");
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Waiting for vehicle controller client..");
+  driving_client_ = rclcpp_action::create_client<FollowPath>(node_, "/controller/follow_path");
+  if (!driving_client_->wait_for_action_server(std::chrono::seconds(5))) {
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Timed out waiting for driving action server.");
   }
 
   // Create FollowPathServer
-  follow_path_server_.reset(new actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>(
-      pnh, "follow_path",
-      std::bind(&WholeBodyPlanningServer::followPathGoalCallback, this, std::placeholders::_1),
-      std::bind(&WholeBodyPlanningServer::followPathPreemptCallback, this, std::placeholders::_1),
-      false));
-
-  follow_path_server_->start();
+  follow_path_server_ = rclcpp_action::create_server<FollowPath>(
+      node_, "follow_path",
+      std::bind(&WholeBodyPlanningServer::followPathGoalCallback, this, std::placeholders::_1, std::placeholders::_2),
+      std::bind(&WholeBodyPlanningServer::followPathCancelCallback, this, std::placeholders::_1),
+      std::bind(&WholeBodyPlanningServer::followPathAcceptedCallback, this, std::placeholders::_1));
 
   // Start subscribers
-  path_sub_ = pnh_.subscribe("simple_path_goal", 10, &WholeBodyPlanningServer::pathCb, this);
-  execute_sub_ = pnh_.subscribe("execute_planned_trajectory", 10, &WholeBodyPlanningServer::confirmExecutionCb, this);
-  joint_state_sub_ = nh_.subscribe("/joint_states", 10, &WholeBodyPlanningServer::jointStateCb, this);
-  ROS_INFO_STREAM("Initialization finished");
+  path_sub_ = node_->create_subscription<nav_msgs::msg::Path>("simple_path_goal", 10,
+      std::bind(&WholeBodyPlanningServer::pathCb, this, std::placeholders::_1));
+  execute_sub_ = node_->create_subscription<std_msgs::msg::Empty>("execute_planned_trajectory", 10,
+      std::bind(&WholeBodyPlanningServer::confirmExecutionCb, this, std::placeholders::_1));
+  joint_state_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>("/joint_states", 10,
+      std::bind(&WholeBodyPlanningServer::jointStateCb, this, std::placeholders::_1));
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Initialization finished");
 }
 
 WholeBodyPlanningServer::~WholeBodyPlanningServer()
 {
   stopExecutionThread();
   stopMapUpdateThread();
+  moveit_spin_running_ = false;
+  if (moveit_spin_thread_) {
+    moveit_spin_thread_->join();
+    moveit_spin_thread_.reset();
+  }
+  if (goal_thread_ && goal_thread_->joinable()) {
+    goal_thread_->join();
+  }
+}
+
+void WholeBodyPlanningServer::loadParameters()
+{
+  stability_info_save_folder_ = param_utils::param(*node_, "stability_info_save_folder", std::string(""));
+  base_frame_ = param_utils::param(*node_, "base_frame", std::string("base_link"));
+  override_path_time_ = param_utils::param(*node_, "override_path_time", false);
+  execution_position_tolerance_ = param_utils::param(*node_, "execution_position_tolerance", 0.0);
+  execution_orientation_tolerance_ = param_utils::param(*node_, "execution_orientation_tolerance", 0.0);
+  trajectory_statistics_save_folder_ = param_utils::param(*node_, "trajectory_statistics_save_folder", std::string(""));
+
+  // Path following options (formerly part of the move_base_lite FollowPath goal)
+  reverse_allowed_ = param_utils::param(*node_, "reverse_allowed", true);
+  ignore_goal_orientation_ = param_utils::param(*node_, "ignore_goal_orientation", false);
+
+  // Dynamically reconfigurable parameters (former dynamic_reconfigure PlanningServer.cfg)
+  enabled_ = param_utils::param(*node_, "enabled", true);
+  auto_start_ = param_utils::param(*node_, "auto_start", true);
+  continuous_planning_ = param_utils::param(*node_, "continuous_planning", false);
+  planning_horizon_ = param_utils::param(*node_, "planning_horizon", -1.0);
+  minimum_path_length_ = param_utils::param(*node_, "minimum_path_length", 0.2);
+  path_sampling_resolution_ = param_utils::param(*node_, "path_sampling_resolution", 0.05);
+  path_stitching_tolerance_ = param_utils::param(*node_, "path_stitching_tolerance", 0.15);
+  if (minimum_path_length_ < path_sampling_resolution_) {
+    minimum_path_length_ = path_sampling_resolution_;
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Minimum path length cannot be less than path resolution. Setting minimum path length to " << minimum_path_length_);
+  }
+  if (planning_horizon_ > 0 && minimum_path_length_ > planning_horizon_) {
+    minimum_path_length_ = 0.9 * planning_horizon_;
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Minimum path length cannot be greater than planning horizon. Setting minimum path length to " << minimum_path_length_);
+  }
+
+  parameter_callback_handle_ = node_->add_on_set_parameters_callback(
+      std::bind(&WholeBodyPlanningServer::parametersCallback, this, std::placeholders::_1));
+}
+
+rcl_interfaces::msg::SetParametersResult WholeBodyPlanningServer::parametersCallback(const std::vector<rclcpp::Parameter>& parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+  std::lock_guard<std::mutex> lock(reconfigure_mutex_);
+  for (const rclcpp::Parameter& parameter: parameters) {
+    const std::string& name = parameter.get_name();
+    if (name == "enabled") {
+      enabled_ = parameter.as_bool();
+    } else if (name == "auto_start") {
+      auto_start_ = parameter.as_bool();
+    } else if (name == "continuous_planning") {
+      continuous_planning_ = parameter.as_bool();
+    } else if (name == "planning_horizon") {
+      planning_horizon_ = parameter.as_double();
+    } else if (name == "minimum_path_length") {
+      minimum_path_length_ = parameter.as_double();
+    } else if (name == "path_sampling_resolution") {
+      path_sampling_resolution_ = parameter.as_double();
+    } else if (name == "path_stitching_tolerance") {
+      path_stitching_tolerance_ = parameter.as_double();
+    } else {
+      continue;
+    }
+    RCLCPP_INFO_STREAM(node_->get_logger(), "Parameter '" << name << "' updated.");
+  }
+  if (minimum_path_length_ < path_sampling_resolution_) {
+    minimum_path_length_ = path_sampling_resolution_;
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Minimum path length cannot be less than path resolution. Setting minimum path length to " << minimum_path_length_);
+  }
+  if (planning_horizon_ > 0 && minimum_path_length_ > planning_horizon_) {
+    minimum_path_length_ = 0.9 * planning_horizon_;
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Minimum path length cannot be greater than planning horizon. Setting minimum path length to " << minimum_path_length_);
+  }
+  return result;
 }
 
 bool WholeBodyPlanningServer::loadTsdfFromPath(const std::string& tsdf_path)
 {
-  ROS_INFO_STREAM("Loading sdf from path '" << tsdf_path << "'.");
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Loading sdf from path '" << tsdf_path << "'.");
   if (!esdf_server_->loadMap(tsdf_path)) {
-    ROS_ERROR_STREAM("Failed to load tsdf from file.");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Failed to load tsdf from file.");
     return false;
   }
   return true;
 }
 
-bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::Path path_msg, bool replanning) {
+bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::msg::Path path_msg, bool replanning) {
   // Override path time with receive time
-  if (override_path_time_ || path_msg.header.stamp == ros::Time(0))
-    path_msg.header.stamp = ros::Time::now();
+  if (override_path_time_ || rclcpp::Time(path_msg.header.stamp) == rclcpp::Time(0, 0u, node_->now().get_clock_type()))
+    path_msg.header.stamp = node_->now();
 
   map_frame_ = path_msg.header.frame_id;
 
   // Preprocess path
-  nav_msgs::Path path_smoothed = preprocessPath(path_msg, path_sampling_resolution_);
+  nav_msgs::msg::Path path_smoothed = preprocessPath(path_msg, path_sampling_resolution_);
 
   if (!continuous_planning_) {
     return planAndExecutePathFull(path_smoothed, replanning);
   } else {
     if (replanning) {
       if (updatePath(goal_path_, path_smoothed)) {
-        ROS_INFO_STREAM("Previous path has been updated");
+        RCLCPP_INFO_STREAM(node_->get_logger(), "Previous path has been updated");
         path_updated_ = true;
-        goal_path_pub_.publish(goal_path_);
+        goal_path_pub_->publish(goal_path_);
         return true;
       } else {
-       ROS_INFO_STREAM("New path diverges from previous path. Resetting plan.");
+       RCLCPP_INFO_STREAM(node_->get_logger(), "New path diverges from previous path. Resetting plan.");
       }
     }
     stopExecutionThread();
@@ -150,66 +229,69 @@ bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::Path path_msg, bool r
     path_updated_ = false;
     execution_completed_ = false;
     goal_path_ = path_smoothed;
-    goal_path_pub_.publish(goal_path_);
+    goal_path_pub_->publish(goal_path_);
     execution_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::planAndExecutePathContinuous, this, path_smoothed, false);
     execution_watchdog_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::executionWatchDog, this);
     return true;
   }
 }
 
-bool WholeBodyPlanningServer::planAndExecutePathFull(const nav_msgs::Path& path_msg, bool replanning)
+void WholeBodyPlanningServer::abortActiveGoal(const std::string& error_msg, uint16_t error_code)
 {
-  ROS_INFO_STREAM("Received new path, planning..");
+  if (followPathServerIsActive()) {
+    auto result = std::make_shared<FollowPath::Result>();
+    result->error_code = error_code;
+    result->error_msg = error_msg;
+    follow_path_goal_->abort(result);
+  }
+}
+
+bool WholeBodyPlanningServer::planAndExecutePathFull(const nav_msgs::msg::Path& path_msg, bool replanning)
+{
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Received new path, planning..");
 
   // Path pre-processing
-  nav_msgs::Path path_slice = slicePath(path_msg, planning_horizon_);
+  nav_msgs::msg::Path path_slice = slicePath(path_msg, planning_horizon_);
   end_of_path_reached_ = (path_slice.poses.size() == path_msg.poses.size());
   if (end_of_path_reached_) {
-    ROS_INFO_STREAM("Slice reaches end of path");
+    RCLCPP_INFO_STREAM(node_->get_logger(), "Slice reaches end of path");
   }
 
   // Plan trajectory
   auto start = std::chrono::steady_clock::now();
   if(!generatePlan(path_slice, planned_trajectory_)) {
-    ROS_ERROR_STREAM("Planning failed.");
-    if (followPathServerIsActive()) {
-      move_base_lite_msgs::FollowPathResult result;
-      result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
-      follow_path_goal_.setAborted(result, "Planning failed.");
-    }
-
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Planning failed.");
+    std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
+    abortActiveGoal("Planning failed.", FollowPath::Result::INVALID_PATH);
     return false;
   }
   auto end = std::chrono::steady_clock::now();
-  ROS_INFO_STREAM("Planning took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms.");
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Planning took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms.");
 
 
-  ros::Time start_time;
+  rclcpp::Time start_time;
   if (replanning) {
     // Trajectory has to start here in time, because planning takes time and robot might not be at the start state anymore
     start_time = path_msg.header.stamp;
   } else {
     // If this is the first trajectory, future-date the starting time, so we do not miss the first waypoint
-    start_time = ros::Time::now() + ros::Duration(0.1);
+    start_time = node_->now() + rclcpp::Duration::from_seconds(0.1);
   }
 
-  ros::Duration trajectory_duration(planned_trajectory_->getDuration());
-  ros::Time trajectory_end = start_time + trajectory_duration;
+  rclcpp::Duration trajectory_duration = rclcpp::Duration::from_seconds(planned_trajectory_->getDuration());
+  rclcpp::Time trajectory_end = start_time + trajectory_duration;
 
-  ros::Time now = ros::Time::now();
+  rclcpp::Time now = node_->now();
   if (now > trajectory_end) {
-    ROS_WARN_STREAM("Trajectory end time is in the past by " << (now - trajectory_end).toSec() <<
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Trajectory end time is in the past by " << (now - trajectory_end).seconds() <<
                     " s. Planning time takes too long.");
   }
 
   if (auto_start_) {
     if (!executeTrajectoryWithWatchdog(*planned_trajectory_, start_time)) {
-      ROS_ERROR_STREAM("Trajectory execution failed");
-      if (followPathServerIsActive()) {
-        move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::FAILURE;
-        follow_path_goal_.setAborted(result, "Trajectory execution failed.");
-      }
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory execution failed");
+      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
+      abortActiveGoal("Trajectory execution failed.", FollowPath::Result::UNKNOWN);
       return false;
     }
   }
@@ -217,16 +299,16 @@ bool WholeBodyPlanningServer::planAndExecutePathFull(const nav_msgs::Path& path_
   return true;
 }
 
-void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path& path_msg, bool replanning)
+void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::Path& path_msg, bool replanning)
 {
-  ROS_DEBUG_STREAM("Received new path, planning continuously..");
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Received new path, planning continuously..");
   waitForMap();
 
   // Path pre-processing
   const int trajectory_minimum_size = 4; // limited by time parameterization
   const int trajectory_overlap = 2;
-  if (path_msg.poses.size() < trajectory_minimum_size) {
-    ROS_WARN_STREAM("Path too short for a whole-body trajectory. Driving directly to goal.");
+  if (static_cast<int>(path_msg.poses.size()) < trajectory_minimum_size) {
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Path too short for a whole-body trajectory. Driving directly to goal.");
     end_of_path_reached_ = true;
     executeBaseTrajectory(path_msg);
     return;
@@ -243,34 +325,34 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
   {
     std::lock_guard<std::mutex> lock(current_robot_state_mutex_);
     updateRobotPose(path_msg);
-    start_result.result_state = std::make_shared<robot_state::RobotState>(*current_robot_state_);
+    start_result.result_state = std::make_shared<moveit::core::RobotState>(*current_robot_state_);
   }
   results.push_back(start_result);
 
-  ros::Time start_time;
+  rclcpp::Time start_time;
   bool first_execution = true;
   robot_trajectory::RobotTrajectoryPtr trajectory;
   int time_parameterization_count = 0; // Number of waypoints with time parameterization attached (index of the first waypoint without t/p)
   Eigen::Vector2d fake_odom_pose = Eigen::Vector2d::Zero();
-  nav_msgs::Path target_path = path_msg;
-  for (current_path_index_ = 0; current_path_index_ < target_path.poses.size() -1; ++current_path_index_) {
+  nav_msgs::msg::Path target_path = path_msg;
+  for (current_path_index_ = 0; current_path_index_ < static_cast<int>(target_path.poses.size()) -1; ++current_path_index_) {
     if (path_updated_) {
       std::lock_guard<std::mutex> lock(path_update_mutex_);
       path_updated_ = false;
       target_path = goal_path_;
     }
 
-    nav_msgs::Path path_slice = slicePath(target_path, current_path_index_, current_path_index_ + 2);
+    nav_msgs::msg::Path path_slice = slicePath(target_path, current_path_index_, current_path_index_ + 2);
 
     waitUntilPlanningHorizonReached(path_slice.poses.back().pose.position);
 
     if (execution_completed_) {
-      ROS_DEBUG_STREAM("Execution thread stopped");
+      RCLCPP_DEBUG_STREAM(node_->get_logger(), "Execution thread stopped");
       return;
     }
-    ROS_DEBUG_STREAM("Waypoint " << current_path_index_);
+    RCLCPP_DEBUG_STREAM(node_->get_logger(), "Waypoint " << current_path_index_);
 
-    end_of_path_reached_ = current_path_index_ == target_path.poses.size() - 2;
+    end_of_path_reached_ = current_path_index_ == static_cast<int>(target_path.poses.size()) - 2;
 
     // Compute optimized postures
     std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimization_results;
@@ -281,11 +363,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     if (optimization_results.empty() || !optimization_results.back().success) {
       stopExecution();
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      if (followPathServerIsActive()) {
-        move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
-        follow_path_goal_.setAborted(result, "Pose optimization failed.");
-      }
+      abortActiveGoal("Pose optimization failed.", FollowPath::Result::INVALID_PATH);
       break;
     }
     results.push_back(optimization_results.back()); // Use only the second (and last) result, first one is the start state
@@ -297,11 +375,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     if (trajectory_fake_odom_part.empty()) {
       stopExecution();
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      if (followPathServerIsActive()) {
-        move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
-        follow_path_goal_.setAborted(result, "Trajectory planning failed.");
-      }
+      abortActiveGoal("Trajectory planning failed.", FollowPath::Result::INVALID_PATH);
       break;
     }
     // Extract current fake odom pose to initialize next trajectory
@@ -325,7 +399,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
 
     // Check if trajectory is long enough to perform time parameterization
     // and covers enough distance to be executed by the vehicle controller
-    if (trajectory_fake_odom->getWayPointCount() < trajectory_minimum_size) {
+    if (static_cast<int>(trajectory_fake_odom->getWayPointCount()) < trajectory_minimum_size) {
       continue;
     }
 
@@ -340,7 +414,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     int time_parameterization_start_index = time_parameterization_count;
     time_parameterization_start_index = std::max(0, time_parameterization_start_index - trajectory_overlap);
     // Check against minimum trajectory length
-    if (trajectory_fake_odom->getWayPointCount() - time_parameterization_start_index < trajectory_minimum_size) {
+    if (static_cast<int>(trajectory_fake_odom->getWayPointCount()) - time_parameterization_start_index < trajectory_minimum_size) {
       time_parameterization_start_index = static_cast<int>(trajectory_fake_odom->getWayPointCount()) - trajectory_minimum_size; // Cannot go below 0 because we check for that earlier
     }
 
@@ -358,11 +432,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     if (timed_trajectory_slice.empty() || timed_trajectory_slice.getDuration() == 0.0) {
       stopExecution();
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      if (followPathServerIsActive()) {
-        move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::PLANNING_FAILED;
-        follow_path_goal_.setAborted(result, "Time parameterization failed.");
-      }
+      abortActiveGoal("Time parameterization failed.", FollowPath::Result::INVALID_PATH);
       break;
     }
     // Mark all waypoints to have a time parameterization
@@ -378,18 +448,15 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     trajectory->append(trajectory_copy, 0.0, 0, time_parameterization_start_index); // old part
     trajectory->append(timed_trajectory_slice, trajectory_copy.getWayPointDurationFromPrevious(time_parameterization_start_index)); // new part
 
-    ROS_DEBUG_STREAM("Total trajectory duration: " << trajectory->getDuration() << " s");
+    RCLCPP_DEBUG_STREAM(node_->get_logger(), "Total trajectory duration: " << trajectory->getDuration() << " s");
 
     // Set start time once after the first trajectory part has been computed
     if (first_execution) {
       first_execution = false;
       // Check if there are controllers that can handle the execution before sending the first trajectory
       if (!ensureActiveControllers(*trajectory)) {
-        if (followPathServerIsActive()) {
-          move_base_lite_msgs::FollowPathResult result;
-          result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
-          follow_path_goal_.setAborted(result, "No controllers found that could execute the trajectory.");
-        }
+        std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
+        abortActiveGoal("No controllers found that could execute the trajectory.", FollowPath::Result::INVALID_CONTROLLER);
         break;
       }
       if (replanning) {
@@ -397,24 +464,20 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
         start_time = target_path.header.stamp;
       } else {
         // If this is the first trajectory, future-date the starting time, so we do not miss the first waypoint
-        start_time = ros::Time::now() + ros::Duration(0.1);
+        start_time = node_->now() + rclcpp::Duration::from_seconds(0.1);
       }
     }
 
     // Check if trajectory end time is in the past
-    ros::Duration trajectory_duration(trajectory->getDuration());
-    ros::Time trajectory_end = start_time + trajectory_duration;
-    ros::Time now = ros::Time::now();
+    rclcpp::Duration trajectory_duration = rclcpp::Duration::from_seconds(trajectory->getDuration());
+    rclcpp::Time trajectory_end = start_time + trajectory_duration;
+    rclcpp::Time now = node_->now();
     if (now > trajectory_end) {
-      ROS_ERROR_STREAM("Trajectory end time is in the past by " << (now - trajectory_end).toSec() <<
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory end time is in the past by " << (now - trajectory_end).seconds() <<
                       " s. Planning takes too long.");
       // Fail and restart with a new path
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      if (followPathServerIsActive()) {
-        move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
-        follow_path_goal_.setAborted(result, "Planning time takes too long");
-      }
+      abortActiveGoal("Planning time takes too long", FollowPath::Result::CONTROLLER_TIMED_OUT);
       break;
     }
 
@@ -422,31 +485,27 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::Path&
     saveTrajectoryStatistics(results, *trajectory, trajectory_start_indices, start_time);
     std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_);
     if (execution_completed_) {
-      ROS_DEBUG_STREAM("Stopping execution thread before execution");
+      RCLCPP_DEBUG_STREAM(node_->get_logger(), "Stopping execution thread before execution");
       return;
     }
     if (!executeTrajectory(*trajectory, start_time)) {
-      ROS_ERROR_STREAM("Trajectory execution failed");
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory execution failed");
       stopExecution();
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      if (followPathServerIsActive()) {
-        move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::CONTROL_FAILED;
-        follow_path_goal_.setAborted(result, "Trajectory execution failed.");
-      }
+      abortActiveGoal("Trajectory execution failed.", FollowPath::Result::NO_VALID_CONTROL);
       break;
     }
   }
-  ROS_DEBUG_STREAM("Execution thread completed");
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Execution thread completed");
 }
 
 
-nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& path, double path_sampling_resolution) const
+nav_msgs::msg::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::msg::Path& path, double path_sampling_resolution) const
 {
-  nav_msgs::Path path_copy = path;
+  nav_msgs::msg::Path path_copy = path;
 
   // Replace first pose with actual robot pose to account for driving direction and improved planning initialization
-  geometry_msgs::TransformStamped base_transform;
+  geometry_msgs::msg::TransformStamped base_transform;
   if (getRobotPose(path.header.stamp, base_transform)) {
     path_copy.poses.front().pose.orientation = base_transform.transform.rotation;
     path_copy.poses.front().pose.position.x = base_transform.transform.translation.x;
@@ -455,36 +514,29 @@ nav_msgs::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::Path& pat
   }
 
   // Re-sample and smooth path
-  bool allow_reverse_paths = true;
-  bool ignore_goal_orientation = false;
-
-  if (followPathServerIsActive()) {
-    allow_reverse_paths = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
-    ignore_goal_orientation = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance > 3.1415; // TODO ugly
-  }
-
-  Pathsmoother3D path_smoother(allow_reverse_paths, ignore_goal_orientation);
+  // Note: In ROS 1, these options were part of the move_base_lite FollowPath goal.
+  // nav2_msgs/FollowPath has no comparable options, so they are parameters now.
+  Pathsmoother3D path_smoother(reverse_allowed_, ignore_goal_orientation_);
   path_smoother.setSmoothedPathDiscretization(path_sampling_resolution);
   path_copy = path_smoother.smooth(path_copy, true);
 
-  preprocessed_path_pub_.publish(path_copy);
+  preprocessed_path_pub_->publish(path_copy);
 
   return path_copy;
 }
 
-bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out)
+bool WholeBodyPlanningServer::generatePlan(const nav_msgs::msg::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out)
 {
   std::lock_guard<std::mutex> lock(esdf_update_mutex_);
-  ROS_INFO_STREAM("Planning a new path");
+  RCLCPP_INFO_STREAM(node_->get_logger(), "Planning a new path");
   if (path_msg.poses.empty()) {
-    ROS_WARN_STREAM("Path is empty. Can't plan.");
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Path is empty. Can't plan.");
     return true; // Executing an empty plan is always successful
   }
   sdf_model_->publishSdfMesh();
 
   // *** Compute plan ***
   updateRobotPose(path_msg);
-//  auto trajectory = optimizer_->computeOptimalTrajectory(path_msg, current_robot_state_);
   auto results = optimizer_->findOptimalPostures(path_msg, current_robot_state_);
   std::vector<size_t> trajectory_start_indices;
   auto trajectory = optimizer_->computeTimedTrajectory(results, trajectory_start_indices);
@@ -493,7 +545,7 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot
   }
 
   saveTrajectoryStatistics(results, trajectory, trajectory_start_indices,
-                           ros::Time(0));
+                           rclcpp::Time(0, 0u, RCL_ROS_TIME));
 
   trajectory_out = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory);
 
@@ -501,19 +553,19 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::Path& path_msg, robot
 }
 
 bool WholeBodyPlanningServer::ensureActiveControllers(const robot_trajectory::RobotTrajectory& trajectory) {
-  if (moveit_cpp_ptr_->getTrajectoryExecutionManager()->ensureActiveControllersForGroup(trajectory.getGroupName())) {
+  if (moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->ensureActiveControllersForGroup(trajectory.getGroupName())) {
     return true;
   } else {
-    ROS_ERROR("Execution failed! No active controllers configured for group '%s'", trajectory.getGroupName().c_str());
+    RCLCPP_ERROR(node_->get_logger(), "Execution failed! No active controllers configured for group '%s'", trajectory.getGroupName().c_str());
     return false;
   }
 }
 
-bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time)
+bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time)
 {
-  ROS_DEBUG_STREAM("Starting trajectory execution");
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Starting trajectory execution");
   if (trajectory.empty()) {
-    ROS_WARN_STREAM("Trajectory is empty, execution is trivially successful.");
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Trajectory is empty, execution is trivially successful.");
     return true;
   }
   trajectory_ = std::make_shared<robot_trajectory::RobotTrajectory>(trajectory, true);
@@ -525,18 +577,12 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
   }
   executeBaseTrajectory(trajectory, start_time);
 
-  // Wait until start time to publish trajectory
-//  ros::Time now = ros::Time::now();
-//  if (start_time > now) {
-//    ros::Duration time_until_start = start_time - now;
-//    time_until_start.sleep();
-//  }
   optimizer_->publishTrajectory(trajectory, start_time);
 
   return true;
 }
 
-bool WholeBodyPlanningServer::executeTrajectoryWithWatchdog(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time)
+bool WholeBodyPlanningServer::executeTrajectoryWithWatchdog(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time)
 {
   if (!executeTrajectory(trajectory, start_time)) {
     return false;
@@ -548,64 +594,68 @@ bool WholeBodyPlanningServer::executeTrajectoryWithWatchdog(const robot_trajecto
   return true;
 }
 
-void WholeBodyPlanningServer::followPathGoalCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle goal)
+rclcpp_action::GoalResponse WholeBodyPlanningServer::followPathGoalCallback(const rclcpp_action::GoalUUID& /*uuid*/, std::shared_ptr<const FollowPath::Goal> goal)
 {
-  ROS_INFO_STREAM("WholeBodyPlanner received new goal to [" << goal.getGoal()->target_path.poses.back().pose.position.x << ", "
-                                                         << goal.getGoal()->target_path.poses.back().pose.position.y << "]");
-  // Check if another goal exists
-  bool goal_preempted = false;
-  if (followPathServerIsActive()) {
-    // Check if incoming one is newer
-    if (goal.getGoalID().stamp >= follow_path_goal_.getGoalID().stamp) {
-      // Cancel previous goal
-//      stopExecutionThread(); // Stop before goal is canceled
-      move_base_lite_msgs::FollowPathResult result;
-      result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
-      follow_path_goal_.setCanceled(result, "This goal has been preempted by a newer goal.");
-      goal_preempted = true;
-    } else {
-      // Cancel incoming goal
-      move_base_lite_msgs::FollowPathResult result;
-      result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
-      goal.setCanceled(result, "This goal has been preempted by a newer goal.");
-      return;
-    }
+  if (goal->path.poses.empty()) {
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Rejecting empty path goal.");
+    return rclcpp_action::GoalResponse::REJECT;
   }
-
-  // Accept new goal
-  goal.setAccepted();
-  follow_path_goal_ = goal;
-
-  // Plan and execute
-  if (enabled_) {
-    planAndExecutePath(goal.getGoal()->target_path, goal_preempted);
-  } else {
-    end_of_path_reached_ = true;
-    driving_client_->sendGoal(*goal.getGoal(),
-                              std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
-                              FollowPathClient::SimpleActiveCallback(),
-                              boost::bind(&WholeBodyPlanningServer::followPathClientFeedbackCb, this, _1));
-  }
+  RCLCPP_INFO_STREAM(node_->get_logger(), "WholeBodyPlanner received new goal to [" << goal->path.poses.back().pose.position.x << ", "
+                                                         << goal->path.poses.back().pose.position.y << "]");
+  return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
-void WholeBodyPlanningServer::followPathPreemptCallback(const actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle& preempt)
+
+void WholeBodyPlanningServer::followPathAcceptedCallback(const std::shared_ptr<FollowPathServerGoalHandle>& goal_handle)
 {
-  if (preempt == follow_path_goal_) {
-    ROS_INFO_STREAM("Goal preempted, stopping vehicle");
+  bool goal_preempted = false;
+  {
+    std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
+    // Check if another goal exists
+    if (followPathServerIsActive()) {
+      // Cancel previous goal
+      auto result = std::make_shared<FollowPath::Result>();
+      result->error_msg = "This goal has been preempted by a newer goal.";
+      follow_path_goal_->abort(result);
+      goal_preempted = true;
+    }
+    follow_path_goal_ = goal_handle;
+  }
+
+  // Plan and execute in a separate thread to not block the executor
+  if (goal_thread_ && goal_thread_->joinable()) {
+    goal_thread_->join();
+  }
+  goal_thread_ = std::make_unique<std::thread>([this, goal_handle, goal_preempted]() {
+    if (enabled_) {
+      planAndExecutePath(goal_handle->get_goal()->path, goal_preempted);
+    } else {
+      end_of_path_reached_ = true;
+      executeBaseTrajectory(goal_handle->get_goal()->path);
+    }
+  });
+}
+
+rclcpp_action::CancelResponse WholeBodyPlanningServer::followPathCancelCallback(const std::shared_ptr<FollowPathServerGoalHandle>& goal_handle)
+{
+  std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
+  if (goal_handle == follow_path_goal_) {
+    RCLCPP_INFO_STREAM(node_->get_logger(), "Goal preempted, stopping vehicle");
     // Cancel vehicle controller and stop moveit execution
-    stopExecutionThread();
+    execution_completed_ = true; // Signal threads to stop (joined asynchronously)
     stopExecution();
 
-    if (followPathServerIsActive()) {
-      move_base_lite_msgs::FollowPathResult result;
-      result.result.val = move_base_lite_msgs::ErrorCodes::PREEMPTED;
-      follow_path_goal_.setCanceled(result, "Preempt from incoming message to server");
+    if (follow_path_goal_->is_active() || follow_path_goal_->is_canceling()) {
+      auto result = std::make_shared<FollowPath::Result>();
+      result->error_msg = "Preempt from incoming message to server";
+      follow_path_goal_->canceled(result);
     }
   } else {
-    ROS_WARN_STREAM("Received preempt for unknown goal");
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Received cancel for unknown goal");
   }
+  return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking, ros::Time start_time)
+bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking, rclcpp::Time start_time)
 {
   // Check if there are controllers that can handle the execution
   if (!ensureActiveControllers(trajectory)) {
@@ -613,70 +663,59 @@ bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::Rob
   }
 
   // Execute trajectory
-  moveit_msgs::RobotTrajectory robot_trajectory_msg;
+  moveit_msgs::msg::RobotTrajectory robot_trajectory_msg;
   trajectory.getRobotTrajectoryMsg(robot_trajectory_msg);
   robot_trajectory_msg.joint_trajectory.header.stamp = start_time;
   if (blocking)
   {
-    moveit_cpp_ptr_->getTrajectoryExecutionManager()->push(robot_trajectory_msg);
-    moveit_cpp_ptr_->getTrajectoryExecutionManager()->execute();
+    moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->push(robot_trajectory_msg);
+    moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->execute();
     return true;
   }
-  return moveit_cpp_ptr_->getTrajectoryExecutionManager()->pushAndExecute(robot_trajectory_msg);
+  // Note: MoveIt 2 removed TrajectoryExecutionManager::pushAndExecute (continuous execution).
+  // Stop the current execution and restart with the updated trajectory instead. Since the
+  // trajectory header is stamped with the original start time, the controllers resume mid-trajectory.
+  moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->stopExecution();
+  if (!moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->push(robot_trajectory_msg)) {
+    return false;
+  }
+  moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->execute();
+  return true;
 }
 
-void WholeBodyPlanningServer::executeBaseTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time)
+void WholeBodyPlanningServer::executeBaseTrajectory(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time)
 {
   // Assemble driving plan
-  nav_msgs::Path path = extractPathFromTrajectory(trajectory, start_time);
+  nav_msgs::msg::Path path = extractPathFromTrajectory(trajectory, start_time);
   executeBaseTrajectory(path);
 }
 
-void WholeBodyPlanningServer::executeBaseTrajectory(const nav_msgs::Path& path) {
-  move_base_lite_msgs::FollowPathGoal follow_path_goal;
-  follow_path_goal.target_path = path;
-  // Fill parameters
-  follow_path_goal.follow_path_options.desired_speed = 0.0; // Implicitly given by pose time stamps
-  follow_path_goal.follow_path_options.use_path_orientation = true; // Drive path as planned
-  follow_path_goal.follow_path_options.is_fixed = true; // No smoothing
-  follow_path_goal.follow_path_options.reset_stuck_history = false;
+void WholeBodyPlanningServer::executeBaseTrajectory(const nav_msgs::msg::Path& path) {
+  FollowPath::Goal follow_path_goal;
+  follow_path_goal.path = path;
+  // Note: The former move_base_lite follow_path_options (desired_speed, use_path_orientation,
+  // is_fixed, goal tolerances, ...) have no equivalent in nav2_msgs/FollowPath.
+  // These options have to be configured on the receiving controller instead.
+  follow_path_goal.controller_id = "";
+  follow_path_goal.goal_checker_id = "";
 
-  // Use values from goal if available
-  if (followPathServerIsActive()) {
-    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = follow_path_goal_.getGoal()->follow_path_options.rotate_front_to_goal_pose_orientation;
-    follow_path_goal.follow_path_options.reverse_allowed = follow_path_goal_.getGoal()->follow_path_options.reverse_allowed;
-    follow_path_goal.follow_path_options.goal_pose_position_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_position_tolerance;
-    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = follow_path_goal_.getGoal()->follow_path_options.goal_pose_angle_tolerance;
-  } else {
-    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = true;
-    follow_path_goal.follow_path_options.reverse_allowed = true;
-    follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.1;
-    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
-  }
-
-  if (!end_of_path_reached_) {
-    // Set low tolerances because the current end of the path is not the goal pose
-    follow_path_goal.follow_path_options.goal_pose_position_tolerance = 0.0001;
-    // Do not care about final orientation inside path
-    follow_path_goal.follow_path_options.goal_pose_angle_tolerance = M_PI;
-    follow_path_goal.follow_path_options.rotate_front_to_goal_pose_orientation = false;
-  }
-
-  driving_client_->sendGoal(follow_path_goal,
-                            std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1, std::placeholders::_2),
-                            FollowPathClient::SimpleActiveCallback(),
-                            boost::bind(&WholeBodyPlanningServer::followPathClientFeedbackCb, this, _1));
+  auto send_goal_options = rclcpp_action::Client<FollowPath>::SendGoalOptions();
+  send_goal_options.result_callback =
+      std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1);
+  send_goal_options.feedback_callback =
+      std::bind(&WholeBodyPlanningServer::followPathClientFeedbackCb, this, std::placeholders::_1, std::placeholders::_2);
+  driving_client_->async_send_goal(follow_path_goal, send_goal_options);
 }
 
 
-nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const
+nav_msgs::msg::Path WholeBodyPlanningServer::extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const rclcpp::Time& start_time) const
 {
-  nav_msgs::Path path;
+  nav_msgs::msg::Path path;
   path.header.frame_id = map_frame_;
   path.header.stamp = start_time;
-  Eigen::Affine3d previous_pose;
+  Eigen::Isometry3d previous_pose;
   for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
-    Eigen::Affine3d goal_pose = trajectory.getWayPoint(i).getJointTransform("world_virtual_joint");
+    Eigen::Isometry3d goal_pose = trajectory.getWayPoint(i).getJointTransform("world_virtual_joint");
     if (i > 0) {
       // Skip if waypoints are too close in the x-y plane
       double distance = (goal_pose.translation().block<2, 1>(0, 0) - previous_pose.translation().block<2, 1>(0, 0)).norm();
@@ -690,113 +729,91 @@ nav_msgs::Path WholeBodyPlanningServer::extractPathFromTrajectory(const robot_tr
       }
     }
     previous_pose = goal_pose;
-    geometry_msgs::PoseStamped pose_msg;
+    geometry_msgs::msg::PoseStamped pose_msg;
     pose_msg.header.frame_id = map_frame_;
-    pose_msg.header.stamp = start_time + ros::Duration(trajectory.getWayPointDurationFromStart(i));
-    tf::poseEigenToMsg(goal_pose, pose_msg.pose);
+    pose_msg.header.stamp = start_time + rclcpp::Duration::from_seconds(trajectory.getWayPointDurationFromStart(i));
+    pose_msg.pose = tf2::toMsg(goal_pose);
     path.poses.push_back(pose_msg);
   }
   return path;
 }
 
-void WholeBodyPlanningServer::pathCb(const nav_msgs::PathConstPtr &path_msg) {
+void WholeBodyPlanningServer::pathCb(const nav_msgs::msg::Path::ConstSharedPtr &path_msg) {
   planAndExecutePathFull(*path_msg, false);
 }
 
-void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::EmptyConstPtr&)
+void WholeBodyPlanningServer::confirmExecutionCb(const std_msgs::msg::Empty::ConstSharedPtr&)
 {
   if (!planned_trajectory_) {
-    ROS_ERROR_STREAM("No trajectory planned yet, cannot execute");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "No trajectory planned yet, cannot execute");
     return;
   }
-  ros::Time starting_time = ros::Time::now() + ros::Duration(1);
+  rclcpp::Time starting_time = node_->now() + rclcpp::Duration::from_seconds(1);
   if (!executeTrajectoryWithWatchdog(*planned_trajectory_, starting_time)) {
-    ROS_ERROR_STREAM("Trajectory execution failed");
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory execution failed");
   }
 }
 
-void WholeBodyPlanningServer::jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg)
+void WholeBodyPlanningServer::jointStateCb(const sensor_msgs::msg::JointState::ConstSharedPtr& joint_state_msg)
 {
   std::lock_guard<std::mutex> lock(current_robot_state_mutex_);
   current_robot_state_->setVariableValues(*joint_state_msg);
 }
 bool WholeBodyPlanningServer::followPathServerIsActive() const
 {
-  if (!follow_path_goal_.getGoal()) {
-    return false;
-  }
-  unsigned int status = follow_path_goal_.getGoalStatus().status;
-  return status == actionlib_msgs::GoalStatus::ACTIVE ||
-         status == actionlib_msgs::GoalStatus::PREEMPTING;
+  return follow_path_goal_ && follow_path_goal_->is_active();
 }
-void WholeBodyPlanningServer::followPathClientDoneCallback(const actionlib::SimpleClientGoalState& state,
-                                                           const move_base_lite_msgs::FollowPathResultConstPtr& result)
+void WholeBodyPlanningServer::followPathClientDoneCallback(const FollowPathClientGoalHandle::WrappedResult& result)
 {
-  ROS_DEBUG_STREAM("Follow path client finished.");
-  if (result->result.val == move_base_lite_msgs::ErrorCodes::SUCCESS) {
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Follow path client finished.");
+  if (result.code == rclcpp_action::ResultCode::SUCCEEDED) {
     if (end_of_path_reached_) {
-      ROS_INFO_STREAM("Following path successful.");
+      RCLCPP_INFO_STREAM(node_->get_logger(), "Following path successful.");
       stopExecutionThread();
+      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
       if (followPathServerIsActive()) {
-        follow_path_goal_.setSucceeded(*result, "successful");
+        auto server_result = std::make_shared<FollowPath::Result>();
+        server_result->error_msg = "successful";
+        follow_path_goal_->succeed(server_result);
       }
     }
   } else {
-    ROS_ERROR_STREAM("Following path failed with error " << result->result.val);
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Following path failed with result code " << static_cast<int>(result.code));
     stopExecutionThread();
     // Path following failed
     // Stop moveit
-    moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
-    if (followPathServerIsActive()) {
-      follow_path_goal_.setCanceled(*result, "Following path failed");
-    }
+    moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->stopExecution();
+    std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
+    abortActiveGoal("Following path failed", result.result ? result.result->error_code : FollowPath::Result::UNKNOWN);
   }
 }
 
 void WholeBodyPlanningServer::followPathClientFeedbackCb(
-    const move_base_lite_msgs::FollowPathFeedbackConstPtr &feedback) {
+    FollowPathClientGoalHandle::SharedPtr, const std::shared_ptr<const FollowPath::Feedback> &feedback) {
   // Relay feedback
-  follow_path_goal_.publishFeedback(*feedback);
+  std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
+  if (followPathServerIsActive()) {
+    follow_path_goal_->publish_feedback(std::make_shared<FollowPath::Feedback>(*feedback));
+  }
 }
 
-void WholeBodyPlanningServer::dynamicReconfigureCallback(const whole_body_planning_server::PlanningServerConfig &config, uint32_t level)
-{
-  ROS_INFO_STREAM("Reconfigure request received.");
-  std::lock_guard<std::mutex> lock(reconfigure_mutex_);
-  enabled_ = config.enabled;
-  path_sampling_resolution_ = config.path_sampling_resolution;
-  path_stitching_tolerance_ = config.path_stitching_tolerance;
-  planning_horizon_ = config.planning_horizon;
-  minimum_path_length_ = config.minimum_path_length;
-  if (minimum_path_length_ < path_sampling_resolution_) {
-    minimum_path_length_ = path_sampling_resolution_;
-    ROS_WARN_STREAM("Minimum path length cannot be less than path resolution. Setting minimum path length to " << minimum_path_length_);
-  }
-  if (planning_horizon_ > 0 && minimum_path_length_ > planning_horizon_) {
-    minimum_path_length_ = 0.9 * planning_horizon_;
-    ROS_WARN_STREAM("Minimum path length cannot be greater than planning horizon. Setting minimum path length to " << minimum_path_length_);
-  }
-  auto_start_ = config.auto_start;
-  continuous_planning_ = config.continuous_planning;
-}
-
-void WholeBodyPlanningServer::updateRobotPose(const nav_msgs::Path& path)
+void WholeBodyPlanningServer::updateRobotPose(const nav_msgs::msg::Path& path)
 {
   Eigen::Isometry3d robot_pose_eigen;
   // First pose is current pose of robot
-  const geometry_msgs::PoseStamped& robot_pose_msg = path.poses.front();
-  tf::poseMsgToEigen(robot_pose_msg.pose, robot_pose_eigen);
+  const geometry_msgs::msg::PoseStamped& robot_pose_msg = path.poses.front();
+  tf2::fromMsg(robot_pose_msg.pose, robot_pose_eigen);
   whole_body_posture_optimization::updateMoveitRobotState(*current_robot_state_, robot_pose_eigen);
 }
 
-bool WholeBodyPlanningServer::getRobotPose(const ros::Time& stamp, geometry_msgs::TransformStamped& transform) const
+bool WholeBodyPlanningServer::getRobotPose(const rclcpp::Time& stamp, geometry_msgs::msg::TransformStamped& transform) const
 {
   try {
     // Get world transform
-    transform = tf_buffer_.lookupTransform(map_frame_, base_frame_, stamp, ros::Duration(0.1));
+    transform = tf_buffer_->lookupTransform(map_frame_, base_frame_, stamp, rclcpp::Duration::from_seconds(0.1));
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
+    RCLCPP_WARN(node_->get_logger(), "%s",ex.what());
     return false;
   }
   return true;
@@ -817,18 +834,28 @@ void WholeBodyPlanningServer::stopExecutionThread()
 
 void WholeBodyPlanningServer::spinMapUpdate()
 {
-  ros::NodeHandle nh;
-  ros::WallRate rate(10);
-  while (nh.ok() && map_update_running_) {
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(esdf_node_);
+  rclcpp::WallRate rate(10);
+  while (rclcpp::ok() && map_update_running_) {
     {
       std::lock_guard<std::mutex> lock(esdf_update_mutex_);
-      esdf_server_queue_.callAvailable();
+      executor.spin_some();
     }
     first_esdf_update_condition_.notify_all();
     rate.sleep();
   }
-  ROS_DEBUG_STREAM("Map update thread finished.");
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Map update thread finished.");
 }
+void WholeBodyPlanningServer::spinMoveitNode()
+{
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(moveit_node_);
+  while (rclcpp::ok() && moveit_spin_running_) {
+    executor.spin_some(std::chrono::milliseconds(100));
+  }
+}
+
 void WholeBodyPlanningServer::stopMapUpdateThread()
 {
   map_update_running_ = false;
@@ -843,20 +870,16 @@ void WholeBodyPlanningServer::stopExecution()
   std::lock_guard<std::recursive_mutex> trajectory_lock(trajectory_mutex_);
   execution_completed_ = true;
   trajectory_.reset();
-  trajectory_start_time_ = ros::Time();
+  trajectory_start_time_ = rclcpp::Time(0, 0u, RCL_ROS_TIME);
 
-  // We do not care about canceled goals
-  if (driving_client_->getState() != actionlib::SimpleClientGoalState::LOST) {
-    driving_client_->stopTrackingGoal();
-  }
-  driving_client_->cancelAllGoals();
-  moveit_cpp_ptr_->getTrajectoryExecutionManager()->stopExecution();
+  driving_client_->async_cancel_all_goals();
+  moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->stopExecution();
 }
 
 void WholeBodyPlanningServer::executionWatchDog()
 {
-  ros::Rate rate(10.0);
-  while (!execution_completed_ && ros::ok())  {
+  rclcpp::Rate rate(10.0);
+  while (!execution_completed_ && rclcpp::ok())  {
     std::unique_lock<std::recursive_mutex> trajectory_lock(trajectory_mutex_);
     if (!trajectory_) {
       trajectory_lock.unlock();
@@ -865,19 +888,19 @@ void WholeBodyPlanningServer::executionWatchDog()
     }
 
     // Get latest robot pose
-    geometry_msgs::TransformStamped current_robot_pose_stamped;
-    getRobotPose(ros::Time(0), current_robot_pose_stamped);
+    geometry_msgs::msg::TransformStamped current_robot_pose_stamped;
+    getRobotPose(rclcpp::Time(0, 0u, RCL_ROS_TIME), current_robot_pose_stamped);
     Eigen::Isometry3d current_robot_pose;
-    tf::transformMsgToEigen(current_robot_pose_stamped.transform, current_robot_pose);
+    current_robot_pose = tf2::transformToEigen(current_robot_pose_stamped.transform);
 
     // Find expected robot pose at current time
-    ros::Time now = current_robot_pose_stamped.header.stamp;
-    ros::Duration duration_after_start = now - trajectory_start_time_;
+    rclcpp::Time now(current_robot_pose_stamped.header.stamp);
+    rclcpp::Duration duration_after_start = now - trajectory_start_time_;
     int before_index, after_index;
     double progress; // value between 0 and 1
-    trajectory_->findWayPointIndicesForDurationAfterStart(duration_after_start.toSec(), before_index, after_index, progress);
-    const robot_state::RobotState& before_state = trajectory_->getWayPoint(before_index);
-    const robot_state::RobotState& after_state = trajectory_->getWayPoint(after_index);
+    trajectory_->findWayPointIndicesForDurationAfterStart(duration_after_start.seconds(), before_index, after_index, progress);
+    const moveit::core::RobotState& before_state = trajectory_->getWayPoint(before_index);
+    const moveit::core::RobotState& after_state = trajectory_->getWayPoint(after_index);
 
     // Linear interpolation for position and orientation
     const Eigen::Isometry3d& before_pose = before_state.getJointTransform("world_virtual_joint");
@@ -894,23 +917,23 @@ void WholeBodyPlanningServer::executionWatchDog()
     interpolated_pose.translation() = interpolated_position;
 
     // Compute full interpolated state and publish for visualization
-    robot_state::RobotState interpolated_state(trajectory_->getRobotModel());
+    moveit::core::RobotState interpolated_state(trajectory_->getRobotModel());
     before_state.interpolate(after_state, progress, interpolated_state);
     whole_body_posture_optimization::updateMoveitRobotState(interpolated_state, interpolated_pose);
-    moveit_msgs::DisplayRobotState robot_state_msg;
+    moveit_msgs::msg::DisplayRobotState robot_state_msg;
     moveit::core::robotStateToRobotStateMsg(interpolated_state, robot_state_msg.state);
-    std_msgs::ColorRGBA color;
+    std_msgs::msg::ColorRGBA color;
     color.a = 1.0;
     color.r = 0;
     color.g = 1.0;
     color.b = 0;
     for (const auto& link: trajectory_->getRobotModel()->getLinkModelNames()) {
-      moveit_msgs::ObjectColor object_color;
+      moveit_msgs::msg::ObjectColor object_color;
       object_color.color = color;
       object_color.id = link;
       robot_state_msg.highlight_links.push_back(object_color);
     }
-    robot_state_pub_.publish(robot_state_msg);
+    robot_state_pub_->publish(robot_state_msg);
 
     // Check position threshold
     double distance = (interpolated_pose.translation() - current_robot_pose.translation()).norm();
@@ -923,44 +946,40 @@ void WholeBodyPlanningServer::executionWatchDog()
 
     bool stop_execution = false;
     if (position_out_of_limits) {
-      ROS_WARN_STREAM("Position deviation of " << distance << " exceeds tolerance of " << execution_position_tolerance_);
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Position deviation of " << distance << " exceeds tolerance of " << execution_position_tolerance_);
       stop_execution = true;
     }
     if (orientation_out_of_limits) {
-      ROS_WARN_STREAM("Orientation deviation of " << angular_distance << " exceeds tolerance of " << execution_orientation_tolerance_);
+      RCLCPP_WARN_STREAM(node_->get_logger(), "Orientation deviation of " << angular_distance << " exceeds tolerance of " << execution_orientation_tolerance_);
       stop_execution = true;
     }
 
     // Publish deviation
-    std_msgs::Float64 deviation_msg;
+    std_msgs::msg::Float64 deviation_msg;
     deviation_msg.data = distance;
-    position_deviation_pub_.publish(deviation_msg);
+    position_deviation_pub_->publish(deviation_msg);
     deviation_msg.data = angular_distance;
-    orientation_deviation_pub_.publish(deviation_msg);
+    orientation_deviation_pub_->publish(deviation_msg);
 
     if (stop_execution) {
       // Stop execution and fail goal (with stuck)
       stopExecution();
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      if (followPathServerIsActive()) {
-        move_base_lite_msgs::FollowPathResult result;
-        result.result.val = move_base_lite_msgs::ErrorCodes::STUCK_DETECTED;
-        follow_path_goal_.setAborted(result, "Deviation between planned robot pose and current pose exceeds threshold.");
-      }
+      abortActiveGoal("Deviation between planned robot pose and current pose exceeds threshold.", FollowPath::Result::FAILED_TO_MAKE_PROGRESS);
       break;
     }
 
-    trajectory_mutex_.unlock();
+    trajectory_lock.unlock();
     rate.sleep();
   }
-  ROS_DEBUG_STREAM("Watchdog thread finished");
+  RCLCPP_DEBUG_STREAM(node_->get_logger(), "Watchdog thread finished");
 }
 
 void WholeBodyPlanningServer::waitForMap()
 {
   std::unique_lock<std::mutex> esdf_update_lock(esdf_update_mutex_);
   if (sdf_model_->isEmpty()) {
-    ROS_INFO_STREAM("Waiting for first ESDF");
+    RCLCPP_INFO_STREAM(node_->get_logger(), "Waiting for first ESDF");
     while (!execution_completed_ && sdf_model_->isEmpty()) {
       first_esdf_update_condition_.wait(esdf_update_lock);
     }
@@ -971,30 +990,30 @@ void WholeBodyPlanningServer::saveTrajectoryStatistics(
     const std::vector<whole_body_posture_optimization::PostureOptimizationResult> &results,
     robot_trajectory::RobotTrajectory &trajectory,
     const std::vector<size_t> &trajectory_start_indices,
-    const ros::Time &start_time) {
+    const rclcpp::Time &start_time) {
   if (!trajectory_statistics_save_folder_.empty() && end_of_path_reached_) {
     std::string time_stamp = whole_body_posture_optimization::getTimestamp();
     std::string save_path = trajectory_statistics_save_folder_ + "/trajectory_statistics-" + time_stamp + ".csv";
     if (whole_body_posture_optimization::WholeBodyPostureOptimization::saveTrajectoryStatistics(results, trajectory, trajectory_start_indices, save_path, start_time)) {
-      ROS_INFO_STREAM("Saved trajectory statistics in " << save_path);
+      RCLCPP_INFO_STREAM(node_->get_logger(), "Saved trajectory statistics in " << save_path);
     }
   }
 }
 
-void WholeBodyPlanningServer::waitUntilPlanningHorizonReached(const geometry_msgs::Point& planning_point)
+void WholeBodyPlanningServer::waitUntilPlanningHorizonReached(const geometry_msgs::msg::Point& planning_point)
 {
   bool too_far_away = false;
-  ros::Rate rate(10.0);
+  rclcpp::Rate rate(10.0);
   std::unique_lock<std::mutex> reconfigure_lock(reconfigure_mutex_);
   if (planning_horizon_ > 0) {
     reconfigure_lock.unlock();
     do {
       too_far_away = false;
       // Get current pose
-      geometry_msgs::TransformStamped robot_transform;
-      if (getRobotPose(ros::Time(0), robot_transform)) {
+      geometry_msgs::msg::TransformStamped robot_transform;
+      if (getRobotPose(rclcpp::Time(0, 0u, RCL_ROS_TIME), robot_transform)) {
         // Distance in x-y plane
-        double distance = euclideanDistance2D<geometry_msgs::Vector3, geometry_msgs::Point>(robot_transform.transform.translation, planning_point);
+        double distance = euclideanDistance2D<geometry_msgs::msg::Vector3, geometry_msgs::msg::Point>(robot_transform.transform.translation, planning_point);
         {
           std::lock_guard<std::mutex> lock(reconfigure_mutex_);
           too_far_away = distance > planning_horizon_;
@@ -1010,19 +1029,19 @@ void WholeBodyPlanningServer::waitUntilPlanningHorizonReached(const geometry_msg
 }
 
 
-bool WholeBodyPlanningServer::updatePath(nav_msgs::Path& old_path, const nav_msgs::Path& new_path) const {
+bool WholeBodyPlanningServer::updatePath(nav_msgs::msg::Path& old_path, const nav_msgs::msg::Path& new_path) const {
   std::lock_guard<std::mutex> lock(path_update_mutex_);
 
   // Get current robot position
-  geometry_msgs::TransformStamped robot_transform;
-  getRobotPose(ros::Time(0), robot_transform);
+  geometry_msgs::msg::TransformStamped robot_transform;
+  getRobotPose(rclcpp::Time(0, 0u, RCL_ROS_TIME), robot_transform);
 
   // Create slices
-  nav_msgs::Path new_slice = slicePathDirectDistance(new_path, robot_transform.transform.translation, planning_horizon_, true, 0);
+  nav_msgs::msg::Path new_slice = slicePathDirectDistance(new_path, robot_transform.transform.translation, planning_horizon_, true, 0);
   if (new_slice.poses.empty()) {
     return true;
   }
-  nav_msgs::Path old_slice = slicePathDirectDistance(old_path, robot_transform.transform.translation, planning_horizon_, false, current_path_index_);
+  nav_msgs::msg::Path old_slice = slicePathDirectDistance(old_path, robot_transform.transform.translation, planning_horizon_, false, current_path_index_);
 
   // Check if slices connect well
   double slice_distance = euclideanDistance2D(old_slice.poses.back().pose.position, new_slice.poses.front().pose.position);

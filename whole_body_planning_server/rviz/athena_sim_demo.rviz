@@ -1,0 +1,131 @@
+Panels:
+  - Class: rviz_common/Displays
+    Help Height: 70
+    Name: Displays
+    Property Tree Widget:
+      Expanded: ~
+      Splitter Ratio: 0.5
+    Tree Height: 500
+  - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Enabled: true
+      Name: Grid
+      Plane: XY
+      Plane Cell Count: 20
+      Reference Frame: world
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: false
+      Name: TF
+      Value: false
+    - Class: rviz_default_plugins/RobotModel
+      Enabled: true
+      Name: SimRobot
+      Description Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /athena/robot_description
+      TF Prefix: ""
+      Value: true
+    - Class: voxblox_rviz_plugin/VoxbloxMesh
+      Enabled: true
+      Name: EsdfMesh
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /athena/mesh
+      Value: true
+    - Class: rviz_default_plugins/InteractiveMarkers
+      Enabled: true
+      Interactive Markers Namespace: /athena/plan_goal_marker
+      Name: PlanGoalMarkers
+      Value: true
+    - Class: moveit_rviz_plugin/Trajectory
+      Enabled: true
+      Name: PlannedTrajectory
+      Robot Description: robot_description
+      Trajectory Topic: /athena/trajectory
+      Loop Animation: false
+      State Display Time: 1x
+      Color Enabled: true
+      Robot Color: 255; 140; 0
+      Robot Alpha: 1
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Enabled: true
+      Name: GoalPath
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /athena/goal_path
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Enabled: true
+      Name: PreprocessedPath
+      Color: 25; 255; 0
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /athena/preprocessed_path
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: FlipperSupportPolygon
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /athena/flipper_optimization/support_polygon
+      Value: true
+    - Class: moveit_rviz_plugin/RobotState
+      Enabled: false
+      Name: PlanningProgressState
+      Robot Description: robot_description
+      Robot State Topic: /athena/robot_state
+      Value: false
+      Visual Enabled: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: world
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/FocusCamera
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 6
+      Focal Point:
+        X: 1
+        Y: 0
+        Z: 0.3
+      Name: Current View
+      Pitch: 0.5
+      Target Frame: <Fixed Frame>
+      Yaw: 5.5
+    Saved: ~
+Window Geometry:
+  Height: 900
+  Width: 1400

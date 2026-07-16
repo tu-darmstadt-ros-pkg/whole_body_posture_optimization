@@ -1,0 +1,26 @@
+# Rolling (continuous re-planning) variant of the whole-body planning demo on
+# the Athena Gazebo simulation: the server plans ahead within the planning
+# horizon while the robot is already driving, and new goals (right-click ->
+# "Plan path") update/stitch the current path.
+#
+#   ros2 launch whole_body_planning_server athena_sim_rolling_demo.launch.yaml
+
+launch:
+- arg:
+    name: namespace
+    default: /athena
+- arg:
+    name: rviz
+    default: 'true'
+
+- include:
+    file: $(find-pkg-share whole_body_planning_server)/launch/athena_sim_demo.launch.yaml
+    arg:
+    - name: namespace
+      value: $(var namespace)
+    - name: rviz
+      value: $(var rviz)
+    - name: continuous_planning
+      value: 'true'
+    - name: planning_horizon
+      value: '2.0'

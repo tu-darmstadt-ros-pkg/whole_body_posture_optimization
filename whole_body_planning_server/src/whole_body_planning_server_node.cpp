@@ -1,13 +1,12 @@
 #include <whole_body_planning_server/whole_body_planning_server.h>
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "whole_body_planning_server");
-  ros::NodeHandle nh;
-  ros::NodeHandle pnh("~");
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("whole_body_planning_server");
 
-  whole_body_planning_server::WholeBodyPlanningServer driving_controller(nh, pnh);
+  whole_body_planning_server::WholeBodyPlanningServer planning_server(node);
 
-  ros::spin();
-
+  rclcpp::spin(node);
+  rclcpp::shutdown();
   return 0;
 }

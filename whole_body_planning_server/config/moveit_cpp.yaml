@@ -1,18 +1,28 @@
-planning_scene_monitor_options:
-  name: "planning_scene_monitor"
-  robot_description: "robot_description"
-  joint_state_topic: "/joint_states"
-  attached_collision_object_topic: "/planning_scene_monitor"
-  publish_planning_scene_topic: "/publish_planning_scene"
-  monitored_planning_scene_topic: "/monitored_planning_scene"
-  wait_for_initial_state_timeout: 10.0
+# ROS 2 parameter file for the MoveItCpp instance of the planning server.
+# Topics are relative so they resolve under the robot namespace (e.g. /athena).
+/**:
+  ros__parameters:
+    planning_scene_monitor_options:
+      name: "planning_scene_monitor"
+      robot_description: "robot_description"
+      joint_state_topic: "joint_states"
+      attached_collision_object_topic: "planning_scene_monitor"
+      publish_planning_scene_topic: "publish_planning_scene"
+      monitored_planning_scene_topic: "monitored_planning_scene"
+      wait_for_initial_state_timeout: 0.0  # don't block in the MoveItCpp ctor; the dedicated spin thread starts right after
 
-planning_pipelines:
-  pipeline_names:
-    - ompl
+    planning_pipelines:
+      pipeline_names:
+        - ompl
 
-plan_request_params:
-  planning_attempts: 1
-  planning_pipeline: ompl
-  max_velocity_scaling_factor: 1.0
-  max_acceleration_scaling_factor: 1.0
+    # Minimal OMPL pipeline config (MoveItCpp requires at least one pipeline;
+    # the whole-body trajectory planning itself loads the OMPL plugin directly)
+    ompl:
+      planning_plugins:
+        - ompl_interface/OMPLPlanner
+
+    plan_request_params:
+      planning_attempts: 1
+      planning_pipeline: ompl
+      max_velocity_scaling_factor: 1.0
+      max_acceleration_scaling_factor: 1.0

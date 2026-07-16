@@ -1,0 +1,133 @@
+# Whole-body posture optimization parameters for the Athena 4-flipper robot.
+# Loaded into the optimization node (see launch/*_athena*.launch.yaml).
+# Flipper joint names/limits follow sdf_dp_flipper_planner/config/robot_athena.yaml.
+/**:
+  ros__parameters:
+    # Default state: arm folded (athena_moveit_config "folded" group state), flippers up
+    default_joint_state:
+      arm_joint_1: 3.14
+      arm_joint_2: 1.65
+      arm_joint_3: 0.0
+      arm_joint_4: -1.51
+      arm_joint_5: 0.0
+      arm_joint_6: -1.38
+      arm_joint_7: 0.0
+      flipper_fl_joint: 1.2
+      flipper_fr_joint: 1.2
+      flipper_bl_joint: 1.2
+      flipper_br_joint: 1.2
+
+    optimization_type: split
+    collision_group: arm_group
+
+    stability_limit: 0.0
+    front_tip_support_area_limit: 0.0  # disabled
+
+    # flipper_group_with_world is injected into the stock SRDF by
+    # scripts/srdf_with_world_publisher.py (should eventually move to athena_moveit_config)
+    complete_robot_group: flipper_group
+    complete_robot_with_world_group: flipper_group_with_world
+    trajectory_planner: ompl_interface/OMPLPlanner
+    # Slow down the trajectory: scales all velocity/acceleration limits (0-1]
+    max_velocity_scaling_factor: 0.5
+    max_acceleration_scaling_factor: 0.5
+
+    # Athena flippers are continuous joints; restrict them to a deployment arc
+    # (same arc as in sdf_dp_flipper_planner/config/robot_athena.yaml)
+    joint_limits:
+      flipper_fl_joint: [-1.5178, 1.5178]
+      flipper_fr_joint: [-1.5178, 1.5178]
+      flipper_bl_joint: [-1.5178, 1.5178]
+      flipper_br_joint: [-1.5178, 1.5178]
+
+    flipper_optimization:
+      custom_solver:
+        enabled: false
+        algorithm: grid_search
+        search_resolution: 0.174 # 10 deg steps
+      solver:
+        enabled: true
+        algorithm: GN_DIRECT
+        maxeval: 200   # 4 DOF -> allow more evaluations than the 2-DOF robots
+        # note: do not set 'stopval' here: the athena cost becomes negative almost
+        # immediately (track contact reward), which would stop the solver early
+
+      local_solver:
+        enabled: false
+        maxeval: 10
+
+      # Note: all four flippers are optimized independently; there is no
+      # left/right mirroring constraint (unlike sdf_dp_flipper_planner's DOF pairs).
+      joints:
+        - flipper_fl_joint
+        - flipper_fr_joint
+        - flipper_bl_joint
+        - flipper_br_joint
+
+      cost_parameters:
+        verbose: false
+        # state costs
+        stability_weight: 1.0
+        stability_nominal_value: 1.5
+        stability_exp_parameters_a: 14.0
+        stability_exp_parameters_b: -2.6
+        stability_exp_parameters_c: 0.3
+        support_area_weight: 0.0
+        track_contact_weight: 8.0
+        track_contact_nominal_value: 0.2
+        body_contact_weight: 50.0
+        roll_cost_weight: 0.0  # robot can't influence its roll angle with tracks
+        position_deviation_weight: 0.0
+        # transition costs
+        lorentzian_sigma: 0.05
+        movement_cost_weight: 0.1
+        turning_resistance_weight: 10.0
+        impact_weight: 3.0
+        # uncertainty
+        num_pose_x_samples: 1.0
+        sample_step_pose_x: 0.01
+        pose_x_sigma: 0.03
+        risk_level: 0.8 # 0-1, 0 (high risk, mean), 1 (safe, maximum)
+        regularization_weight: 0.1
+
+    arm_optimization:
+      # Disabled by default: requires tuning of the collision paddings and
+      # static link lists for Athena first.
+      enabled: false
+      solver:
+        algorithm: LN_COBYLA
+        maxeval: 300
+        xtol_rel: 0.005
+      joints:
+        - arm_joint_2 # first pitch
+        - arm_joint_4 # second pitch
+        - arm_joint_6 # third pitch
+      environment_collision_default_padding: 0.15
+      self_collision_default_padding: 0.05
+      self_collision_tsdf_default_padding: 0.005
+      self_collision_tsdf_truncation_distance: 0.4
+
+      cost_parameters:
+        function_scale: 1.0
+        exp_parameters_a: 14.0
+        exp_parameters_b: -2.6
+        exp_parameters_c: 0.3
+        lorentzian_sigma: 0.15
+        movement_cost_weight: 0.3
+
+      # moveable, but static regarding arm optimization (i.e. flipper links)
+      semi_static_link_names:
+        - flipper_fl_link
+        - flipper_fr_link
+        - flipper_bl_link
+        - flipper_br_link
+
+      static_link_names:
+        - chassis_link
+        - main_track_left_link
+        - main_track_right_link
+
+    ## Debug
+    posture_optimization_debug: false
+    debug: false  # pose predictor debug (read from the node root by sdf_contact_estimation)
+    stepping: false

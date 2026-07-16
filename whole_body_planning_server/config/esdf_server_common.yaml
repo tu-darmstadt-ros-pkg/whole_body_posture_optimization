@@ -1,4 +1,7 @@
-world_frame: world
-tsdf_voxel_size: 0.05
-tsdf_voxels_per_side: 16
-verbose: false
+# ROS 2 parameter file for the voxblox esdf server node (<planning_server_node>_esdf_server)
+/**:
+  ros__parameters:
+    world_frame: world
+    tsdf_voxel_size: 0.05
+    tsdf_voxels_per_side: 16
+    verbose: false

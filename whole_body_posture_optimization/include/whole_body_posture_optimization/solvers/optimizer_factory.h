@@ -6,11 +6,11 @@
 
 namespace whole_body_posture_optimization {
 
-std::shared_ptr<OptimizerBase> createSolverByName(const std::string& solver_name) {
+inline std::shared_ptr<OptimizerBase> createSolverByName(const std::string& solver_name) {
   if (solver_name == GridSearchOptimizer::NAME) {
     return std::make_shared<GridSearchOptimizer>();
   }
-  ROS_ERROR_STREAM("Unknown solver '" << solver_name << "'");
+  RCLCPP_ERROR_STREAM(rclcpp::get_logger("whole_body_posture_optimization"), "Unknown solver '" << solver_name << "'");
   return {};
 }
 

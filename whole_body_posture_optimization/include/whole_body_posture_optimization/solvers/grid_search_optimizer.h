@@ -9,7 +9,7 @@ class GridSearchOptimizer : public OptimizerBase
 {
 public:
   GridSearchOptimizer();
-  void loadParametersFromNamespace(const ros::NodeHandle& nh) override;
+  void loadParametersFromNamespace(rclcpp::Node& node, const std::string& prefix) override;
   nlopt::result optimize(std::vector<double>& parameters, double& minf) override;
   void gridSearch(const std::vector<double>& search_parameters, std::vector<double>& min_parameters, double& minf, size_t dim);
   std::string solverName() const override;

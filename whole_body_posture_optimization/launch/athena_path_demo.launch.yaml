@@ -1,0 +1,101 @@
+# Path-based whole-body posture optimization demo for the Athena robot on an
+# in-process test terrain: optimizes postures along a straight path defined by
+# path_start/path_stop/path_step and computes a timed whole-body trajectory.
+#
+#   ros2 launch whole_body_posture_optimization athena_path_demo.launch.yaml
+#
+# New paths can also be sent at runtime on the topics `goal_path` (dense) or
+# `sparse_goal_path` (waypoints, straight-line connected).
+
+launch:
+- arg:
+    name: rviz
+    default: 'true'
+- arg:
+    name: scenario
+    default: 'step'
+    description: sdf_contact_estimation test scenario used as terrain
+- arg:
+    name: path_start
+    default: '-1.0'
+- arg:
+    name: path_stop
+    default: '1.5'
+- arg:
+    name: path_step
+    default: '0.1'
+
+  # ---------------- Robot description ----------------
+- include:
+    file: $(find-pkg-share athena_description)/launch/load_description.launch.py
+    arg:
+    - name: gazebo
+      value: 'false'
+
+  # SRDF (robot_description_semantic topic), required by MoveIt and the shape model
+- node:
+    pkg: whole_body_posture_optimization
+    exec: srdf_with_world_publisher.py
+    name: srdf_publisher
+    output: screen
+    param:
+    - name: robot_type
+      value: athena
+
+  # ---------------- Posture optimization ----------------
+- node:
+    pkg: whole_body_posture_optimization
+    exec: whole_body_posture_optimization_node
+    name: whole_body_posture_optimization
+    output: screen
+    param:
+    - name: pose_predictor
+      value: sdf_contact_estimation::SDFContactEstimation
+      # Straight test path
+    - name: path_start
+      value: $(var path_start)
+    - name: path_stop
+      value: $(var path_stop)
+    - name: path_step
+      value: $(var path_step)
+      # Terrain (sdf_contact_estimation test scenario)
+    - name: sdf_map.scenario
+      value: $(var scenario)
+    - name: sdf_map.voxel_size
+      value: 0.05
+    - name: sdf_map.use_esdf
+      value: true
+    - name: sdf_map.truncation_distance
+      value: 0.4
+      # Pose predictor settings (contact estimation)
+    - from: $(find-pkg-share sdf_contact_estimation_demo)/config/optimization.yaml
+      # Collision shape of the athena robot (from the sdf_dp_flipper_planner port)
+    - name: collision_links_config_file
+      value: $(find-pkg-share sdf_dp_flipper_planner)/config/athena_shape_config.yaml
+      # Posture optimization parameters
+    - from: $(find-pkg-share whole_body_posture_optimization)/config/opt_athena.yaml
+
+  # ---------------- Plan request markers ----------------
+  # Freely movable start/goal markers; right-click -> "Plan path (start -> goal)"
+  # sends a sparse path request to the optimization node.
+- node:
+    pkg: whole_body_posture_optimization
+    exec: plan_goal_marker_node.py
+    name: plan_goal_marker
+    output: screen
+    param:
+    - name: frame_id
+      value: world
+    - name: start_pose
+      value: [-1.0, 0.0, 0.5, 0.0]
+    - name: goal_pose
+      value: [1.5, 0.0, 0.5, 0.0]
+
+  # ---------------- Visualization ----------------
+- node:
+    pkg: rviz2
+    exec: rviz2
+    name: rviz
+    output: screen
+    args: -d $(find-pkg-share whole_body_posture_optimization)/rviz/athena_demo.rviz
+    if: $(var rviz)

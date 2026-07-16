@@ -3,7 +3,7 @@
 
 #include <nlopt.hpp>
 #include <ceres/ceres.h>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
 
 namespace whole_body_posture_optimization {
@@ -11,10 +11,11 @@ namespace whole_body_posture_optimization {
 class OptimizerBase {
 public:
   OptimizerBase();
+  virtual ~OptimizerBase() = default;
   void setMinFunction(std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> cost_function);
   void loadSettingsFromNlopt(const nlopt::opt& opt);
 
-  virtual void loadParametersFromNamespace(const ros::NodeHandle& nh) = 0;
+  virtual void loadParametersFromNamespace(rclcpp::Node& node, const std::string& prefix) = 0;
 
   virtual nlopt::result optimize(std::vector<double>& parameters, double& minf) = 0;
   virtual std::string solverName() const = 0;

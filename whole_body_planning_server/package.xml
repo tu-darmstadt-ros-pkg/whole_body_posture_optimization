@@ -1,36 +1,33 @@
 <?xml version="1.0"?>
-<package format="2">
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>whole_body_planning_server</name>
-  <version>0.0.0</version>
+  <version>2.0.0</version>
   <description>The whole_body_planning_server package</description>
 
   <maintainer email="oehler@sim.tu-darmstadt.de">Martin Oehler</maintainer>
-
-
-  <!-- One license tag required, multiple allowed, one license per tag -->
-  <!-- Commonly used license strings: -->
-  <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-  <license>TODO</license>
-
   <author email="oehler@sim.tu-darmstadt.de">Martin Oehler</author>
 
+  <license>BSD</license>
 
-  <!-- The *depend tags are used to specify dependencies -->
-  <!-- Dependencies can be catkin packages or system dependencies -->
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
   <depend>whole_body_posture_optimization</depend>
-  <depend>actionlib</depend>
   <depend>tf2_ros</depend>
+  <depend>tf2_eigen</depend>
+  <depend>voxblox_ros</depend>
   <depend>voxblox_msgs</depend>
   <depend>nav_msgs</depend>
-  <depend>move_base_lite_msgs</depend>
+  <depend>nav2_msgs</depend>
   <depend>moveit_msgs</depend>
-  <depend>moveit_ros_planning_interface</depend>
+  <depend>moveit_ros_planning</depend>
   <depend>sensor_msgs</depend>
-  <depend>eigen_conversions</depend>
-  <depend>dynamic_reconfigure</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
 
-  <!-- The export tag contains other, unspecified, tags -->
   <export>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

@@ -1,0 +1,113 @@
+# Interactive whole-body posture optimization demo for the Athena robot on an
+# in-process test terrain.
+#
+#   ros2 launch whole_body_posture_optimization athena_manual_demo.launch.yaml
+#
+# Drag the "robot_pose" interactive marker (or move joints in the joint state
+# GUI) to trigger a new posture optimization at that pose.
+#
+# Terrain: selected via the `scenario` arg (test scenarios of sdf_contact_estimation,
+# e.g. flat, step, ramp).
+
+launch:
+- arg:
+    name: rviz
+    default: 'true'
+- arg:
+    name: scenario
+    default: 'step'
+    description: sdf_contact_estimation test scenario used as terrain
+
+  # ---------------- Robot description ----------------
+- include:
+    file: $(find-pkg-share athena_description)/launch/load_description.launch.py
+    arg:
+    - name: gazebo
+      value: 'false'
+
+  # SRDF (robot_description_semantic topic), required by MoveIt and the shape model
+- node:
+    pkg: whole_body_posture_optimization
+    exec: srdf_with_world_publisher.py
+    name: srdf_publisher
+    output: screen
+    param:
+    - name: robot_type
+      value: athena
+
+  # ---------------- Manual control UI ----------------
+- node:
+    pkg: joint_state_publisher_gui
+    exec: joint_state_publisher_gui
+    name: joint_state_publisher_gui
+    output: screen
+    param:
+    - name: zeros.arm_joint_1
+      value: 3.14
+    - name: zeros.arm_joint_2
+      value: 1.65
+    - name: zeros.arm_joint_4
+      value: -1.51
+    - name: zeros.arm_joint_6
+      value: -1.38
+    - name: zeros.flipper_fl_joint
+      value: 1.2
+    - name: zeros.flipper_fr_joint
+      value: 1.2
+    - name: zeros.flipper_bl_joint
+      value: 1.2
+    - name: zeros.flipper_br_joint
+      value: 1.2
+
+- node:
+    pkg: interactive_marker_pose_server
+    exec: interactive_marker_pose_server_node
+    name: robot_pose_interactive_marker
+    output: screen
+    remap:
+    - from: pose
+      to: set_robot_pose
+    param:
+    - name: marker_name
+      value: robot_pose
+    - name: frame_id
+      value: world
+    - name: init_pose
+      value: [0.0, 0.0, 0.5, 0.0, 0.0, 0.0]
+
+  # ---------------- Posture optimization ----------------
+- node:
+    pkg: whole_body_posture_optimization
+    exec: manual_control_node
+    name: whole_body_posture_optimization
+    output: screen
+    param:
+    - name: robot_pose
+      value: [0.0, 0.0, 0.5, 0.0, 0.0, 0.0]
+    - name: pose_predictor
+      value: sdf_contact_estimation::SDFContactEstimation
+      # Terrain (sdf_contact_estimation test scenario)
+    - name: sdf_map.scenario
+      value: $(var scenario)
+    - name: sdf_map.voxel_size
+      value: 0.05
+    - name: sdf_map.use_esdf
+      value: true
+    - name: sdf_map.truncation_distance
+      value: 0.4
+      # Pose predictor settings (contact estimation)
+    - from: $(find-pkg-share sdf_contact_estimation_demo)/config/optimization.yaml
+      # Collision shape of the athena robot (from the sdf_dp_flipper_planner port)
+    - name: collision_links_config_file
+      value: $(find-pkg-share sdf_dp_flipper_planner)/config/athena_shape_config.yaml
+      # Posture optimization parameters
+    - from: $(find-pkg-share whole_body_posture_optimization)/config/opt_athena.yaml
+
+  # ---------------- Visualization ----------------
+- node:
+    pkg: rviz2
+    exec: rviz2
+    name: rviz
+    output: screen
+    args: -d $(find-pkg-share whole_body_posture_optimization)/rviz/athena_demo.rviz
+    if: $(var rviz)

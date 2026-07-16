@@ -1,9 +1,11 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_COMMON_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_COMMON_H
 
-#include <moveit/collision_distance_field/collision_distance_field_types.h>
-#include <moveit/robot_state/robot_state.h>
-#include <moveit/robot_trajectory/robot_trajectory.h>
+#include <rclcpp/rclcpp.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <moveit/collision_distance_field/collision_distance_field_types.hpp>
+#include <moveit/robot_state/robot_state.hpp>
+#include <moveit/robot_trajectory/robot_trajectory.hpp>
 #include <ceres_nlopt_wrapper/utils.h>
 #include <ceres/cost_function.h>
 #include <sdf_contact_estimation/util/utils.h>
@@ -11,7 +13,7 @@
 
 namespace whole_body_posture_optimization {
 
-void deleteAllMarkers(const ros::Publisher& pub);
+void deleteAllMarkers(const rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr& pub);
 
 template<typename T>
 std::string vecToString(const std::vector<T>& vec) {
@@ -80,9 +82,9 @@ template <typename T> std::vector<T> computeForceAngleStabilitiesWithGravity(con
   return computeForceAngleStabilities(contact_points, Vector3<T>(T(0), T(0), T(-9.81)), com);
 }
 
-void updateMoveitRobotState(robot_state::RobotState& state, const Eigen::Isometry3d& pose);
+void updateMoveitRobotState(moveit::core::RobotState& state, const Eigen::Isometry3d& pose);
 
-std::vector<double> getVariablePositions(const robot_state::RobotStateConstPtr& state, const std::vector<std::string>& variables);
+std::vector<double> getVariablePositions(const moveit::core::RobotStateConstPtr& state, const std::vector<std::string>& variables);
 
 std::string robotTrajectoryToString(const robot_trajectory::RobotTrajectory& trajectory);
 std::string robotTrajectoryToOdomString(const robot_trajectory::RobotTrajectory& trajectory);
@@ -103,11 +105,11 @@ std::vector<std::size_t> getIndexMap(const std::vector<T>& list, const std::vect
   std::vector<std::size_t> indices;
   for (const auto& s: subset) {
     auto it = std::find(list.begin(), list.end(), s);
-    std:size_t idx;
+    std::size_t idx;
     if (it != list.end()) {
       idx  = static_cast<std::size_t>(it - list.begin());
     } else {
-      ROS_ERROR_STREAM("Could not find object " << s << " in list");
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger("whole_body_posture_optimization"), "Could not find object " << s << " in list");
       idx = 0;
     }
     indices.push_back(idx);
@@ -127,7 +129,7 @@ std::vector<T> mapListToSubset(const std::vector<T> &list, const std::vector<std
 
 Eigen::Vector3d quatToEuler(const Eigen::Quaterniond& quaternion, const std::string& convention = "zyx");
 
-std::string rosTimeToString(const ros::Time& time);
+std::string rosTimeToString(const rclcpp::Time& time);
 
 }
 

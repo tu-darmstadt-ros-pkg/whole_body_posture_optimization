@@ -3,23 +3,27 @@
 
 #include <mutex>
 #include <condition_variable>
-#include <nav_msgs/Path.h>
-#include <std_msgs/Empty.h>
-#include <sensor_msgs/JointState.h>
+#include <atomic>
+#include <thread>
+
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
+
+#include <nav_msgs/msg/path.hpp>
+#include <std_msgs/msg/empty.hpp>
+#include <std_msgs/msg/float64.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <moveit_msgs/msg/display_robot_state.hpp>
 
 #include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
 
-#include <actionlib/client/simple_action_client.h>
-#include <actionlib/server/action_server.h>
-#include <move_base_lite_msgs/FollowPathAction.h>
+#include <nav2_msgs/action/follow_path.hpp>
 
-#include <moveit/moveit_cpp/moveit_cpp.h>
-#include <moveit/robot_trajectory/robot_trajectory.h>
+#include <moveit/moveit_cpp/moveit_cpp.hpp>
+#include <moveit/robot_trajectory/robot_trajectory.hpp>
 
 #include <voxblox_ros/esdf_server.h>
-
-#include <dynamic_reconfigure/server.h>
-#include <whole_body_planning_server/PlanningServerConfig.h>
 
 // Forward declarations
 namespace whole_body_posture_optimization {
@@ -31,34 +35,37 @@ namespace sdf_contact_estimation {
   class SdfModel;
 }
 
-typedef actionlib::SimpleActionClient<move_base_lite_msgs::FollowPathAction> FollowPathClient;
-
 namespace whole_body_planning_server {
+
+using FollowPath = nav2_msgs::action::FollowPath;
+using FollowPathServerGoalHandle = rclcpp_action::ServerGoalHandle<FollowPath>;
+using FollowPathClientGoalHandle = rclcpp_action::ClientGoalHandle<FollowPath>;
 
 class WholeBodyPlanningServer {
 public:
-  WholeBodyPlanningServer(const ros::NodeHandle& nh, const ros::NodeHandle& pnh);
+  explicit WholeBodyPlanningServer(const rclcpp::Node::SharedPtr& node);
   ~WholeBodyPlanningServer();
   bool loadTsdfFromPath(const std::string& tsdf_path);
   /**
    * @brief planAndExecutePathFull Plan and execute a whole-body plan along the given path
    * @param path_msg Path to drive
    */
-  bool planAndExecutePath(nav_msgs::Path path_msg, bool replanning= false);
-  bool planAndExecutePathFull(const nav_msgs::Path& path_msg, bool replanning= false);
-  void planAndExecutePathContinuous(const nav_msgs::Path& path_msg, bool replanning=false);
+  bool planAndExecutePath(nav_msgs::msg::Path path_msg, bool replanning= false);
+  bool planAndExecutePathFull(const nav_msgs::msg::Path& path_msg, bool replanning= false);
+  void planAndExecutePathContinuous(const nav_msgs::msg::Path& path_msg, bool replanning=false);
 private:
-  void updateRobotPose(const nav_msgs::Path& path);
-  bool getRobotPose(const ros::Time& stamp, geometry_msgs::TransformStamped& transform) const;
-  nav_msgs::Path preprocessPath(const nav_msgs::Path& path, double path_sampling_resolution) const;
-  bool generatePlan(const nav_msgs::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out);
+  void loadParameters();
+  void updateRobotPose(const nav_msgs::msg::Path& path);
+  bool getRobotPose(const rclcpp::Time& stamp, geometry_msgs::msg::TransformStamped& transform) const;
+  nav_msgs::msg::Path preprocessPath(const nav_msgs::msg::Path& path, double path_sampling_resolution) const;
+  bool generatePlan(const nav_msgs::msg::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out);
 
   bool ensureActiveControllers(const robot_trajectory::RobotTrajectory& trajectory);
-  bool executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time);
-  bool executeTrajectoryWithWatchdog(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time);
-  bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking=true, ros::Time start_time=ros::Time());
-  void executeBaseTrajectory(const robot_trajectory::RobotTrajectory& trajectory, ros::Time start_time=ros::Time());
-  void executeBaseTrajectory(const nav_msgs::Path& path);
+  bool executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time);
+  bool executeTrajectoryWithWatchdog(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time);
+  bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking=true, rclcpp::Time start_time=rclcpp::Time(0, 0u, RCL_ROS_TIME));
+  void executeBaseTrajectory(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time=rclcpp::Time(0, 0u, RCL_ROS_TIME));
+  void executeBaseTrajectory(const nav_msgs::msg::Path& path);
   void stopExecution();
 
   void stopExecutionThread();
@@ -69,48 +76,54 @@ private:
   void executionWatchDog();
 
   /// Util
-  bool updatePath(nav_msgs::Path& old_path, const nav_msgs::Path& new_path) const;
-  nav_msgs::Path extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const ros::Time& start_time) const;
+  bool updatePath(nav_msgs::msg::Path& old_path, const nav_msgs::msg::Path& new_path) const;
+  nav_msgs::msg::Path extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const rclcpp::Time& start_time) const;
   bool followPathServerIsActive() const;
+  void abortActiveGoal(const std::string& error_msg, uint16_t error_code);
   void saveTrajectoryStatistics(
       const std::vector<whole_body_posture_optimization::PostureOptimizationResult> &results,
       robot_trajectory::RobotTrajectory &trajectory,
       const std::vector<size_t> &trajectory_start_indices,
-      const ros::Time &start_time);
-  void waitUntilPlanningHorizonReached(const geometry_msgs::Point& planning_point);
+      const rclcpp::Time &start_time);
+  void waitUntilPlanningHorizonReached(const geometry_msgs::msg::Point& planning_point);
 
   /// Callbacks
   ///! Path following action server interface
-  void followPathGoalCallback(actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle goal);
-  void followPathPreemptCallback(const actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle& preempt);
+  rclcpp_action::GoalResponse followPathGoalCallback(const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const FollowPath::Goal> goal);
+  rclcpp_action::CancelResponse followPathCancelCallback(const std::shared_ptr<FollowPathServerGoalHandle>& goal_handle);
+  void followPathAcceptedCallback(const std::shared_ptr<FollowPathServerGoalHandle>& goal_handle);
 
   ///! Simple path goal via topic
-  void pathCb(const nav_msgs::PathConstPtr& path_msg);
-  void confirmExecutionCb(const std_msgs::EmptyConstPtr&);
-  void jointStateCb(const sensor_msgs::JointStateConstPtr& joint_state_msg);
+  void pathCb(const nav_msgs::msg::Path::ConstSharedPtr& path_msg);
+  void confirmExecutionCb(const std_msgs::msg::Empty::ConstSharedPtr&);
+  void jointStateCb(const sensor_msgs::msg::JointState::ConstSharedPtr& joint_state_msg);
 
   ///! Follow path client
-  void followPathClientDoneCallback(const actionlib::SimpleClientGoalState& state,
-                                    const move_base_lite_msgs::FollowPathResultConstPtr& result);
-  void followPathClientFeedbackCb(const move_base_lite_msgs::FollowPathFeedbackConstPtr& feedback);
+  void followPathClientDoneCallback(const FollowPathClientGoalHandle::WrappedResult& result);
+  void followPathClientFeedbackCb(FollowPathClientGoalHandle::SharedPtr, const std::shared_ptr<const FollowPath::Feedback>& feedback);
 
-  void dynamicReconfigureCallback(const whole_body_planning_server::PlanningServerConfig &config, uint32_t level);
+  rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter>& parameters);
 
   ///! Map updates
   void spinMapUpdate();
   void stopMapUpdateThread();
+  void spinMoveitNode();
   void waitForMap();
 
-  ros::NodeHandle nh_;
-  ros::NodeHandle pnh_;
+  rclcpp::Node::SharedPtr node_;
+  rclcpp::Node::SharedPtr esdf_node_;
+  /// Dedicated node for MoveItCpp: it requires automatically_declare_parameters_from_overrides,
+  /// which must not be enabled on the main node (collides with declare_parameter calls
+  /// in sdf_contact_estimation). Spun by its own thread.
+  rclcpp::Node::SharedPtr moveit_node_;
 
   std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
 
-  robot_state::RobotStatePtr current_robot_state_;
+  moveit::core::RobotStatePtr current_robot_state_;
   mutable std::mutex current_robot_state_mutex_;
 
-  nav_msgs::Path goal_path_;
+  nav_msgs::msg::Path goal_path_;
   mutable std::mutex path_update_mutex_;
   std::atomic<bool> path_updated_;
   std::atomic<bool> end_of_path_reached_;
@@ -119,7 +132,7 @@ private:
   robot_trajectory::RobotTrajectoryPtr planned_trajectory_; /// Planned but not yet executed trajectory
 
   robot_trajectory::RobotTrajectoryPtr trajectory_; /// Trajectory currently in execution
-  ros::Time trajectory_start_time_; /// Start time of trajectory in execution
+  rclcpp::Time trajectory_start_time_; /// Start time of trajectory in execution
   mutable std::recursive_mutex trajectory_mutex_;
 
 
@@ -127,14 +140,18 @@ private:
   std::unique_ptr<std::thread> execution_watchdog_thread_;
   std::atomic<bool> execution_completed_;
 
+  std::unique_ptr<std::thread> goal_thread_;
+
   std::unique_ptr<std::thread> map_update_thread;
   std::atomic<bool> map_update_running_;
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::unique_ptr<std::thread> moveit_spin_thread_;
+  std::atomic<bool> moveit_spin_running_;
+
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
 
   std::shared_ptr<voxblox::EsdfServer> esdf_server_;
-  ros::CallbackQueue esdf_server_queue_;
   mutable std::mutex esdf_update_mutex_;
   std::condition_variable first_esdf_update_condition_;
 
@@ -153,31 +170,34 @@ private:
   double execution_position_tolerance_;
   double execution_orientation_tolerance_;
   std::string trajectory_statistics_save_folder_;
+  // Path following options (were part of the move_base_lite FollowPath goal; nav2_msgs/FollowPath
+  // has no comparable options, so they are configured as parameters instead)
+  bool reverse_allowed_;
+  bool ignore_goal_orientation_;
+
+  mutable std::mutex reconfigure_mutex_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
 
   // Subscribers
-  ros::Subscriber path_sub_;
-  ros::Subscriber execute_sub_;
-  ros::Subscriber joint_state_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
+  rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr execute_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
 
   // Publishers
-  ros::Publisher preprocessed_path_pub_;
-  ros::Publisher goal_path_pub_;
-  ros::Publisher robot_state_pub_;
-  ros::Publisher position_deviation_pub_;
-  ros::Publisher orientation_deviation_pub_;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr preprocessed_path_pub_;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr goal_path_pub_;
+  rclcpp::Publisher<moveit_msgs::msg::DisplayRobotState>::SharedPtr robot_state_pub_;
+  rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr position_deviation_pub_;
+  rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr orientation_deviation_pub_;
 
   // action interface
-  std::shared_ptr<actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>> follow_path_server_;
-  actionlib::ActionServer<move_base_lite_msgs::FollowPathAction>::GoalHandle follow_path_goal_;
+  rclcpp_action::Server<FollowPath>::SharedPtr follow_path_server_;
+  std::shared_ptr<FollowPathServerGoalHandle> follow_path_goal_;
   mutable std::mutex follow_path_goal_mutex_;
 
   // Clients
-  std::shared_ptr<FollowPathClient> driving_client_;
+  rclcpp_action::Client<FollowPath>::SharedPtr driving_client_;
   std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
-
-  // Dynamic reconfigure
-  dynamic_reconfigure::Server<whole_body_planning_server::PlanningServerConfig> reconfigure_server_;
-  mutable std::mutex reconfigure_mutex_;
 };
 
 }
