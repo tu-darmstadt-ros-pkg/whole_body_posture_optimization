@@ -54,6 +54,9 @@ private:
   bool enabled_;
   unsigned int parameter_count_;
   std::vector<std::string> free_joints_;
+  /// coupled_joints_[i] follows free_joints_[i]; empty entries follow nothing
+  std::vector<std::string> coupled_joints_;
+  std::vector<std::size_t> coupled_idx_to_jnt_idx_;
   std::vector<double> upper_bounds_;
   std::vector<double> lower_bounds_;
 

@@ -79,7 +79,8 @@ IterativeSplineParameterization::IterativeSplineParameterization(bool add_points
 
 bool IterativeSplineParameterization::computeTimeStamps(robot_trajectory::RobotTrajectory& trajectory,
                                                         const double max_velocity_scaling_factor,
-                                                        const double max_acceleration_scaling_factor) const
+                                                        const double max_acceleration_scaling_factor,
+                                                        const std::unordered_map<std::string, double>& velocity_limits) const
 {
   if (trajectory.empty())
     return true;
@@ -206,6 +207,12 @@ bool IterativeSplineParameterization::computeTimeStamps(robot_trajectory::RobotT
       if (t2[j].min_velocity_ == 0.0)
         t2[j].min_velocity_ = -t2[j].max_velocity_;
     }
+    const auto velocity_limit = velocity_limits.find(vars[j]);
+    if (velocity_limit != velocity_limits.end())
+    {
+      t2[j].max_velocity_ = velocity_limit->second;
+      t2[j].min_velocity_ = -velocity_limit->second;
+    }
     t2[j].max_velocity_ *= velocity_scaling_factor;
     t2[j].min_velocity_ *= velocity_scaling_factor;
 
@@ -238,6 +245,24 @@ bool IterativeSplineParameterization::computeTimeStamps(robot_trajectory::RobotT
                    j, t2[j].min_velocity_, t2[j].min_acceleration_);
       return false;
     }
+  }
+
+  // A trajectory continued from a previous one starts with that spline's state, which can exceed the limits by rounding
+  const auto clamp_rounding = [](double& value, double min, double max) {
+    if (value > max && value <= max * 1.01)
+      value = max;
+    else if (value < min && value >= min * 1.01)
+      value = min;
+  };
+  for (unsigned int j = 0; j < num_joints; ++j)
+  {
+    for (unsigned int i : { 0u, num_points - 1 })
+    {
+      clamp_rounding(t2[j].velocities_[i], t2[j].min_velocity_, t2[j].max_velocity_);
+      clamp_rounding(t2[j].accelerations_[i], t2[j].min_acceleration_, t2[j].max_acceleration_);
+    }
+    t2[j].initial_acceleration_ = t2[j].accelerations_[0];
+    t2[j].final_acceleration_ = t2[j].accelerations_[num_points - 1];
   }
 
   // Error check

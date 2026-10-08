@@ -89,6 +89,8 @@ bool WholeBodyPostureOptimization::loadParameters(const rclcpp::Node::SharedPtr&
   trajectory_planner_name_ = param_utils::param(*node, param_prefix_ + "trajectory_planner", std::string("ompl_interface/OMPLPlanner"));
   max_velocity_scaling_factor_ = param_utils::param(*node, param_prefix_ + "max_velocity_scaling_factor", 1.0);
   max_acceleration_scaling_factor_ = param_utils::param(*node, param_prefix_ + "max_acceleration_scaling_factor", 1.0);
+  max_base_velocity_ = param_utils::param(*node, param_prefix_ + "max_base_velocity", 0.0);
+  max_base_yaw_velocity_ = param_utils::param(*node, param_prefix_ + "max_base_yaw_velocity", 0.0);
 
   return true;
 }
@@ -281,9 +283,11 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
 
   planning_scene::PlanningScenePtr planning_scene = std::make_shared<planning_scene::PlanningScene>(robot_model_->getMoveitRobotModel());
 
+  // "linear" interpolates the joints between the postures, enough without collisions between moving links
+  const bool linear = trajectory_planner_name_ == "linear";
   // Load the trajectory planner (kept as member: the loader must outlive all
   // trajectories because their waypoints are allocated inside the plugin library)
-  if (!planner_instance_) {
+  if (!linear && !planner_instance_) {
     planner_plugin_loader_ = std::make_unique<pluginlib::ClassLoader<planning_interface::PlannerManager>>("moveit_core", "planning_interface::PlannerManager");
     std::vector<std::string> available_planners = planner_plugin_loader_->getDeclaredClasses();
     if (std::find(available_planners.begin(), available_planners.end(), trajectory_planner_name_) == available_planners.end()) {
@@ -328,16 +332,22 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::computeTrajector
 
     // compute trajectory from start to goal
     planning_interface::MotionPlanResponse res;
-    planning_interface::PlanningContextPtr context = planner_instance_->getPlanningContext(planning_scene, req, res.error_code);
-    if (!context) {
-      RCLCPP_ERROR_STREAM(kLogger, "Failed to construct planning context. Error: " << res.error_code.val);
-      return trajectory_fake_odom;
-    }
-    context->solve(res);
-    if (res.error_code.val != res.error_code.SUCCESS)
-    {
-      RCLCPP_ERROR(kLogger, "Could not compute plan successfully");
-      break;
+    if (linear) {
+      res.trajectory = std::make_shared<robot_trajectory::RobotTrajectory>(robot_model_->getMoveitRobotModel(), complete_robot_group_);
+      res.trajectory->addSuffixWayPoint(*states[i], 0.0);
+      res.trajectory->addSuffixWayPoint(*states[i+1], 0.0);
+    } else {
+      planning_interface::PlanningContextPtr context = planner_instance_->getPlanningContext(planning_scene, req, res.error_code);
+      if (!context) {
+        RCLCPP_ERROR_STREAM(kLogger, "Failed to construct planning context. Error: " << res.error_code.val);
+        return trajectory_fake_odom;
+      }
+      context->solve(res);
+      if (res.error_code.val != res.error_code.SUCCESS)
+      {
+        RCLCPP_ERROR(kLogger, "Could not compute plan successfully");
+        break;
+      }
     }
 
     // The moveit trajectory planner can't handle/interpolate the virtual world joint
@@ -417,7 +427,15 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::addTimeParameter
 
   // Perform time parameterization
   trajectory_processing::IterativeSplineParameterization time_parameterization(false);
-  if (!time_parameterization.computeTimeStamps(trajectory_fake_odom, max_velocity_scaling_factor_, max_acceleration_scaling_factor_)) {
+  // The fake odometry carries the driven distance in trans_x and the yaw in trans_z
+  std::unordered_map<std::string, double> base_limits;
+  if (max_base_velocity_ > 0.0) {
+    base_limits["world_virtual_joint/trans_x"] = max_base_velocity_;
+  }
+  if (max_base_yaw_velocity_ > 0.0) {
+    base_limits["world_virtual_joint/trans_z"] = max_base_yaw_velocity_;
+  }
+  if (!time_parameterization.computeTimeStamps(trajectory_fake_odom, max_velocity_scaling_factor_, max_acceleration_scaling_factor_, base_limits)) {
     RCLCPP_ERROR_STREAM(kLogger, "Time parameterization failed.");
     return trajectory_out;
   }

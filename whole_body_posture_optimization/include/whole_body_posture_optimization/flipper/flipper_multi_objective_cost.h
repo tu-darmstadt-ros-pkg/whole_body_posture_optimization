@@ -25,7 +25,8 @@ public:
                       const Eigen::Isometry3d& pose,
                       const moveit::core::RobotStateConstPtr& previous_state,
                       const FlipperMultiObjectiveCostParameters& parameters,
-                      const moveit::core::RobotStateConstPtr& last_solution=moveit::core::RobotStateConstPtr());
+                      const moveit::core::RobotStateConstPtr& last_solution=moveit::core::RobotStateConstPtr(),
+                      const std::vector<std::string>& coupled_joints={});
 
   bool operator()(double const* const* flipper_angles, double* cost) const;
 
@@ -34,8 +35,12 @@ public:
                                      const Eigen::Isometry3d& pose,
                                      const moveit::core::RobotStateConstPtr& previous_state,
                                      const FlipperMultiObjectiveCostParameters& parameters,
-                                     const moveit::core::RobotStateConstPtr& last_solution=moveit::core::RobotStateConstPtr());
+                                     const moveit::core::RobotStateConstPtr& last_solution=moveit::core::RobotStateConstPtr(),
+                                     const std::vector<std::string>& coupled_joints={});
 private:
+  /// Sets the free joints and the joints coupled to them in the pose predictor
+  void setJointPositions(const std::vector<double>& flipper_angles) const;
+
   struct CostSample {
     double cost;
     double relative_probability;
@@ -59,6 +64,8 @@ private:
   Eigen::Vector3d prev_com_;
   hector_pose_prediction_interface::SupportPolygon<double> prev_support_polygon_;
   std::vector<size_t> param_idx_to_state_idx;
+  /// (parameter index, predictor joint index) of every coupled joint
+  std::vector<std::pair<size_t, size_t>> coupled_param_to_state_idx_;
 
   const FlipperMultiObjectiveCostParameters& parameters_;
 

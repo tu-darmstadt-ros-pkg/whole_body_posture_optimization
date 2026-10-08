@@ -164,6 +164,8 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(${PROJECT_NAME}_test test/test_common.cpp)
   target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
+  ament_add_gtest(${PROJECT_NAME}_optimization_test test/test_optimization.cpp)
+  target_link_libraries(${PROJECT_NAME}_optimization_test ${PROJECT_NAME})
 endif()
 
 ament_package()

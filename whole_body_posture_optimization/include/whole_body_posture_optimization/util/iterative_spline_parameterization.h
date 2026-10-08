@@ -75,8 +75,10 @@ class IterativeSplineParameterization
 public:
   IterativeSplineParameterization(bool add_points = true);
 
+  /// velocity_limits replaces the model's velocity limit of the named variables (before scaling)
   bool computeTimeStamps(robot_trajectory::RobotTrajectory& trajectory, const double max_velocity_scaling_factor = 1.0,
-                         const double max_acceleration_scaling_factor = 1.0) const;
+                         const double max_acceleration_scaling_factor = 1.0,
+                         const std::unordered_map<std::string, double>& velocity_limits = {}) const;
 
   bool computeTimeStamps(robot_trajectory::RobotTrajectory& trajectory,
                          const std::unordered_map<std::string, double>& velocity_limits,

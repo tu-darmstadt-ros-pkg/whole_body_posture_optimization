@@ -13,18 +13,28 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
                                                      const Eigen::Isometry3d &pose,
                                                      const moveit::core::RobotStateConstPtr& previous_state,
                                                      const FlipperMultiObjectiveCostParameters& parameters,
-                                                     const moveit::core::RobotStateConstPtr& last_solution)
+                                                     const moveit::core::RobotStateConstPtr& last_solution,
+                                                     const std::vector<std::string>& coupled_joints)
   : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose), parameters_(parameters)
 {
   param_idx_to_state_idx = getIndexMap<std::string>(pose_predictor_->robotModel()->jointNames(), free_joints_);
+  const std::vector<std::string>& state_joints = pose_predictor_->robotModel()->jointNames();
+  for (size_t i = 0; i < coupled_joints.size(); ++i) {
+    if (coupled_joints[i].empty()) {
+      continue;
+    }
+    auto it = std::find(state_joints.begin(), state_joints.end(), coupled_joints[i]);
+    if (it == state_joints.end()) {
+      throw std::invalid_argument("Coupled joint '" + coupled_joints[i] + "' is not a joint of the pose predictor.");
+    }
+    coupled_param_to_state_idx_.emplace_back(i, static_cast<size_t>(it - state_joints.begin()));
+  }
   if (previous_state) {
     prev_flipper_param_angles_ = getVariablePositions(previous_state, free_joints_);
     prev_pose_ = previous_state->getJointTransform("world_virtual_joint");
     // TODO: use these values from previous iteration
     // Compute previous COM in world
-    for (unsigned int i = 0; i < free_joints_.size(); i++) {
-      pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], prev_flipper_param_angles_[i]);
-    }
+    setJointPositions(prev_flipper_param_angles_);
     prev_com_ = prev_pose_ * pose_predictor->robotModel()->centerOfMass();
     // Compute previous support polygon
     pose_predictor_->estimateSupportPolygon(hector_math::Pose<double>(prev_pose_), prev_support_polygon_);
@@ -80,9 +90,7 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
   // *** Simulation ** //
   // Update joint state
   std::vector<double> flipper_angles_vec(flipper_angles[0], flipper_angles[0] + free_joints_.size());
-  for (unsigned int i = 0; i < free_joints_.size(); i++) {
-    pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], flipper_angles_vec[i]);
-  }
+  setJointPositions(flipper_angles_vec);
 
   cost[0] = -std::numeric_limits<double>::max();
   int num_pose_x_samples = std::floor(parameters_.num_pose_x_samples);
@@ -133,15 +141,26 @@ bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, 
   return true;
 }
 
+void FlipperMultiObjectiveCost::setJointPositions(const std::vector<double>& flipper_angles) const
+{
+  for (unsigned int i = 0; i < free_joints_.size(); i++) {
+    pose_predictor_->robotModel()->updateJointPosition(param_idx_to_state_idx[i], flipper_angles[i]);
+  }
+  for (const auto& [param_idx, state_idx] : coupled_param_to_state_idx_) {
+    pose_predictor_->robotModel()->updateJointPosition(state_idx, flipper_angles[param_idx]);
+  }
+}
+
 ceres::CostFunction* FlipperMultiObjectiveCost::Create(const std::vector<std::string>& free_joints,
                                                  const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
                                                  const Eigen::Isometry3d &pose,
                                                  const moveit::core::RobotStateConstPtr& previous_state,
                                                  const FlipperMultiObjectiveCostParameters& parameters,
-                                                 const moveit::core::RobotStateConstPtr& last_solution)
+                                                 const moveit::core::RobotStateConstPtr& last_solution,
+                                                 const std::vector<std::string>& coupled_joints)
 {
   auto* cost_function = new ceres::DynamicNumericDiffCostFunction<FlipperMultiObjectiveCost>(
-      new FlipperMultiObjectiveCost(free_joints, pose_predictor, pose, previous_state, parameters, last_solution));
+      new FlipperMultiObjectiveCost(free_joints, pose_predictor, pose, previous_state, parameters, last_solution, coupled_joints));
 
   cost_function->AddParameterBlock(static_cast<int>(free_joints.size()));
   cost_function->SetNumResiduals(1);

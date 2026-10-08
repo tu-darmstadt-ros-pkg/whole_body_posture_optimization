@@ -27,7 +27,7 @@
   <depend>ad_kinematics</depend>
   <depend>ceres_nlopt_wrapper</depend>
   <depend>libceres-dev</depend>
-  <depend>nlopt</depend>
+  <depend>libnlopt-cxx-dev</depend>
   <depend>hector_stability_metrics</depend>
   <depend>voxblox</depend>
   <depend>voxblox_ros</depend>

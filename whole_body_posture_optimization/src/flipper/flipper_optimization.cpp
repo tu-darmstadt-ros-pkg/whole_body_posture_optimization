@@ -27,6 +27,10 @@ FlipperOptimization::FlipperOptimization(const rclcpp::Node::SharedPtr& node, co
     RCLCPP_ERROR_STREAM(node_->get_logger(), "Loading flipper limits failed");
   }
   param_idx_to_jnt_idx_ = getIndexMap(robot_model_->getActiveJointNames(), free_joints_);
+  for (const std::string& joint : coupled_joints_) {
+    coupled_idx_to_jnt_idx_.push_back(joint.empty() ? robot_model_->getActiveJointNames().size()
+                                                    : getIndexMap(robot_model_->getActiveJointNames(), std::vector<std::string>{joint}).front());
+  }
 
   // Publisher
   support_polygon_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("support_polygon", rclcpp::QoS(10).transient_local());
@@ -78,6 +82,10 @@ bool FlipperOptimization::loadParameters(rclcpp::Node& node)
     RCLCPP_ERROR_STREAM(node.get_logger(), "Failed to find parameter '" << param_prefix_ << "joints'.");
     return false;
   }
+  param_utils::getParam(node, param_prefix_ + "coupled_joints", coupled_joints_);
+  if (!coupled_joints_.empty() && coupled_joints_.size() != free_joints_.size()) {
+    throw std::invalid_argument(param_prefix_ + "coupled_joints must have one entry (or \"\") per joint.");
+  }
 
   flipper_multi_objective_cost_parameters_.loadParametersFromNamespace(node_->create_sub_node("cost_parameters"));
   RCLCPP_INFO_STREAM(node.get_logger(), flipper_multi_objective_cost_parameters_.toString());
@@ -124,7 +132,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
   objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
       FlipperMultiObjectiveCost::Create(free_joints_, pose_predictor_, robot_pose, previous_state,
-                                        flipper_multi_objective_cost_parameters_, last_solution), verbosity_level);
+                                        flipper_multi_objective_cost_parameters_, last_solution, coupled_joints_), verbosity_level);
 
   objective->setName("flipper_objective");
   objective->enableInfCheck(true);
@@ -176,12 +184,22 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   for (unsigned int i = 0; i < param_idx_to_jnt_idx_.size(); i++) {
     result.joint_state[param_idx_to_jnt_idx_[i]] = parameters[i];
   }
+  for (unsigned int i = 0; i < coupled_idx_to_jnt_idx_.size(); i++) {
+    if (coupled_idx_to_jnt_idx_[i] < result.joint_state.size()) {
+      result.joint_state[coupled_idx_to_jnt_idx_[i]] = parameters[i];
+    }
+  }
 
   // Estimate robot pose with solution
   std::unordered_map<std::string, double> final_joint_update;
   final_joint_update.reserve(free_joints_.size());
   for (size_t j = 0; j < free_joints_.size(); ++j) {
     final_joint_update[free_joints_[j]] = parameters[j];
+  }
+  for (size_t j = 0; j < coupled_joints_.size(); ++j) {
+    if (!coupled_joints_[j].empty()) {
+      final_joint_update[coupled_joints_[j]] = parameters[j];
+    }
   }
   pose_predictor_->robotModel()->updateJointPositions(final_joint_update);
 

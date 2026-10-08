@@ -138,6 +138,9 @@ private:
   /// Scaling factors (0, 1] applied to the joint velocity/acceleration limits
   /// during time parameterization. Lower values result in slower trajectories.
   double max_velocity_scaling_factor_;
+  /// [m/s], [rad/s] base limits of the time parameterization, 0 keeps the model limit
+  double max_base_velocity_;
+  double max_base_yaw_velocity_;
   double max_acceleration_scaling_factor_;
 
   bool stepping_;
