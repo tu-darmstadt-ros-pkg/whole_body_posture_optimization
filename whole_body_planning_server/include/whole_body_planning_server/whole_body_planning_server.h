@@ -108,6 +108,8 @@ private:
   void spinMapUpdate();
   void stopMapUpdateThread();
   void waitForMap();
+  /// Points the SDF model to a copy of the map with the unobserved terrain around the robot filled
+  void fillTerrain();
 
   rclcpp::Node::SharedPtr node_;
   rclcpp::Node::SharedPtr esdf_node_;
@@ -160,6 +162,8 @@ private:
   double path_stitching_tolerance_;
   bool override_path_time_;
   bool continuous_planning_;
+  bool terrain_fill_;
+  double retry_time_;
   double execution_position_tolerance_;
   double execution_orientation_tolerance_;
   std::string trajectory_statistics_save_folder_;

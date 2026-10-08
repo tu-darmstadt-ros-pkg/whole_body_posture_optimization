@@ -2,6 +2,7 @@
 
 #include <whole_body_planning_server/path_smoother.h>
 #include <whole_body_planning_server/util.h>
+#include <whole_body_planning_server/terrain_fill.h>
 
 #include <chrono>
 #include <thread>
@@ -124,6 +125,8 @@ void WholeBodyPlanningServer::loadParameters()
   enabled_ = param_utils::param(*node_, "enabled", true);
   auto_start_ = param_utils::param(*node_, "auto_start", true);
   continuous_planning_ = param_utils::param(*node_, "continuous_planning", false);
+  terrain_fill_ = param_utils::param(*node_, "terrain_fill", false);
+  retry_time_ = param_utils::param(*node_, "retry_time", 0.0);
   planning_horizon_ = param_utils::param(*node_, "planning_horizon", -1.0);
   minimum_path_length_ = param_utils::param(*node_, "minimum_path_length", 0.2);
   path_sampling_resolution_ = param_utils::param(*node_, "path_sampling_resolution", 0.05);
@@ -342,10 +345,28 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
     end_of_path_reached_ = current_path_index_ == static_cast<int>(target_path.poses.size()) - 2;
 
     // Compute optimized postures
+    // An infeasible pose is retried while the robot drives the planned part (a newer map may make it
+    // feasible), and for retry_time after that part ends
     std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimization_results;
-    {
-      std::lock_guard<std::mutex> lock(esdf_update_mutex_);
-      optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
+    const rclcpp::Time retry_start = node_->now();
+    while (true) {
+      {
+        std::lock_guard<std::mutex> lock(esdf_update_mutex_);
+        fillTerrain();
+        optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
+      }
+      if ((!optimization_results.empty() && optimization_results.back().success) || execution_completed_) {
+        break;
+      }
+      const rclcpp::Time planned_end = trajectory ? start_time + rclcpp::Duration::from_seconds(trajectory->getDuration()) : retry_start;
+      if (node_->now() > planned_end + rclcpp::Duration::from_seconds(retry_time_)) {
+        break;
+      }
+      RCLCPP_WARN_STREAM_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000, "Pose optimization failed at waypoint " << current_path_index_ << ", retrying.");
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    if (execution_completed_) {
+      return;
     }
     if (optimization_results.empty() || !optimization_results.back().success) {
       stopExecution();
@@ -775,6 +796,21 @@ void WholeBodyPlanningServer::updateRobotPose(const nav_msgs::msg::Path& path)
   const geometry_msgs::msg::PoseStamped& robot_pose_msg = path.poses.front();
   tf2::fromMsg(robot_pose_msg.pose, robot_pose_eigen);
   whole_body_posture_optimization::updateMoveitRobotState(*current_robot_state_, robot_pose_eigen);
+}
+
+void WholeBodyPlanningServer::fillTerrain()
+{
+  if (!terrain_fill_) {
+    return;
+  }
+  const double truncation = esdf_server_->getEsdfMaxDistance();
+  geometry_msgs::msg::TransformStamped robot;
+  if (!getRobotPose(rclcpp::Time(0, 0u, RCL_ROS_TIME), robot)) {
+    sdf_model_->loadEsdf(esdf_server_->getEsdfMapPtr(), truncation, false);
+    return;
+  }
+  auto filled = terrain_fill::fill(*esdf_server_->getEsdfMapPtr()->getEsdfLayerPtr(), tf2::transformToEigen(robot), truncation);
+  sdf_model_->loadEsdf(std::make_shared<voxblox::EsdfMap>(filled), truncation, false);
 }
 
 bool WholeBodyPlanningServer::getRobotPose(const rclcpp::Time& stamp, geometry_msgs::msg::TransformStamped& transform) const
