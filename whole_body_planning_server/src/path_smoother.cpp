@@ -54,7 +54,11 @@ void Pathsmoother3D::smooth(const std::deque<Eigen::Vector3d>& in_path, const Ei
   std::vector<double> distances = computeAccumulatedDistances(in_path);
   smoothed_positions = computeSmoothedPositions(distances, in_path);
 
-  if(allow_reverse_paths)
+  if(!allow_reverse_paths)
+  {
+    reverse = false;
+  }
+  else
   {
     if(in_path.size() >= 2 && smoothed_positions.size() >= in_path.size())
     {

@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include <whole_body_planning_server/util.h>
 #include <whole_body_planning_server/path_smoother.h>
 
@@ -89,6 +91,21 @@ TEST(PathSmoother, smoothedPathKeepsEndpointsAndResolution) {
   EXPECT_NEAR(1.0, smoothed.poses.back().pose.position.y, 0.05);
   // Higher resolution than input
   EXPECT_GT(smoothed.poses.size(), path.poses.size());
+}
+
+TEST(PathSmoother, forbiddenReverseKeepsDrivingDirection) {
+  // The server always asks for the reverse check; without reverse paths the robot must face along the path
+  nav_msgs::msg::Path path = straightPath(0.0, 1.0, 0.25);
+  Pathsmoother3D smoother(false, false);
+  smoother.setSmoothedPathDiscretization(0.05);
+  nav_msgs::msg::Path smoothed = smoother.smooth(path, true);
+
+  ASSERT_GE(smoothed.poses.size(), 3u);
+  for (size_t i = 1; i + 1 < smoothed.poses.size(); ++i) {
+    const auto& q = smoothed.poses[i].pose.orientation;
+    double yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+    EXPECT_NEAR(0.0, yaw, 1e-3) << "pose " << i;
+  }
 }
 
 int main(int argc, char** argv) {
