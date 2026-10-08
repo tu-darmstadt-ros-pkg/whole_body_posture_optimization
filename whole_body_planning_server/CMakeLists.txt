@@ -21,7 +21,8 @@ find_package(voxblox_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(moveit_msgs REQUIRED)
-find_package(moveit_ros_planning REQUIRED)
+find_package(moveit_core REQUIRED)
+find_package(control_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -38,7 +39,8 @@ set(THIS_PACKAGE_DEPENDENCIES
   nav_msgs
   nav2_msgs
   moveit_msgs
-  moveit_ros_planning
+  moveit_core
+  control_msgs
   sensor_msgs
   std_msgs
   geometry_msgs

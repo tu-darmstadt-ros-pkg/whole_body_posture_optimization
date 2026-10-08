@@ -20,7 +20,7 @@
 
 #include <nav2_msgs/action/follow_path.hpp>
 
-#include <moveit/moveit_cpp/moveit_cpp.hpp>
+#include <control_msgs/action/follow_joint_trajectory.hpp>
 #include <moveit/robot_trajectory/robot_trajectory.hpp>
 
 #include <voxblox_ros/esdf_server.h>
@@ -40,6 +40,7 @@ namespace whole_body_planning_server {
 using FollowPath = nav2_msgs::action::FollowPath;
 using FollowPathServerGoalHandle = rclcpp_action::ServerGoalHandle<FollowPath>;
 using FollowPathClientGoalHandle = rclcpp_action::ClientGoalHandle<FollowPath>;
+using FollowJointTrajectory = control_msgs::action::FollowJointTrajectory;
 
 class WholeBodyPlanningServer {
 public:
@@ -60,10 +61,9 @@ private:
   nav_msgs::msg::Path preprocessPath(const nav_msgs::msg::Path& path, double path_sampling_resolution) const;
   bool generatePlan(const nav_msgs::msg::Path& path_msg, robot_trajectory::RobotTrajectoryPtr& trajectory_out);
 
-  bool ensureActiveControllers(const robot_trajectory::RobotTrajectory& trajectory);
   bool executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time);
   bool executeTrajectoryWithWatchdog(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time);
-  bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking=true, rclcpp::Time start_time=rclcpp::Time(0, 0u, RCL_ROS_TIME));
+  bool executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time);
   void executeBaseTrajectory(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time=rclcpp::Time(0, 0u, RCL_ROS_TIME));
   void executeBaseTrajectory(const nav_msgs::msg::Path& path);
   void stopExecution();
@@ -107,15 +107,10 @@ private:
   ///! Map updates
   void spinMapUpdate();
   void stopMapUpdateThread();
-  void spinMoveitNode();
   void waitForMap();
 
   rclcpp::Node::SharedPtr node_;
   rclcpp::Node::SharedPtr esdf_node_;
-  /// Dedicated node for MoveItCpp: it requires automatically_declare_parameters_from_overrides,
-  /// which must not be enabled on the main node (collides with declare_parameter calls
-  /// in sdf_contact_estimation). Spun by its own thread.
-  rclcpp::Node::SharedPtr moveit_node_;
 
   std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
@@ -145,8 +140,6 @@ private:
   std::unique_ptr<std::thread> map_update_thread;
   std::atomic<bool> map_update_running_;
 
-  std::unique_ptr<std::thread> moveit_spin_thread_;
-  std::atomic<bool> moveit_spin_running_;
 
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -197,7 +190,12 @@ private:
 
   // Clients
   rclcpp_action::Client<FollowPath>::SharedPtr driving_client_;
-  std::shared_ptr<moveit_cpp::MoveItCpp> moveit_cpp_ptr_;
+  /// Replanning replaces the driving goal; results of replaced goals are ignored
+  rclcpp_action::GoalUUID driving_goal_id_{};
+  int unanswered_driving_goals_ = 0;
+  std::mutex driving_goal_mutex_;
+  rclcpp_action::Client<FollowJointTrajectory>::SharedPtr joint_trajectory_client_;
+  rclcpp::TimerBase::SharedPtr cancel_timer_;
 };
 
 }

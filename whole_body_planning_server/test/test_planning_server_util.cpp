@@ -108,6 +108,53 @@ TEST(PathSmoother, forbiddenReverseKeepsDrivingDirection) {
   }
 }
 
+namespace {
+
+Eigen::Isometry3d pose2d(double x, double y, double yaw) {
+  Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+  pose.translation() = Eigen::Vector3d(x, y, 0.0);
+  pose.linear() = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+  return pose;
+}
+
+double yawOf(const geometry_msgs::msg::PoseStamped& pose) {
+  const auto& q = pose.pose.orientation;
+  return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+}
+
+}
+
+TEST(Util, timedPathKeepsTurnsOnTheSpot) {
+  // Drive 0.1 m, turn 90 deg in place in two steps, drive 0.1 m
+  std::vector<Eigen::Isometry3d> poses = {pose2d(0, 0, 0), pose2d(0.1, 0, 0), pose2d(0.1, 0, 0.8), pose2d(0.1, 0, 1.57),
+                                          pose2d(0.1, 0.1, 1.57)};
+  nav_msgs::msg::Path path = timedPath(poses, {0.0, 0.5, 1.0, 1.5, 2.0}, rclcpp::Time(10, 0), "map");
+  ASSERT_EQ(5u, path.poses.size());
+  EXPECT_NEAR(0.8, yawOf(path.poses[2]), 1e-6);
+  EXPECT_NEAR(11.0, rclcpp::Time(path.poses[2].header.stamp).seconds(), 1e-9);
+}
+
+TEST(Util, timedPathStampsIncrease) {
+  // The second and third pose share a stamp, as at the joint of two trajectory parts
+  std::vector<Eigen::Isometry3d> poses = {pose2d(0, 0, 0), pose2d(0.1, 0, 0), pose2d(0.2, 0, 0), pose2d(0.3, 0, 0)};
+  nav_msgs::msg::Path path = timedPath(poses, {0.0, 0.5, 0.5, 1.0}, rclcpp::Time(0, 0), "map");
+  ASSERT_EQ(3u, path.poses.size());
+  for (size_t i = 1; i < path.poses.size(); ++i) {
+    EXPECT_LT(rclcpp::Time(path.poses[i - 1].header.stamp), rclcpp::Time(path.poses[i].header.stamp));
+  }
+}
+
+TEST(Util, timedPathKeepsTheGoal) {
+  // A last pose within 1 cm of the previous one replaces it, even when only the start is left
+  nav_msgs::msg::Path two = timedPath({pose2d(0, 0, 0), pose2d(0.005, 0, 0)}, {0.0, 0.5}, rclcpp::Time(0, 0), "map");
+  ASSERT_EQ(2u, two.poses.size());
+  EXPECT_NEAR(0.005, two.poses.back().pose.position.x, 1e-9);
+  nav_msgs::msg::Path three = timedPath({pose2d(0, 0, 0), pose2d(0.1, 0, 0), pose2d(0.105, 0, 0)}, {0.0, 0.5, 1.0},
+                                        rclcpp::Time(0, 0), "map");
+  ASSERT_EQ(2u, three.poses.size());
+  EXPECT_NEAR(0.105, three.poses.back().pose.position.x, 1e-9);
+}
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

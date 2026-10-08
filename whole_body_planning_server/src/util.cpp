@@ -1,3 +1,4 @@
+#include <tf2_eigen/tf2_eigen.hpp>
 #include <whole_body_planning_server/util.h>
 
 namespace whole_body_planning_server {
@@ -103,6 +104,44 @@ std::string pathToString(const nav_msgs::msg::Path& path)
     ss << std::endl << i << ": [" << point.x << ", " << point.y << ", " << point.z << "]";
   }
   return ss.str();
+}
+
+nav_msgs::msg::Path timedPath(const std::vector<Eigen::Isometry3d>& poses, const std::vector<double>& times,
+                              const rclcpp::Time& start_time, const std::string& frame_id)
+{
+  nav_msgs::msg::Path path;
+  path.header.frame_id = frame_id;
+  path.header.stamp = start_time;
+  Eigen::Isometry3d previous_pose;
+  double previous_time = 0.0;
+  for (size_t i = 0; i < poses.size(); ++i) {
+    const Eigen::Isometry3d& pose = poses[i];
+    if (i > 0) {
+      if (times[i] <= previous_time) {
+        continue;
+      }
+      double distance = (pose.translation().head<2>() - previous_pose.translation().head<2>()).norm();
+      Eigen::Vector2d heading = pose.linear().col(0).head<2>();
+      Eigen::Vector2d previous_heading = previous_pose.linear().col(0).head<2>();
+      double turn = std::abs(std::atan2(previous_heading.x() * heading.y() - previous_heading.y() * heading.x(), previous_heading.dot(heading)));
+      if (distance < 0.01 && turn < 0.02) {
+        if (i + 1 < poses.size()) {
+          continue;
+        }
+        if (path.poses.size() > 1) {
+          path.poses.pop_back();
+        }
+      }
+    }
+    previous_pose = pose;
+    previous_time = times[i];
+    geometry_msgs::msg::PoseStamped pose_msg;
+    pose_msg.header.frame_id = frame_id;
+    pose_msg.header.stamp = start_time + rclcpp::Duration::from_seconds(times[i]);
+    pose_msg.pose = tf2::toMsg(pose);
+    path.poses.push_back(pose_msg);
+  }
+  return path;
 }
 
 }

@@ -4,6 +4,8 @@
 #include <nav_msgs/msg/path.hpp>
 #include <moveit/robot_state/robot_state.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
+#include <rclcpp/time.hpp>
+#include <Eigen/Geometry>
 
 namespace whole_body_planning_server {
 
@@ -17,6 +19,11 @@ double euclideanDistance2D(const Vector1& p1, const Vector2& p2) {
   return std::sqrt(x * x + y * y);
 }
 void appendPath(nav_msgs::msg::Path& path1, const nav_msgs::msg::Path& path2);
+
+/// Base path of a trajectory: the poses stamped start_time + times. Poses that neither move nor turn the
+/// base are dropped (the last one replaces the one before), and so are poses not later than the previous one.
+nav_msgs::msg::Path timedPath(const std::vector<Eigen::Isometry3d>& poses, const std::vector<double>& times,
+                              const rclcpp::Time& start_time, const std::string& frame_id);
 
 void enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr);
 

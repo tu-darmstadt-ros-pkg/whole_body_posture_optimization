@@ -71,16 +71,8 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const rclcpp::Node::SharedPtr& 
   optimizer_ = std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(node_, pose_predictor, sdf_model_);
   current_robot_state_ = std::make_shared<moveit::core::RobotState>(optimizer_->getRobotModel()->getMoveitRobotState());
 
-  // Create moveit planner instance on its own node: MoveItCpp reads its
-  // configuration with plain get_parameter and therefore requires
-  // automatically_declare_parameters_from_overrides (process-level parameter
-  // files still apply to this node)
-  rclcpp::NodeOptions moveit_node_options;
-  moveit_node_options.automatically_declare_parameters_from_overrides(true);
-  moveit_node_ = std::make_shared<rclcpp::Node>(std::string(node_->get_name()) + "_moveit", node_->get_namespace(), moveit_node_options);
-  moveit_cpp_ptr_ = std::make_shared<moveit_cpp::MoveItCpp>(moveit_node_);
-  moveit_spin_running_ = true;
-  moveit_spin_thread_ = std::make_unique<std::thread>(&WholeBodyPlanningServer::spinMoveitNode, this);
+  joint_trajectory_client_ = rclcpp_action::create_client<FollowJointTrajectory>(
+      node_, param_utils::param(*node_, "joint_trajectory_action", std::string("flipper_trajectory_controller/follow_joint_trajectory")));
 
   // Connect vehicle controller action client
   RCLCPP_INFO_STREAM(node_->get_logger(), "Waiting for vehicle controller client..");
@@ -110,11 +102,6 @@ WholeBodyPlanningServer::~WholeBodyPlanningServer()
 {
   stopExecutionThread();
   stopMapUpdateThread();
-  moveit_spin_running_ = false;
-  if (moveit_spin_thread_) {
-    moveit_spin_thread_->join();
-    moveit_spin_thread_.reset();
-  }
   if (goal_thread_ && goal_thread_->joinable()) {
     goal_thread_->join();
   }
@@ -454,7 +441,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
     if (first_execution) {
       first_execution = false;
       // Check if there are controllers that can handle the execution before sending the first trajectory
-      if (!ensureActiveControllers(*trajectory)) {
+      if (!joint_trajectory_client_->action_server_is_ready()) {
         std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
         abortActiveGoal("No controllers found that could execute the trajectory.", FollowPath::Result::INVALID_CONTROLLER);
         break;
@@ -552,14 +539,6 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::msg::Path& path_msg, 
   return true;
 }
 
-bool WholeBodyPlanningServer::ensureActiveControllers(const robot_trajectory::RobotTrajectory& trajectory) {
-  if (moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->ensureActiveControllersForGroup(trajectory.getGroupName())) {
-    return true;
-  } else {
-    RCLCPP_ERROR(node_->get_logger(), "Execution failed! No active controllers configured for group '%s'", trajectory.getGroupName().c_str());
-    return false;
-  }
-}
 
 bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time)
 {
@@ -572,7 +551,7 @@ bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTra
   trajectory_start_time_ = start_time;
 
   // Send goals simultaneously
-  if (!executeJointTrajectory(trajectory, false, start_time)) {
+  if (!executeJointTrajectory(trajectory, start_time)) {
     return false;
   }
   executeBaseTrajectory(trajectory, start_time);
@@ -641,45 +620,39 @@ rclcpp_action::CancelResponse WholeBodyPlanningServer::followPathCancelCallback(
   if (goal_handle == follow_path_goal_) {
     RCLCPP_INFO_STREAM(node_->get_logger(), "Goal preempted, stopping vehicle");
     // Cancel vehicle controller and stop moveit execution
-    execution_completed_ = true; // Signal threads to stop (joined asynchronously)
+    execution_completed_ = true;
     stopExecution();
-
-    if (follow_path_goal_->is_active() || follow_path_goal_->is_canceling()) {
-      auto result = std::make_shared<FollowPath::Result>();
-      result->error_msg = "Preempt from incoming message to server";
-      follow_path_goal_->canceled(result);
-    }
+    // rclcpp moves the goal to CANCELING only after this callback returned
+    cancel_timer_ = node_->create_wall_timer(std::chrono::milliseconds(10), [this, goal_handle]() {
+      std::lock_guard<std::mutex> lock(follow_path_goal_mutex_);
+      if (goal_handle->is_canceling()) {
+        auto result = std::make_shared<FollowPath::Result>();
+        result->error_msg = "Canceled";
+        goal_handle->canceled(result);
+      }
+      if (!goal_handle->is_canceling()) {
+        cancel_timer_->cancel();
+      }
+    });
   } else {
     RCLCPP_WARN_STREAM(node_->get_logger(), "Received cancel for unknown goal");
   }
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, bool blocking, rclcpp::Time start_time)
+bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time)
 {
-  // Check if there are controllers that can handle the execution
-  if (!ensureActiveControllers(trajectory)) {
+  if (!joint_trajectory_client_->action_server_is_ready()) {
+    RCLCPP_ERROR_STREAM(node_->get_logger(), "Execution failed! No joint trajectory controller is serving the joint trajectory action.");
     return false;
   }
-
-  // Execute trajectory
+  // A replan resends the grown trajectory with the original start stamp; the controller replaces the running one
   moveit_msgs::msg::RobotTrajectory robot_trajectory_msg;
   trajectory.getRobotTrajectoryMsg(robot_trajectory_msg);
-  robot_trajectory_msg.joint_trajectory.header.stamp = start_time;
-  if (blocking)
-  {
-    moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->push(robot_trajectory_msg);
-    moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->execute();
-    return true;
-  }
-  // Note: MoveIt 2 removed TrajectoryExecutionManager::pushAndExecute (continuous execution).
-  // Stop the current execution and restart with the updated trajectory instead. Since the
-  // trajectory header is stamped with the original start time, the controllers resume mid-trajectory.
-  moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->stopExecution();
-  if (!moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->push(robot_trajectory_msg)) {
-    return false;
-  }
-  moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->execute();
+  FollowJointTrajectory::Goal goal;
+  goal.trajectory = robot_trajectory_msg.joint_trajectory;
+  goal.trajectory.header.stamp = start_time;
+  joint_trajectory_client_->async_send_goal(goal);
   return true;
 }
 
@@ -700,42 +673,34 @@ void WholeBodyPlanningServer::executeBaseTrajectory(const nav_msgs::msg::Path& p
   follow_path_goal.goal_checker_id = "";
 
   auto send_goal_options = rclcpp_action::Client<FollowPath>::SendGoalOptions();
+  send_goal_options.goal_response_callback = [this](const FollowPathClientGoalHandle::SharedPtr& goal_handle) {
+    std::lock_guard<std::mutex> lock(driving_goal_mutex_);
+    --unanswered_driving_goals_;
+    if (goal_handle) {
+      driving_goal_id_ = goal_handle->get_goal_id();
+    }
+  };
   send_goal_options.result_callback =
       std::bind(&WholeBodyPlanningServer::followPathClientDoneCallback, this, std::placeholders::_1);
   send_goal_options.feedback_callback =
       std::bind(&WholeBodyPlanningServer::followPathClientFeedbackCb, this, std::placeholders::_1, std::placeholders::_2);
+  {
+    std::lock_guard<std::mutex> lock(driving_goal_mutex_);
+    ++unanswered_driving_goals_;
+  }
   driving_client_->async_send_goal(follow_path_goal, send_goal_options);
 }
 
 
 nav_msgs::msg::Path WholeBodyPlanningServer::extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const rclcpp::Time& start_time) const
 {
-  nav_msgs::msg::Path path;
-  path.header.frame_id = map_frame_;
-  path.header.stamp = start_time;
-  Eigen::Isometry3d previous_pose;
+  std::vector<Eigen::Isometry3d> poses;
+  std::vector<double> times;
   for (unsigned int i = 0; i < trajectory.getWayPointCount(); ++i) {
-    Eigen::Isometry3d goal_pose = trajectory.getWayPoint(i).getJointTransform("world_virtual_joint");
-    if (i > 0) {
-      // Skip if waypoints are too close in the x-y plane
-      double distance = (goal_pose.translation().block<2, 1>(0, 0) - previous_pose.translation().block<2, 1>(0, 0)).norm();
-      if (distance < 0.01) {
-        // preserve the last waypoint and instead remove the one before
-        if (i == trajectory.getWayPointCount() - 1) {
-          path.poses.pop_back();
-        } else {
-          continue;
-        }
-      }
-    }
-    previous_pose = goal_pose;
-    geometry_msgs::msg::PoseStamped pose_msg;
-    pose_msg.header.frame_id = map_frame_;
-    pose_msg.header.stamp = start_time + rclcpp::Duration::from_seconds(trajectory.getWayPointDurationFromStart(i));
-    pose_msg.pose = tf2::toMsg(goal_pose);
-    path.poses.push_back(pose_msg);
+    poses.push_back(trajectory.getWayPoint(i).getJointTransform("world_virtual_joint"));
+    times.push_back(trajectory.getWayPointDurationFromStart(i));
   }
-  return path;
+  return timedPath(poses, times, start_time, map_frame_);
 }
 
 void WholeBodyPlanningServer::pathCb(const nav_msgs::msg::Path::ConstSharedPtr &path_msg) {
@@ -766,6 +731,13 @@ bool WholeBodyPlanningServer::followPathServerIsActive() const
 void WholeBodyPlanningServer::followPathClientDoneCallback(const FollowPathClientGoalHandle::WrappedResult& result)
 {
   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Follow path client finished.");
+  {
+    std::lock_guard<std::mutex> lock(driving_goal_mutex_);
+    // A result arriving while a newer goal is unanswered belongs to a replaced goal
+    if (unanswered_driving_goals_ > 0 || result.goal_id != driving_goal_id_) {
+      return;
+    }
+  }
   if (result.code == rclcpp_action::ResultCode::SUCCEEDED) {
     if (end_of_path_reached_) {
       RCLCPP_INFO_STREAM(node_->get_logger(), "Following path successful.");
@@ -781,8 +753,7 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const FollowPathClien
     RCLCPP_ERROR_STREAM(node_->get_logger(), "Following path failed with result code " << static_cast<int>(result.code));
     stopExecutionThread();
     // Path following failed
-    // Stop moveit
-    moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->stopExecution();
+    joint_trajectory_client_->async_cancel_all_goals();
     std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
     abortActiveGoal("Following path failed", result.result ? result.result->error_code : FollowPath::Result::UNKNOWN);
   }
@@ -847,15 +818,6 @@ void WholeBodyPlanningServer::spinMapUpdate()
   }
   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Map update thread finished.");
 }
-void WholeBodyPlanningServer::spinMoveitNode()
-{
-  rclcpp::executors::SingleThreadedExecutor executor;
-  executor.add_node(moveit_node_);
-  while (rclcpp::ok() && moveit_spin_running_) {
-    executor.spin_some(std::chrono::milliseconds(100));
-  }
-}
-
 void WholeBodyPlanningServer::stopMapUpdateThread()
 {
   map_update_running_ = false;
@@ -872,8 +834,12 @@ void WholeBodyPlanningServer::stopExecution()
   trajectory_.reset();
   trajectory_start_time_ = rclcpp::Time(0, 0u, RCL_ROS_TIME);
 
+  {
+    std::lock_guard<std::mutex> lock(driving_goal_mutex_);
+    driving_goal_id_ = rclcpp_action::GoalUUID{};
+  }
   driving_client_->async_cancel_all_goals();
-  moveit_cpp_ptr_->getTrajectoryExecutionManagerNonConst()->stopExecution();
+  joint_trajectory_client_->async_cancel_all_goals();
 }
 
 void WholeBodyPlanningServer::executionWatchDog()

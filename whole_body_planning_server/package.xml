@@ -21,8 +21,10 @@
   <depend>voxblox_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>nav2_msgs</depend>
+  <exec_depend>moveit_planners_ompl</exec_depend>
   <depend>moveit_msgs</depend>
-  <depend>moveit_ros_planning</depend>
+  <depend>moveit_core</depend>
+  <depend>control_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>

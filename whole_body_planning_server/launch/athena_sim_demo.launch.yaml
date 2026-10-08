@@ -7,7 +7,7 @@
 #
 # Place the start/goal markers in RViz, right-click -> "Plan path": the server
 # builds a whole-body plan on the live voxblox ESDF and executes it (flippers
-# via MoveIt trajectory execution, base via the nav2 FollowPath controller).
+# via the flipper trajectory controller, base via the nav2 FollowPath controller).
 #
 # With continuous_planning:=true (see athena_sim_rolling_demo.launch.yaml) the
 # server plans ahead while driving and supports goal updates (re-planning).
@@ -91,8 +91,6 @@ launch:
     output: screen
     param:
     - from: $(find-pkg-share sdf_dp_flipper_planner)/config/voxblox.yaml
-    - from: $(find-pkg-share whole_body_planning_server)/config/moveit_cpp.yaml
-    - from: $(find-pkg-share whole_body_planning_server)/config/athena_moveit_controllers.yaml
     - from: $(find-pkg-share whole_body_planning_server)/config/athena_sim_demo.yaml
     - from: $(find-pkg-share whole_body_posture_optimization)/config/opt_athena.yaml
     - name: continuous_planning
