@@ -1,0 +1,23 @@
+# MARV overlay on athena.yaml (benchmark.launch.py). marv_shape_config.yaml
+# samples the chassis, so body_contact_weight prices its contacts.
+/**:
+  ros__parameters:
+    # fixed_flipper's pose on MARV, where each optimization starts
+    default_joint_state:
+      flipper_fl_joint: -0.5
+      flipper_fr_joint: -0.5
+      flipper_bl_joint: -0.5
+      flipper_br_joint: -0.5
+    # Turn on the spot at 0.3 m/s outer track speed, turn width 0.496 m
+    max_base_yaw_velocity: 1.21
+    # 0 holds a flipper level, positive raises its tip
+    joint_limits:
+      flipper_fl_joint: [-1.22, 1.22]
+      flipper_fr_joint: [-1.22, 1.22]
+      flipper_bl_joint: [-1.22, 1.22]
+      flipper_br_joint: [-1.22, 1.22]
+
+    flipper_optimization:
+      cost_parameters:
+        # Upper bound of the parameter, so chassis contact outweighs the track contact reward
+        body_contact_weight: 100.0
