@@ -1,0 +1,116 @@
+# Shape (collision sampling) config of Athena for
+# sdf_contact_estimation::ShapeModel.
+#
+# Every link below uses the `oval_collision_shape` macro
+# (athena_description/urdf/oval_collision_shape_macro.xacro), three collision
+# shapes per link, indexed:
+#   0 = <link>_left_wheel_collision   (cylinder, radius = height/2, at the -x end)
+#   1 = <link>_box_collision          (box, the belt between the wheels)
+#   2 = <link>_right_wheel_collision  (cylinder, radius = height/2, at the +x end)
+# The wheel cylinders are the end caps of the oval (axis along the link's y
+# axis); their bottom arcs and the belt box form the ground contact surface.
+#
+# Dimensions (athena_description xacro):
+#   chassis:    length 0.678, height 0.151, width 0.368  (wheel r = 0.0755)
+#   main track: length 0.737, height 0.223, width 0.15   (wheel r = 0.1115)
+#   flipper:    length 0.5,   height 0.2,   width 0.047   (wheel r = 0.1)
+#
+# Angle convention (radians) for the wheel cylinders: the bottom-facing arc is
+# ~3/2*pi .. 5/2*pi (4.712 .. 7.854), matching the demo's main-track sampling.
+
+joints:
+- flipper_fl_joint
+- flipper_fr_joint
+- flipper_bl_joint
+- flipper_br_joint
+
+collision_links:
+  # --- Main tracks: bottom contact arc of both wheels + belt box. ---
+- link: main_track_left_link
+  type: main_track
+  resolution: &main_track_resolution 0.08
+  cylinder_angle_min: &main_tracks_angle_min 4.712    # 3/2 * pi
+  cylinder_angle_max: &main_tracks_angle_max 7.85398  # 5/2 * pi
+  invert_y: [1] # make sure sampling points at outer edge
+  ignore_indices: [0]
+
+- link: main_track_left_link
+  type: main_track
+  resolution: *main_track_resolution
+  cylinder_angle_min: 1.5708   # 1/2 * pi
+  cylinder_angle_max: 4.712   # 3/2 * pi
+  include_indices: [0]
+
+- link: main_track_right_link
+  type: main_track
+  resolution: *main_track_resolution
+  cylinder_angle_min: *main_tracks_angle_min
+  cylinder_angle_max: *main_tracks_angle_max
+  invert_z: [2]
+  ignore_indices: [0]
+
+- link: main_track_right_link
+  type: main_track
+  resolution: *main_track_resolution
+  cylinder_angle_min: 1.5708   # 1/2 * pi
+  cylinder_angle_max: 4.712   # 3/2 * pi
+  invert_z: [0]
+  include_indices: [0]
+
+
+  # --- Flippers: sample both wheels (pivot + tip) bottom arc + belt box. ---
+- link: flipper_fl_link
+  type: track
+  resolution: &flipper_resolution 0.045
+  cylinder_angle_min: &flipper_angle_min 4.712
+  cylinder_angle_max: &flipper_angle_max 7.85398
+  ignore_indices: [0]
+
+- link: flipper_fl_link
+  type: track
+  resolution: *flipper_resolution
+  cylinder_angle_min: 1.5708
+  cylinder_angle_max: 4.712
+  include_indices: [0]
+
+- link: flipper_fr_link
+  type: track
+  resolution: *flipper_resolution
+  cylinder_angle_min: *flipper_angle_min
+  cylinder_angle_max: *flipper_angle_max
+  ignore_indices: [0]
+
+- link: flipper_fr_link
+  type: track
+  resolution: *flipper_resolution
+  cylinder_angle_min: 1.5708
+  cylinder_angle_max: 4.712
+  include_indices: [0]
+
+- link: flipper_bl_link
+  type: track
+  resolution: *flipper_resolution
+  cylinder_angle_min: *flipper_angle_min
+  cylinder_angle_max: *flipper_angle_max
+  ignore_indices: [0]
+
+- link: flipper_bl_link
+  type: track
+  resolution: *flipper_resolution
+  cylinder_angle_min: 1.5708
+  cylinder_angle_max: 4.712
+  include_indices: [0]
+
+- link: flipper_br_link
+  type: track
+  resolution: *flipper_resolution
+  cylinder_angle_min: *flipper_angle_min
+  cylinder_angle_max: *flipper_angle_max
+  ignore_indices: [0]
+
+- link: flipper_br_link
+  type: track
+  resolution: *flipper_resolution
+  cylinder_angle_min: 1.5708
+  cylinder_angle_max: 4.712
+  include_indices: [0]

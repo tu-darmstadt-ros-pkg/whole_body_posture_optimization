@@ -1,0 +1,110 @@
+# Whole-body planning server on the benchmark's Athena (four flippers, no arm).
+# One file for every node of the process: the server, its voxblox ESDF node
+# and its MoveItCpp node.
+/**:
+  ros__parameters:
+    use_sim_time: true
+
+    # --- Planning server ---
+    base_frame: base_footprint_link
+    auto_start: true
+    override_path_time: true
+    continuous_planning: true
+    planning_horizon: 2.0
+    minimum_path_length: 0.3
+    path_sampling_resolution: 0.2
+    path_stitching_tolerance: 0.3
+    reverse_allowed: false
+    ignore_goal_orientation: false
+    # The benchmark judges deviations itself
+    execution_position_tolerance: 0.0
+    execution_orientation_tolerance: 0.0
+
+    # --- ESDF: the benchmark's voxblox layer on /maps/voxblox/esdf ---
+    world_frame: map
+    tsdf_voxel_size: 0.05
+    tsdf_voxels_per_side: 16
+    esdf_max_distance_m: 2.0
+    update_esdf_every_n_sec: 0.0
+    publish_esdf_map: false
+    publish_tsdf_map: false
+    publish_pointclouds: false
+    publish_slices: false
+    update_mesh_every_n_sec: 0.0
+    truncation_distance: 2.0
+    # On with the realistic sensors (methods/wbpo_realistic.yaml): unobserved terrain reads as ground, not as a drop
+    terrain_fill: false
+    # An infeasible pose aborts the goal once the planned part is driven
+    retry_time: 0.0
+    publish_visualisation: false
+
+    # --- Posture optimization ---
+    default_joint_state:
+      flipper_fl_joint: 1.2
+      flipper_fr_joint: 1.2
+      flipper_bl_joint: 1.2
+      flipper_br_joint: 1.2
+    optimization_type: split
+    stability_limit: 0.0
+    front_tip_support_area_limit: 0.0
+    complete_robot_group: flipper_group
+    complete_robot_with_world_group: flipper_group_with_world
+    trajectory_planner: linear
+    max_velocity_scaling_factor: 1.0
+    max_acceleration_scaling_factor: 1.0
+    # The reference path's 0.3 m/s outer track speed, also over a turn on the spot (turn width 0.40 m)
+    max_base_velocity: 0.3
+    max_base_yaw_velocity: 1.5
+    # The arc sdf_dp_flipper_planner uses on this robot; 1.5708 is stowed
+    joint_limits:
+      flipper_fl_joint: [-1.24, 1.5708]
+      flipper_fr_joint: [-1.24, 1.5708]
+      flipper_bl_joint: [-1.24, 1.5708]
+      flipper_br_joint: [-1.24, 1.5708]
+
+    flipper_optimization:
+      custom_solver:
+        enabled: false
+        algorithm: grid_search
+        search_resolution: 0.174
+      solver:
+        enabled: true
+        algorithm: GN_DIRECT
+        maxeval: 120
+      local_solver:
+        enabled: false
+        maxeval: 10
+      joints:
+        - flipper_fl_joint
+        - flipper_fr_joint
+        - flipper_bl_joint
+        - flipper_br_joint
+      cost_parameters:
+        verbose: false
+        stability_weight: 5.0
+        stability_nominal_value: 2.0
+        stability_exp_parameters_a: 14.0
+        stability_exp_parameters_b: -2.6
+        stability_exp_parameters_c: 0.3
+        support_area_weight: 0.0
+        track_contact_weight: 8.0
+        track_contact_nominal_value: 0.2
+        body_contact_weight: 50.0
+        roll_cost_weight: 4.0
+        position_deviation_weight: 0.0
+        lorentzian_sigma: 0.2
+        movement_cost_weight: 1.0
+        turning_resistance_weight: 10.0
+        impact_weight: 3.0
+        num_pose_x_samples: 1.0
+        sample_step_pose_x: 0.01
+        pose_x_sigma: 0.03
+        risk_level: 0.8
+        regularization_weight: 0.5
+
+    arm_optimization:
+      enabled: false
+
+    posture_optimization_debug: false
+    debug: false
+    stepping: false

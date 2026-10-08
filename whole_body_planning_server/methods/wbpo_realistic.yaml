@@ -1,0 +1,7 @@
+# The wbpo method for sensors:=realistic: as methods/wbpo.yaml, with the
+# unobserved terrain around the robot filled (config/benchmark/realistic.yaml).
+name: wbpo
+command: ros2 launch whole_body_planning_server benchmark.launch.py overrides:=$(ros2 pkg prefix whole_body_planning_server)/share/whole_body_planning_server/config/benchmark/realistic.yaml
+ready:
+  publishers: [cmd_vel, joint_commands]
+  timeout: 120.0

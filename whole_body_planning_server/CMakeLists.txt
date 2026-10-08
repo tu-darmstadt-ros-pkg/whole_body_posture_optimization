@@ -73,6 +73,7 @@ target_link_libraries(driving_controller_node PRIVATE ${PROJECT_NAME})
 install(DIRECTORY
   config
   launch
+  methods
   rviz
   DESTINATION share/${PROJECT_NAME}
   PATTERN "ros1_legacy" EXCLUDE
@@ -93,6 +94,7 @@ install(TARGETS ${PROJECT_NAME}_node driving_controller_node
 
 install(PROGRAMS
   scripts/ground_seed_publisher.py
+  scripts/benchmark_bridge.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
