@@ -10,8 +10,8 @@
 #   2 = box inside the belt outline
 #   3 = upper belt box
 #   4 = lower belt box, its bottom face is the lower belt
-# The lower and upper belt and both wheels all around sample the flipper's
-# outline at every flipper angle.
+# The belts and the outer half of each wheel sample the flipper's outline at
+# every flipper angle.
 #
 # Collision indices of chassis_link:
 #   0 = body box above the rounded edges
@@ -59,14 +59,14 @@ collision_links:
 - link: flipper_fl_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: &circle_min 0.0
-  cylinder_angle_max: &circle_max 6.2832  # 2 pi
+  cylinder_angle_min: &big_min 1.5708  # pi/2, top
+  cylinder_angle_max: &big_max 4.7124  # 3/2 pi, bottom
   include_indices: [0]
 - link: flipper_fl_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *circle_min
-  cylinder_angle_max: *circle_max
+  cylinder_angle_min: &small_min 4.7124  # 3/2 pi, bottom
+  cylinder_angle_max: &small_max 7.854   # 5/2 pi, top
   include_indices: [1]
 
 - link: flipper_fr_link
@@ -81,14 +81,14 @@ collision_links:
 - link: flipper_fr_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *circle_min
-  cylinder_angle_max: *circle_max
+  cylinder_angle_min: *big_min
+  cylinder_angle_max: *big_max
   include_indices: [0]
 - link: flipper_fr_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *circle_min
-  cylinder_angle_max: *circle_max
+  cylinder_angle_min: *small_min
+  cylinder_angle_max: *small_max
   include_indices: [1]
 
 - link: flipper_bl_link
@@ -103,14 +103,14 @@ collision_links:
 - link: flipper_bl_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *circle_min
-  cylinder_angle_max: *circle_max
+  cylinder_angle_min: *big_min
+  cylinder_angle_max: *big_max
   include_indices: [0]
 - link: flipper_bl_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *circle_min
-  cylinder_angle_max: *circle_max
+  cylinder_angle_min: *small_min
+  cylinder_angle_max: *small_max
   include_indices: [1]
 
 - link: flipper_br_link
@@ -125,12 +125,12 @@ collision_links:
 - link: flipper_br_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *circle_min
-  cylinder_angle_max: *circle_max
+  cylinder_angle_min: *big_min
+  cylinder_angle_max: *big_max
   include_indices: [0]
 - link: flipper_br_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *circle_min
-  cylinder_angle_max: *circle_max
+  cylinder_angle_min: *small_min
+  cylinder_angle_max: *small_max
   include_indices: [1]
