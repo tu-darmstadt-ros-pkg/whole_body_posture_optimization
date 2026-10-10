@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Executes the planning server's whole-body trajectory on the benchmark robot.
 
-The benchmark's Athena takes flipper position targets on `joint_commands` and
+The benchmark robot takes flipper position targets on `joint_commands` and
 base velocities on `cmd_vel`. This node stands in for the controllers the
 planning server expects on the real robot:
 
