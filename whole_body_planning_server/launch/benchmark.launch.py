@@ -23,8 +23,6 @@ def _nodes(context, config):
         raise RuntimeError(f'wbpo has no configuration for robot {robot!r}, only {sorted(ROBOTS)}')
     srdf, shape, overlays = ROBOTS[robot]
     return [
-        Node(package='whole_body_planning_server', executable='benchmark_bridge.py', output='screen',
-             parameters=[{'use_sim_time': True}]),
         Node(package='whole_body_posture_optimization', executable='srdf_with_world_publisher.py', output='screen',
              parameters=[{'use_sim_time': True, 'srdf_file': os.path.join(config, srdf)}]),
         Node(package='whole_body_planning_server', executable='whole_body_planning_server_node', output='screen',

@@ -2,6 +2,8 @@
 # unobserved terrain around the robot filled (config/benchmark/realistic.yaml).
 name: wbpo
 command: ros2 launch whole_body_planning_server benchmark.launch.py overrides:=$(ros2 pkg prefix whole_body_planning_server)/share/whole_body_planning_server/config/benchmark/realistic.yaml
+joint_interface: trajectory
+base_interface: follow_path
 ready:
-  publishers: [cmd_vel, joint_commands]
+  publishers: []
   timeout: 120.0

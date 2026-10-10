@@ -1,9 +1,13 @@
 # Method file for the Gazebo locomotion benchmark: whole-body posture
 # optimization (Oehler et al.). Optimizes the flipper postures along the
-# reference path and retimes it, then drives base and flippers itself through
-# benchmark_bridge.py. Runs on athena_description and ctu_marv_description.
+# reference path and retimes it. The flipper trajectory goes to the robot's
+# flipper_trajectory_controller and the timed base path to the benchmark's path
+# follower on controller/follow_path, as on the real robot. Runs on
+# athena_description and ctu_marv_description.
 name: wbpo
 command: ros2 launch whole_body_planning_server benchmark.launch.py
+joint_interface: trajectory
+base_interface: follow_path
 ready:
-  publishers: [cmd_vel, joint_commands]
+  publishers: []
   timeout: 120.0

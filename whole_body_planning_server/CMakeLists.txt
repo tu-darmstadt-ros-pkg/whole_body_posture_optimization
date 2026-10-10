@@ -94,7 +94,6 @@ install(TARGETS ${PROJECT_NAME}_node driving_controller_node
 
 install(PROGRAMS
   scripts/ground_seed_publisher.py
-  scripts/benchmark_bridge.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
