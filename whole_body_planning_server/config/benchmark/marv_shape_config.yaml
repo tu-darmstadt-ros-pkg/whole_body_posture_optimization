@@ -1,6 +1,7 @@
 # Contact sampling of MARV (ctu_marv_description) for
-# sdf_contact_estimation::ShapeModel. A box is sampled on its bottom face, a
-# cylinder on the arc [cylinder_angle_min, cylinder_angle_max] about its axis.
+# sdf_contact_estimation::ShapeModel. A box is sampled on its bottom face (top
+# face with invert_z), a cylinder on the arc [cylinder_angle_min,
+# cylinder_angle_max] about its axis.
 #
 # Collision indices of a flipper link (urdf/robot.xacro), x along the flipper
 # from the pivot to the tip:
@@ -9,11 +10,8 @@
 #   2 = box inside the belt outline
 #   3 = upper belt box
 #   4 = lower belt box, its bottom face is the lower belt
-# The wheel cylinders are turned by pi/2 about x, so angle a is the point
-# (r cos a, r sin a) in the link's x z plane. A flipper at angle q has the
-# ground below it at a = 3/2 pi - q. The big wheel arc runs from its rear over
-# the bottom to its front, the small wheel arc on to its top, so the tip
-# climbs onto edges.
+# The lower and upper belt and both wheels all around sample the flipper's
+# outline at every flipper angle.
 #
 # Collision indices of chassis_link:
 #   0 = body box above the rounded edges
@@ -56,14 +54,19 @@ collision_links:
 - link: flipper_fl_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: &big_min 3.1416  # pi
-  cylinder_angle_max: &big_max 6.2832  # 2 pi
+  include_indices: [3]
+  invert_z: [3]
+- link: flipper_fl_link
+  type: track
+  resolution: *belt_resolution
+  cylinder_angle_min: &circle_min 0.0
+  cylinder_angle_max: &circle_max 6.2832  # 2 pi
   include_indices: [0]
 - link: flipper_fl_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: &small_min 3.1416  # pi
-  cylinder_angle_max: &small_max 7.854   # 5/2 pi
+  cylinder_angle_min: *circle_min
+  cylinder_angle_max: *circle_max
   include_indices: [1]
 
 - link: flipper_fr_link
@@ -73,14 +76,19 @@ collision_links:
 - link: flipper_fr_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *big_min
-  cylinder_angle_max: *big_max
+  include_indices: [3]
+  invert_z: [3]
+- link: flipper_fr_link
+  type: track
+  resolution: *belt_resolution
+  cylinder_angle_min: *circle_min
+  cylinder_angle_max: *circle_max
   include_indices: [0]
 - link: flipper_fr_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *small_min
-  cylinder_angle_max: *small_max
+  cylinder_angle_min: *circle_min
+  cylinder_angle_max: *circle_max
   include_indices: [1]
 
 - link: flipper_bl_link
@@ -90,14 +98,19 @@ collision_links:
 - link: flipper_bl_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *big_min
-  cylinder_angle_max: *big_max
+  include_indices: [3]
+  invert_z: [3]
+- link: flipper_bl_link
+  type: track
+  resolution: *belt_resolution
+  cylinder_angle_min: *circle_min
+  cylinder_angle_max: *circle_max
   include_indices: [0]
 - link: flipper_bl_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *small_min
-  cylinder_angle_max: *small_max
+  cylinder_angle_min: *circle_min
+  cylinder_angle_max: *circle_max
   include_indices: [1]
 
 - link: flipper_br_link
@@ -107,12 +120,17 @@ collision_links:
 - link: flipper_br_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *big_min
-  cylinder_angle_max: *big_max
+  include_indices: [3]
+  invert_z: [3]
+- link: flipper_br_link
+  type: track
+  resolution: *belt_resolution
+  cylinder_angle_min: *circle_min
+  cylinder_angle_max: *circle_max
   include_indices: [0]
 - link: flipper_br_link
   type: track
   resolution: *belt_resolution
-  cylinder_angle_min: *small_min
-  cylinder_angle_max: *small_max
+  cylinder_angle_min: *circle_min
+  cylinder_angle_max: *circle_max
   include_indices: [1]
