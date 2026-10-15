@@ -52,9 +52,9 @@
     trajectory_planner: linear
     max_velocity_scaling_factor: 1.0
     max_acceleration_scaling_factor: 1.0
-    # The reference path's 0.3 m/s outer track speed, also over a turn on the spot (turn width 0.40 m)
+    # The reference path's 0.3 m/s outer track speed and 0.6 rad/s yaw rate
     max_base_velocity: 0.3
-    max_base_yaw_velocity: 1.5
+    max_base_yaw_velocity: 0.6
     # The arc sdf_dp_flipper_planner uses on this robot; 1.5708 is stowed
     joint_limits:
       flipper_fl_joint: [-1.24, 1.5708]
