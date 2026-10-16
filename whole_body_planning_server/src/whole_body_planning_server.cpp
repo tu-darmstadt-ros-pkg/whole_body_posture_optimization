@@ -315,8 +315,7 @@ bool WholeBodyPlanningServer::planAndExecutePathFull(const nav_msgs::msg::Path& 
   auto start = std::chrono::steady_clock::now();
   if(!generatePlan(path_slice, planned_trajectory_)) {
     RCLCPP_ERROR_STREAM(node_->get_logger(), "Planning failed.");
-    std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-    abortActiveGoal("Planning failed.", FollowPath::Result::INVALID_PATH, "no plan");
+    abortExecution("Planning failed.", FollowPath::Result::INVALID_PATH, "no plan");
     return false;
   }
   auto end = std::chrono::steady_clock::now();
@@ -344,8 +343,7 @@ bool WholeBodyPlanningServer::planAndExecutePathFull(const nav_msgs::msg::Path& 
   if (auto_start_) {
     if (!executeTrajectoryWithWatchdog(*planned_trajectory_, start_time)) {
       RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory execution failed");
-      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Trajectory execution failed.", FollowPath::Result::UNKNOWN, "exec failed");
+      abortExecution("Trajectory execution failed.", FollowPath::Result::UNKNOWN, "exec failed");
       return false;
     }
   }
@@ -653,6 +651,7 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::msg::Path& path_msg, 
 bool WholeBodyPlanningServer::executeTrajectory(const robot_trajectory::RobotTrajectory& trajectory, rclcpp::Time start_time)
 {
   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Starting trajectory execution");
+  std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_);
   if (trajectory.empty()) {
     RCLCPP_WARN_STREAM(node_->get_logger(), "Trajectory is empty, execution is trivially successful.");
     return true;
@@ -675,6 +674,11 @@ bool WholeBodyPlanningServer::executeTrajectoryWithWatchdog(const robot_trajecto
 {
   if (!executeTrajectory(trajectory, start_time)) {
     return false;
+  }
+  // A stop ends the watchdog, so the next execution needs a new one
+  if (execution_completed_ && execution_watchdog_thread_) {
+    execution_watchdog_thread_->join();
+    execution_watchdog_thread_.reset();
   }
   execution_completed_ = false;
   if (!execution_watchdog_thread_) {
