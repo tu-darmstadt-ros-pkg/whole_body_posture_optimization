@@ -251,16 +251,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
     flipper_multi_objective_cost_parameters_.sample_step_pose_x = orig_resolution;
   }
 
-
-  // Estimating again for debug output
-  bool cost_function_verbosity = flipper_multi_objective_cost_parameters_.verbose;
-  flipper_multi_objective_cost_parameters_.verbose = true;
-  if (flipper_multi_objective_cost_parameters_.verbose) {
-    std::vector<double> gradient;
-    (*objective)(parameters, gradient);
-  }
-  flipper_multi_objective_cost_parameters_.verbose = cost_function_verbosity;
-
   return result;
 }
 
