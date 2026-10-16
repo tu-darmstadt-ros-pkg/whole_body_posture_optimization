@@ -5,6 +5,7 @@
 #include <sdf_contact_estimation/visualisation.h>
 
 #include <moveit/robot_state/conversions.hpp>
+#include <stdexcept>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 
@@ -24,8 +25,9 @@ RobotModel::RobotModel(const rclcpp::Node::SharedPtr& node)
   // Loading moveit model
   robot_model_loader::RobotModelLoader robot_model_loader(node_, "robot_description", false);
   moveit_robot_model_ = robot_model_loader.getModel();
-  if (!moveit_robot_model_.get()){
-    RCLCPP_ERROR(node_->get_logger(), "Couldn't load robot model!");
+  if (!moveit_robot_model_) {
+    throw std::runtime_error("RobotModel: couldn't load the MoveIt robot model from robot_description and "
+                             "robot_description_semantic");
   }
   moveit_robot_state_ = std::make_shared<moveit::core::RobotState>(moveit_robot_model_);
 

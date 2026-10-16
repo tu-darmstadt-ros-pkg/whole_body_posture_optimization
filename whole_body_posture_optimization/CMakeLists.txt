@@ -169,6 +169,8 @@ if(BUILD_TESTING)
   target_link_libraries(${PROJECT_NAME}_markers_test ${PROJECT_NAME})
   ament_add_gtest(${PROJECT_NAME}_publish_markers_test test/test_publish_markers.cpp)
   target_link_libraries(${PROJECT_NAME}_publish_markers_test ${PROJECT_NAME})
+  ament_add_gtest(${PROJECT_NAME}_robot_model_test test/test_robot_model.cpp)
+  target_link_libraries(${PROJECT_NAME}_robot_model_test ${PROJECT_NAME})
 endif()
 
 ament_package()
