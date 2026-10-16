@@ -20,6 +20,7 @@
 #include "whole_body_posture_optimization/util/timing.h"
 #include "whole_body_posture_optimization/util/common.h"
 #include "whole_body_posture_optimization/util/parameter_utils.h"
+#include "whole_body_posture_optimization/markers.h"
 
 INIT_TIMING
 
@@ -46,6 +47,9 @@ WholeBodyPostureOptimization::WholeBodyPostureOptimization(const rclcpp::Node::S
   sparse_trajectory_pub_ = node_->create_publisher<moveit_msgs::msg::DisplayTrajectory>("sparse_trajectory", rclcpp::QoS(10).transient_local());
   sdf_pub_ = node_->create_publisher<voxblox_msgs::msg::Layer>("planning_sdf", rclcpp::QoS(10).transient_local());
   path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("input_path", rclcpp::QoS(10).transient_local());
+  if (param_utils::param(*node_, param_prefix_ + "publish_markers", true)) {
+    markers_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("~/markers", rclcpp::QoS(1).transient_local());
+  }
 }
 
 bool WholeBodyPostureOptimization::loadParameters(const rclcpp::Node::SharedPtr& node)
@@ -163,7 +167,6 @@ std::vector<PostureOptimizationResult> WholeBodyPostureOptimization::findOptimal
   }
   publishTrajectoryOnPub(sparse_trajectory_pub_, sparse_trajectory);
 
-
   return results;
 }
 
@@ -191,6 +194,9 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
   FlipperOptimizationResult flipper_result = flipper_optimization_->optimize(estimated_pose, init_joint_angles, previous_state, last_solution);
   result.result_pose = flipper_result.pose;
   result.support_polygon = flipper_result.support_polygon;
+  if (markersSubscribed()) {
+    result.contact_information = flipper_result.contact_information;
+  }
   result.result_joint_angles = flipper_result.joint_state;
   result.stability_flipper_opt = flipper_result.stability;
   result.flipper_cost = flipper_result.final_cost;
@@ -219,7 +225,6 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
 
   // Publish results
   robot_model_->publishRobotState();
-  robot_model_->publishCollisionSpheres();
 
   STOP_TIMING_AVG
 
@@ -458,6 +463,31 @@ robot_trajectory::RobotTrajectory WholeBodyPostureOptimization::addTimeParameter
 void WholeBodyPostureOptimization::publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const rclcpp::Time& start_time)
 {
   publishTrajectoryOnPub(trajectory_pub_, robot_trajectory, start_time);
+}
+
+void WholeBodyPostureOptimization::publishMarkers(const nav_msgs::msg::Path& path,
+                                                  const std::vector<PostureOptimizationResult>& results,
+                                                  const sdf_contact_estimation::SurfaceBand& terrain,
+                                                  const std::string& status, const Eigen::Vector3d& robot_position)
+{
+  if (!markersSubscribed()) {
+    return;
+  }
+  const std::string& frame_id = robot_model_->getMoveitRobotModel()->getModelFrame();
+  visualization_msgs::msg::MarkerArray markers = horizonMarkers(path, results, terrain, frame_id);
+  if (!status.empty()) {
+    const auto status_markers = statusMarkers(robot_position, status, frame_id);
+    markers.markers.insert(markers.markers.end(), status_markers.begin(), status_markers.end());
+  }
+  markers_pub_->publish(markers);
+}
+
+void WholeBodyPostureOptimization::publishGoalEnd(const std::string& status, const Eigen::Vector3d& robot_position)
+{
+  if (!markers_pub_) {
+    return;
+  }
+  markers_pub_->publish(goalEndMarkers(status, robot_position, robot_model_->getMoveitRobotModel()->getModelFrame()));
 }
 
 void WholeBodyPostureOptimization::printResultInfo(const std::vector<PostureOptimizationResult> &results)

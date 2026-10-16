@@ -8,6 +8,7 @@ name: wbpo
 command: ros2 launch whole_body_planning_server benchmark.launch.py
 joint_interface: trajectory
 base_interface: follow_path
+record_topics: [/whole_body_planning_server/markers]
 ready:
   publishers: []
   timeout: 120.0

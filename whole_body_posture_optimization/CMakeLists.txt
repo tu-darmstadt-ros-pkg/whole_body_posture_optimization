@@ -20,7 +20,6 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(hector_pose_prediction_interface REQUIRED)
-find_package(hector_pose_prediction_ros REQUIRED)
 find_package(sdf_contact_estimation REQUIRED)
 find_package(whole_body_planning_plotting_utils REQUIRED)
 find_package(urdf REQUIRED)
@@ -48,6 +47,7 @@ endif()
 set(SOURCES
   src/whole_body_posture_optimization.cpp
   src/robot_model.cpp
+  src/markers.cpp
   src/util/common.cpp
   src/util/parameter_utils.cpp
   src/arm/stability_cost.cpp
@@ -71,7 +71,6 @@ set(THIS_PACKAGE_DEPENDENCIES
   geometry_msgs
   visualization_msgs
   hector_pose_prediction_interface
-  hector_pose_prediction_ros
   sdf_contact_estimation
   whole_body_planning_plotting_utils
   urdf
@@ -166,6 +165,10 @@ if(BUILD_TESTING)
   target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
   ament_add_gtest(${PROJECT_NAME}_optimization_test test/test_optimization.cpp)
   target_link_libraries(${PROJECT_NAME}_optimization_test ${PROJECT_NAME})
+  ament_add_gtest(${PROJECT_NAME}_markers_test test/test_markers.cpp)
+  target_link_libraries(${PROJECT_NAME}_markers_test ${PROJECT_NAME})
+  ament_add_gtest(${PROJECT_NAME}_publish_markers_test test/test_publish_markers.cpp)
+  target_link_libraries(${PROJECT_NAME}_publish_markers_test ${PROJECT_NAME})
 endif()
 
 ament_package()

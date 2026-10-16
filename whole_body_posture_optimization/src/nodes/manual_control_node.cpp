@@ -147,6 +147,9 @@ int main(int argc, char** argv) {
         // No movement penalty (do not use previous solution)
         last_result = po.findOptimalPosture(robot_pose_, state_);
       }
+      if (po.markersSubscribed()) {
+        po.publishMarkers(nav_msgs::msg::Path(), {last_result});
+      }
       std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
       RCLCPP_INFO_STREAM(node->get_logger(), "Complete optimization took " << elapsed.count()*1000.0 << " ms.");
       pose_updated_ = false;

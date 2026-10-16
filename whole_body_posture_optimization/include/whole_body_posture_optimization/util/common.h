@@ -2,7 +2,6 @@
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_COMMON_H
 
 #include <rclcpp/rclcpp.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>
 #include <moveit/collision_distance_field/collision_distance_field_types.hpp>
 #include <moveit/robot_state/robot_state.hpp>
 #include <moveit/robot_trajectory/robot_trajectory.hpp>
@@ -12,8 +11,6 @@
 #include "types.h"
 
 namespace whole_body_posture_optimization {
-
-void deleteAllMarkers(const rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr& pub);
 
 template<typename T>
 std::string vecToString(const std::vector<T>& vec) {

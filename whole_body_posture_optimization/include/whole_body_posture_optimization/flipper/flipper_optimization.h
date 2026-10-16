@@ -6,7 +6,6 @@
 
 #include <sdf_contact_estimation/visualisation.h>
 #include <hector_pose_prediction_interface/pose_predictor.h>
-#include <visualization_msgs/msg/marker_array.hpp>
 
 #include "whole_body_posture_optimization/util/common.h"
 #include <whole_body_posture_optimization/robot_model.h>
@@ -61,8 +60,6 @@ private:
   std::vector<double> lower_bounds_;
 
   FlipperMultiObjectiveCostParameters flipper_multi_objective_cost_parameters_;
-
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr support_polygon_pub_;
 };
 
 }

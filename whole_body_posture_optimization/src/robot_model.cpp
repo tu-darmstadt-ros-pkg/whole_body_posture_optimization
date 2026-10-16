@@ -43,7 +43,6 @@ RobotModel::RobotModel(const rclcpp::Node::SharedPtr& node)
 
   // Publishers
   robot_state_pub_ = node_->create_publisher<moveit_msgs::msg::DisplayRobotState>("robot_state", rclcpp::QoS(10).transient_local());
-  collision_spheres_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("collision_spheres", rclcpp::QoS(10).transient_local());
 }
 
 std::shared_ptr<voxblox::TsdfMap> RobotModel::computeTsdfFromRobotModel(const std::vector<std::string> &link_names, float truncation_distance, float voxel_size, const std::vector<double>& joint_state)
@@ -162,77 +161,6 @@ void RobotModel::publishRobotState()
   moveit_msgs::msg::DisplayRobotState robot_state_msg;
   moveit::core::robotStateToRobotStateMsg(*moveit_robot_state_, robot_state_msg.state);
   robot_state_pub_->publish(robot_state_msg);
-}
-
-void RobotModel::publishCollisionSpheres(const Eigen::Isometry3d &robot_pose, const std::vector<double> joint_angles)
-{
-  updateRobotState(robot_pose, joint_angles);
-  publishCollisionSpheres();
-}
-
-void RobotModel::publishCollisionSpheres()
-{
-  visualization_msgs::msg::MarkerArray marker_array;
-
-  float transparency = 0.5f;
-
-  // creating colors
-  std_msgs::msg::ColorRGBA robot_color;
-  robot_color.r = 0;
-  robot_color.b = 0.8f;
-  robot_color.g = 0;
-  robot_color.a = transparency;
-
-  std_msgs::msg::ColorRGBA world_links_color;
-  world_links_color.r = 1.0f;
-  world_links_color.g = 1.0f;
-  world_links_color.b = 0;
-  world_links_color.a = transparency;
-
-  // creating sphere marker
-  visualization_msgs::msg::Marker sphere_marker;
-  sphere_marker.header.frame_id = "world";
-  sphere_marker.header.stamp = rclcpp::Time(0);
-  sphere_marker.type = visualization_msgs::msg::Marker::SPHERE;
-  sphere_marker.action = visualization_msgs::msg::Marker::ADD;
-  sphere_marker.pose.orientation.x = 0;
-  sphere_marker.pose.orientation.y = 0;
-  sphere_marker.pose.orientation.z = 0;
-  sphere_marker.pose.orientation.w = 1;
-
-  int id = 0;
-
-  const moveit::core::JointModelGroup* joint_group = moveit_robot_state_->getJointModelGroup(collision_group_);
-  const std::vector<std::string>& group_link_names = joint_group->getLinkModelNames();
-
-  std::map<std::string, unsigned int>::const_iterator map_iter;
-  for (map_iter = body_decomposition_index_map_.begin(); map_iter != body_decomposition_index_map_.end(); map_iter++) {
-    const std::string& link_name = map_iter->first;
-    unsigned int link_index = map_iter->second;
-
-    sphere_marker.ns = link_name;
-
-    // selecting color
-    if (std::find(group_link_names.begin(), group_link_names.end(), link_name) != group_link_names.end()) {
-      sphere_marker.color = robot_color;
-    } else {
-      sphere_marker.color = world_links_color;
-    }
-
-    collision_detection::PosedBodySphereDecompositionPtr sphere_representation(new collision_detection::PosedBodySphereDecomposition(body_decompositions_[link_index]));
-    sphere_representation->updatePose(moveit_robot_state_->getGlobalLinkTransform(link_name));
-    for (unsigned int j = 0; j < sphere_representation->getCollisionSpheres().size(); j++)
-    {
-      sphere_marker.pose.position = tf2::toMsg(Eigen::Vector3d(sphere_representation->getSphereCenters()[j]));
-      sphere_marker.scale.x = sphere_marker.scale.y = sphere_marker.scale.z = 2 * sphere_representation->getCollisionSpheres()[j].radius_;
-      sphere_marker.id = id;
-      id++;
-
-      marker_array.markers.push_back(sphere_marker);
-    }
-  }
-
-  collision_spheres_pub_->publish(marker_array);
 }
 
 std::vector<std::size_t> RobotModel::getActiveJointIndices(const std::vector<std::string> &joints) const

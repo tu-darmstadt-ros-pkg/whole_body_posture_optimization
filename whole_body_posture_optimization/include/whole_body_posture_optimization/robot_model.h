@@ -7,7 +7,6 @@
 #include <moveit/robot_model_loader/robot_model_loader.hpp>
 #include <moveit/collision_distance_field/collision_distance_field_types.hpp>
 #include <moveit_msgs/msg/display_robot_state.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>
 
 #include <ad_kinematics/tree.h>
 
@@ -45,8 +44,6 @@ public:
   void updateRobotState(const Eigen::Isometry3d& robot_pose, const std::vector<double> joint_angles);
   void publishRobotState(const Eigen::Isometry3d& robot_pose, const std::vector<double> joint_angles);
   void publishRobotState();
-  void publishCollisionSpheres(const Eigen::Isometry3d& robot_pose, const std::vector<double> joint_angles);
-  void publishCollisionSpheres();
 
   std::vector<std::string> getActiveJointNames() const;
   std::vector<std::size_t> getActiveJointIndices(const std::vector<std::string>& joints) const;
@@ -104,7 +101,6 @@ private:
   std::string collision_group_;
 
   rclcpp::Publisher<moveit_msgs::msg::DisplayRobotState>::SharedPtr robot_state_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr collision_spheres_pub_;
 };
 
 }

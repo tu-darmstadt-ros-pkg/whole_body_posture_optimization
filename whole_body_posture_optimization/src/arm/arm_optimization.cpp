@@ -12,13 +12,10 @@
 #include <chrono>
 #include <ceres_nlopt_wrapper/optimization_history.h>
 #include <hector_stability_metrics/metrics/normalized_energy_stability_margin.h>
-#include <hector_pose_prediction_ros/visualization.h>
 
 namespace whole_body_posture_optimization {
 
 using whole_body_planning_plotting_utils::DataLog;
-
-using namespace hector_pose_prediction_interface;
 
 ArmOptimization::ArmOptimization(const rclcpp::Node::SharedPtr& node, const std::shared_ptr<RobotModel>& robot_model,
                                  const sdf_contact_estimation::SdfModelPtr& sdf_model)
@@ -64,8 +61,6 @@ ArmOptimization::ArmOptimization(const rclcpp::Node::SharedPtr& node, const std:
   }
 
   //Publisher
-  result_com_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("result_com", rclcpp::QoS(10).transient_local());
-  support_polygon_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("support_polygon", rclcpp::QoS(10).transient_local());
   robot_tsdf_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("robot_tsdf", rclcpp::QoS(10).transient_local());
 
   // Create nlopt optimizer
@@ -391,14 +386,9 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     result.final_cost = minf;
   }
 
-  // Compute and publish COM
+  // Compute COM and stability
   result.center_of_mass = robot_model_->computeCenterOfMass(result.joint_angles);
-  Eigen::Isometry3d com_pose = Eigen::Isometry3d::Identity();
-  com_pose.translation() = robot_pose * result.center_of_mass;
-  sdf_contact_estimation::publishPose(result_com_pub_, com_pose, "world");
-
-  // Compute stability and publish support polygon
-  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_hull_points, com_pose.translation());
+  std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(contact_hull_points, robot_pose * result.center_of_mass);
   auto min_stability_it = std::min_element(stabilities.begin(), stabilities.end());
   if (min_stability_it != stabilities.end()) {
     result.stability = *min_stability_it;
@@ -406,14 +396,6 @@ ArmOptimizationResult ArmOptimization::optimize(const std::vector<double>& initi
     RCLCPP_ERROR_STREAM(node_->get_logger(), "Stability is empty.");
     result.stability = -std::numeric_limits<double>::max();
   }
-
-  visualization_msgs::msg::MarkerArray convex_hull_array_msg;
-  visualization::addSupportPolygonEdgesWithStabilityToMarkerArray(convex_hull_array_msg, contact_hull_points, stabilities, 6.0, "world",
-                                                 "support_polygon");
-  visualization::addContactPointsToMarkerArray(convex_hull_array_msg, contact_hull_points,
-                                   Eigen::Vector4f(0, 1, 0, 1), "world", "support_polygon_points", 0.04);
-  deleteAllMarkers(support_polygon_pub_);
-  support_polygon_pub_->publish(convex_hull_array_msg);
 
   // Logging
   if (DataLog::getInstance().getTable("arm_optimization").enabled()) {

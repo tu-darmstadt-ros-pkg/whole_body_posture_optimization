@@ -25,6 +25,8 @@
 
 #include <voxblox_ros/esdf_server.h>
 
+#include <sdf_contact_estimation/sdf/terrain_surface.h>
+
 // Forward declarations
 namespace whole_body_posture_optimization {
   class WholeBodyPostureOptimization;
@@ -79,7 +81,19 @@ private:
   bool updatePath(nav_msgs::msg::Path& old_path, const nav_msgs::msg::Path& new_path) const;
   nav_msgs::msg::Path extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const rclcpp::Time& start_time) const;
   bool followPathServerIsActive() const;
-  void abortActiveGoal(const std::string& error_msg, uint16_t error_code);
+  /// status (at most two words) stays on ~/markers to explain the stop, empty clears them
+  void abortActiveGoal(const std::string& error_msg, uint16_t error_code, const std::string& status);
+  /// Publishes markers only while the request that planned them is active, so a goal end cannot be overwritten
+  void publishGoalMarkers(const nav_msgs::msg::Path& path,
+                          const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results,
+                          const sdf_contact_estimation::SurfaceBand& terrain = {}, const std::string& status = "");
+  /// The SDF surface under the main tracks along the result poses, for markers only. Caller holds esdf_update_mutex_
+  sdf_contact_estimation::SurfaceBand terrainSurface(
+      const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results) const;
+  /// Ends the markers of the active goal with goalEndMarkers. Caller holds follow_path_goal_mutex_
+  void endGoalMarkers(const std::string& status);
+  /// Latest robot position from TF without waiting, the path start when TF has none
+  Eigen::Vector3d latestRobotPosition(const nav_msgs::msg::Path& path) const;
   void saveTrajectoryStatistics(
       const std::vector<whole_body_posture_optimization::PostureOptimizationResult> &results,
       robot_trajectory::RobotTrajectory &trajectory,
@@ -107,7 +121,7 @@ private:
   ///! Map updates
   void spinMapUpdate();
   void stopMapUpdateThread();
-  void waitForMap();
+  void waitForMap(const nav_msgs::msg::Path& path);
   /// Points the SDF model to a copy of the map with the unobserved terrain around the robot filled
   void fillTerrain();
 
@@ -115,6 +129,8 @@ private:
   rclcpp::Node::SharedPtr esdf_node_;
 
   std::shared_ptr<sdf_contact_estimation::SdfModel> sdf_model_;
+  /// [m] Lateral sampling offsets of the terrain surface, per main track, empty when markers are disabled
+  std::vector<std::vector<double>> track_offsets_;
   std::shared_ptr<whole_body_posture_optimization::WholeBodyPostureOptimization> optimizer_;
 
   moveit::core::RobotStatePtr current_robot_state_;
@@ -191,6 +207,7 @@ private:
   rclcpp_action::Server<FollowPath>::SharedPtr follow_path_server_;
   std::shared_ptr<FollowPathServerGoalHandle> follow_path_goal_;
   mutable std::mutex follow_path_goal_mutex_;
+  bool goal_markers_active_ = false; /// Guarded by follow_path_goal_mutex_
 
   // Clients
   rclcpp_action::Client<FollowPath>::SharedPtr driving_client_;

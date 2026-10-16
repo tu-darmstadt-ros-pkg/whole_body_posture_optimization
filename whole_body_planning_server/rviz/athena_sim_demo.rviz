@@ -85,7 +85,7 @@ Visualization Manager:
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: FlipperSupportPolygon
+      Name: Markers
       Namespaces:
         {}
       Topic:
@@ -93,7 +93,7 @@ Visualization Manager:
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /athena/flipper_optimization/support_polygon
+        Value: /athena/whole_body_planning_server/markers
       Value: true
     - Class: moveit_rviz_plugin/RobotState
       Enabled: false

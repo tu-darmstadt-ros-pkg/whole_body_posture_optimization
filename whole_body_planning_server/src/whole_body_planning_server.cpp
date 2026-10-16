@@ -4,12 +4,14 @@
 #include <whole_body_planning_server/util.h>
 #include <whole_body_planning_server/terrain_fill.h>
 
+#include <algorithm>
 #include <chrono>
 #include <thread>
 
 #include <sdf_contact_estimation/robot_model/shape_model.h>
 #include <sdf_contact_estimation/sdf_contact_estimation.h>
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
+#include <whole_body_posture_optimization/markers.h>
 #include <whole_body_posture_optimization/util/parameter_utils.h>
 
 #include <tf2_eigen/tf2_eigen.hpp>
@@ -71,6 +73,15 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const rclcpp::Node::SharedPtr& 
 
   optimizer_ = std::make_shared<whole_body_posture_optimization::WholeBodyPostureOptimization>(node_, pose_predictor, sdf_model_);
   current_robot_state_ = std::make_shared<moveit::core::RobotState>(optimizer_->getRobotModel()->getMoveitRobotState());
+  if (optimizer_->markersEnabled()) {
+    std::vector<Eigen::Vector3d> main_track_points;
+    for (const auto& shape : shape_model->getShape()) {
+      if (shape->isMainTrack()) {
+        main_track_points.insert(main_track_points.end(), shape->getSamplingPoints().begin(), shape->getSamplingPoints().end());
+      }
+    }
+    track_offsets_ = sdf_contact_estimation::trackOffsets(main_track_points, 3);
+  }
 
   joint_trajectory_client_ = rclcpp_action::create_client<FollowJointTrajectory>(
       node_, param_utils::param(*node_, "joint_trajectory_action", std::string("flipper_trajectory_controller/follow_joint_trajectory")));
@@ -226,13 +237,59 @@ bool WholeBodyPlanningServer::planAndExecutePath(nav_msgs::msg::Path path_msg, b
   }
 }
 
-void WholeBodyPlanningServer::abortActiveGoal(const std::string& error_msg, uint16_t error_code)
+void WholeBodyPlanningServer::abortActiveGoal(const std::string& error_msg, uint16_t error_code, const std::string& status)
 {
   if (followPathServerIsActive()) {
     auto result = std::make_shared<FollowPath::Result>();
     result->error_code = error_code;
     result->error_msg = error_msg;
+    endGoalMarkers(status);
     follow_path_goal_->abort(result);
+  }
+}
+
+void WholeBodyPlanningServer::publishGoalMarkers(const nav_msgs::msg::Path& path,
+                                                 const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results,
+                                                 const sdf_contact_estimation::SurfaceBand& terrain, const std::string& status)
+{
+  std::lock_guard<std::mutex> lock(follow_path_goal_mutex_);
+  if (goal_markers_active_ && optimizer_->markersSubscribed()) {
+    optimizer_->publishMarkers(path, results, terrain, status, status.empty() ? Eigen::Vector3d::Zero() : latestRobotPosition(path));
+  }
+}
+
+sdf_contact_estimation::SurfaceBand WholeBodyPlanningServer::terrainSurface(
+    const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results) const
+{
+  // [m] Row spacing, and the search range around the base height that covers the tracks below it
+  constexpr double kSpacing = 0.05;
+  constexpr double kRange = 0.5;
+  std::vector<Eigen::Isometry3d> poses;
+  for (const auto& result : results) {
+    poses.push_back(result.result_pose);
+  }
+  return sdf_contact_estimation::surfaceBand(*sdf_model_, poses, track_offsets_, kSpacing, kRange);
+}
+
+void WholeBodyPlanningServer::endGoalMarkers(const std::string& status)
+{
+  goal_markers_active_ = false;
+  if (status.empty() || !optimizer_->markersSubscribed()) {
+    optimizer_->publishGoalEnd("", Eigen::Vector3d::Zero());
+  } else {
+    optimizer_->publishGoalEnd(status, latestRobotPosition(follow_path_goal_->get_goal()->path));
+  }
+}
+
+Eigen::Vector3d WholeBodyPlanningServer::latestRobotPosition(const nav_msgs::msg::Path& path) const
+{
+  try {
+    return tf2::transformToEigen(tf_buffer_->lookupTransform(map_frame_, base_frame_, tf2::TimePointZero)).translation();
+  } catch (const tf2::TransformException& ex) {
+    RCLCPP_WARN_STREAM_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000, "Status marker at the path start: " << ex.what());
+    Eigen::Vector3d start;
+    tf2::fromMsg(path.poses.front().pose.position, start);
+    return start;
   }
 }
 
@@ -252,7 +309,7 @@ bool WholeBodyPlanningServer::planAndExecutePathFull(const nav_msgs::msg::Path& 
   if(!generatePlan(path_slice, planned_trajectory_)) {
     RCLCPP_ERROR_STREAM(node_->get_logger(), "Planning failed.");
     std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-    abortActiveGoal("Planning failed.", FollowPath::Result::INVALID_PATH);
+    abortActiveGoal("Planning failed.", FollowPath::Result::INVALID_PATH, "no plan");
     return false;
   }
   auto end = std::chrono::steady_clock::now();
@@ -281,7 +338,7 @@ bool WholeBodyPlanningServer::planAndExecutePathFull(const nav_msgs::msg::Path& 
     if (!executeTrajectoryWithWatchdog(*planned_trajectory_, start_time)) {
       RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory execution failed");
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Trajectory execution failed.", FollowPath::Result::UNKNOWN);
+      abortActiveGoal("Trajectory execution failed.", FollowPath::Result::UNKNOWN, "exec failed");
       return false;
     }
   }
@@ -292,7 +349,7 @@ bool WholeBodyPlanningServer::planAndExecutePathFull(const nav_msgs::msg::Path& 
 void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::Path& path_msg, bool replanning)
 {
   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Received new path, planning continuously..");
-  waitForMap();
+  waitForMap(path_msg);
 
   // Path pre-processing
   const int trajectory_minimum_size = 4; // limited by time parameterization
@@ -325,6 +382,9 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
   int time_parameterization_count = 0; // Number of waypoints with time parameterization attached (index of the first waypoint without t/p)
   Eigen::Vector2d fake_odom_pose = Eigen::Vector2d::Zero();
   nav_msgs::msg::Path target_path = path_msg;
+  // Markers of planned waypoints wait until their trajectory is sent, so they never delay it
+  std::vector<whole_body_posture_optimization::PostureOptimizationResult> pending_window;
+  sdf_contact_estimation::SurfaceBand pending_terrain;
   for (current_path_index_ = 0; current_path_index_ < static_cast<int>(target_path.poses.size()) -1; ++current_path_index_) {
     if (path_updated_) {
       std::lock_guard<std::mutex> lock(path_update_mutex_);
@@ -350,10 +410,28 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
     std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimization_results;
     const rclcpp::Time retry_start = node_->now();
     while (true) {
+      std::vector<whole_body_posture_optimization::PostureOptimizationResult> window;
+      sdf_contact_estimation::SurfaceBand terrain;
       {
         std::lock_guard<std::mutex> lock(esdf_update_mutex_);
         fillTerrain();
         optimization_results = optimizer_->findOptimalPostures(path_slice, results.back().result_state);
+        if (!optimization_results.empty() && optimizer_->markersSubscribed()) {
+          // The robot has driven past older waypoints, so the newest kMaxGhosts cover the planned window
+          const std::size_t planned = std::min(results.size() - 1, whole_body_posture_optimization::kMaxGhosts - 1);
+          window.assign(results.end() - planned, results.end());
+          window.push_back(optimization_results.back());
+          // Sampled before the map thread can change the SDF the solve just used
+          terrain = terrainSurface(window);
+        }
+      }
+      if (!execution_completed_ && !window.empty()) {
+        if (window.back().success) {
+          pending_window = std::move(window);
+          pending_terrain = std::move(terrain);
+        } else {
+          publishGoalMarkers(target_path, window, terrain, whole_body_posture_optimization::failureReason(window.back()));
+        }
       }
       if ((!optimization_results.empty() && optimization_results.back().success) || execution_completed_) {
         break;
@@ -371,7 +449,8 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
     if (optimization_results.empty() || !optimization_results.back().success) {
       stopExecution();
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Pose optimization failed.", FollowPath::Result::INVALID_PATH);
+      abortActiveGoal("Pose optimization failed.", FollowPath::Result::INVALID_PATH,
+                      optimization_results.empty() ? "no posture" : whole_body_posture_optimization::failureReason(optimization_results.back()));
       break;
     }
     results.push_back(optimization_results.back()); // Use only the second (and last) result, first one is the start state
@@ -383,7 +462,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
     if (trajectory_fake_odom_part.empty()) {
       stopExecution();
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Trajectory planning failed.", FollowPath::Result::INVALID_PATH);
+      abortActiveGoal("Trajectory planning failed.", FollowPath::Result::INVALID_PATH, "no trajectory");
       break;
     }
     // Extract current fake odom pose to initialize next trajectory
@@ -440,7 +519,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
     if (timed_trajectory_slice.empty() || timed_trajectory_slice.getDuration() == 0.0) {
       stopExecution();
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Time parameterization failed.", FollowPath::Result::INVALID_PATH);
+      abortActiveGoal("Time parameterization failed.", FollowPath::Result::INVALID_PATH, "no timing");
       break;
     }
     // Mark all waypoints to have a time parameterization
@@ -464,7 +543,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
       // Check if there are controllers that can handle the execution before sending the first trajectory
       if (!joint_trajectory_client_->action_server_is_ready()) {
         std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-        abortActiveGoal("No controllers found that could execute the trajectory.", FollowPath::Result::INVALID_CONTROLLER);
+        abortActiveGoal("No controllers found that could execute the trajectory.", FollowPath::Result::INVALID_CONTROLLER, "no controller");
         break;
       }
       if (replanning) {
@@ -485,23 +564,30 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
                       " s. Planning takes too long.");
       // Fail and restart with a new path
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Planning time takes too long", FollowPath::Result::CONTROLLER_TIMED_OUT);
+      abortActiveGoal("Planning time takes too long", FollowPath::Result::CONTROLLER_TIMED_OUT, "too slow");
       break;
     }
 
     // Send trajectory
     saveTrajectoryStatistics(results, *trajectory, trajectory_start_indices, start_time);
-    std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_);
-    if (execution_completed_) {
-      RCLCPP_DEBUG_STREAM(node_->get_logger(), "Stopping execution thread before execution");
-      return;
+    {
+      std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_);
+      if (execution_completed_) {
+        RCLCPP_DEBUG_STREAM(node_->get_logger(), "Stopping execution thread before execution");
+        return;
+      }
+      if (!executeTrajectory(*trajectory, start_time)) {
+        RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory execution failed");
+        stopExecution();
+        std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
+        abortActiveGoal("Trajectory execution failed.", FollowPath::Result::NO_VALID_CONTROL, "exec failed");
+        break;
+      }
     }
-    if (!executeTrajectory(*trajectory, start_time)) {
-      RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory execution failed");
-      stopExecution();
-      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Trajectory execution failed.", FollowPath::Result::NO_VALID_CONTROL);
-      break;
+    // Outside trajectory_mutex_, since publishing takes the goal mutex that cancel holds first
+    if (!pending_window.empty()) {
+      publishGoalMarkers(target_path, pending_window, pending_terrain);
+      pending_window.clear();
     }
   }
   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Execution thread completed");
@@ -546,6 +632,10 @@ bool WholeBodyPlanningServer::generatePlan(const nav_msgs::msg::Path& path_msg, 
   // *** Compute plan ***
   updateRobotPose(path_msg);
   auto results = optimizer_->findOptimalPostures(path_msg, current_robot_state_);
+  if (optimizer_->markersSubscribed()) {
+    const std::vector<whole_body_posture_optimization::PostureOptimizationResult> optimized(results.begin() + 1, results.end());
+    publishGoalMarkers(path_msg, optimized, terrainSurface(optimized));
+  }
   std::vector<size_t> trajectory_start_indices;
   auto trajectory = optimizer_->computeTimedTrajectory(results, trajectory_start_indices);
   if (trajectory.empty() || trajectory.getDuration() == 0.0) {
@@ -612,13 +702,11 @@ void WholeBodyPlanningServer::followPathAcceptedCallback(const std::shared_ptr<F
     std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
     // Check if another goal exists
     if (followPathServerIsActive()) {
-      // Cancel previous goal
-      auto result = std::make_shared<FollowPath::Result>();
-      result->error_msg = "This goal has been preempted by a newer goal.";
-      follow_path_goal_->abort(result);
+      abortActiveGoal("This goal has been preempted by a newer goal.", FollowPath::Result::NONE, "");
       goal_preempted = true;
     }
     follow_path_goal_ = goal_handle;
+    goal_markers_active_ = true;
   }
 
   // Plan and execute in a separate thread to not block the executor
@@ -643,6 +731,7 @@ rclcpp_action::CancelResponse WholeBodyPlanningServer::followPathCancelCallback(
     // Cancel vehicle controller and stop moveit execution
     execution_completed_ = true;
     stopExecution();
+    endGoalMarkers("");
     // rclcpp moves the goal to CANCELING only after this callback returned
     cancel_timer_ = node_->create_wall_timer(std::chrono::milliseconds(10), [this, goal_handle]() {
       std::lock_guard<std::mutex> lock(follow_path_goal_mutex_);
@@ -725,6 +814,10 @@ nav_msgs::msg::Path WholeBodyPlanningServer::extractPathFromTrajectory(const rob
 }
 
 void WholeBodyPlanningServer::pathCb(const nav_msgs::msg::Path::ConstSharedPtr &path_msg) {
+  {
+    std::lock_guard<std::mutex> lock(follow_path_goal_mutex_);
+    goal_markers_active_ = true;
+  }
   planAndExecutePathFull(*path_msg, false);
 }
 
@@ -768,6 +861,7 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const FollowPathClien
         auto server_result = std::make_shared<FollowPath::Result>();
         server_result->error_msg = "successful";
         follow_path_goal_->succeed(server_result);
+        endGoalMarkers("");
       }
     }
   } else {
@@ -776,7 +870,7 @@ void WholeBodyPlanningServer::followPathClientDoneCallback(const FollowPathClien
     // Path following failed
     joint_trajectory_client_->async_cancel_all_goals();
     std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-    abortActiveGoal("Following path failed", result.result ? result.result->error_code : FollowPath::Result::UNKNOWN);
+    abortActiveGoal("Following path failed", result.result ? result.result->error_code : FollowPath::Result::UNKNOWN, "follow failed");
   }
 }
 
@@ -967,7 +1061,7 @@ void WholeBodyPlanningServer::executionWatchDog()
       // Stop execution and fail goal (with stuck)
       stopExecution();
       std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Deviation between planned robot pose and current pose exceeds threshold.", FollowPath::Result::FAILED_TO_MAKE_PROGRESS);
+      abortActiveGoal("Deviation between planned robot pose and current pose exceeds threshold.", FollowPath::Result::FAILED_TO_MAKE_PROGRESS, "deviation");
       break;
     }
 
@@ -977,11 +1071,12 @@ void WholeBodyPlanningServer::executionWatchDog()
   RCLCPP_DEBUG_STREAM(node_->get_logger(), "Watchdog thread finished");
 }
 
-void WholeBodyPlanningServer::waitForMap()
+void WholeBodyPlanningServer::waitForMap(const nav_msgs::msg::Path& path)
 {
   std::unique_lock<std::mutex> esdf_update_lock(esdf_update_mutex_);
   if (sdf_model_->isEmpty()) {
     RCLCPP_INFO_STREAM(node_->get_logger(), "Waiting for first ESDF");
+    publishGoalMarkers(path, {}, {}, "no map");
     while (!execution_completed_ && sdf_model_->isEmpty()) {
       first_esdf_update_condition_.wait(esdf_update_lock);
     }

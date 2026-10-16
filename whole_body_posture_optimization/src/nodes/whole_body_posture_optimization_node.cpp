@@ -243,6 +243,7 @@ int main(int argc, char** argv) {
       DataLog::getInstance().getTable("flipper_optimization").clear();
       // Compute optimal postures
       auto result = po.findOptimalPostures(path_);
+      po.publishMarkers(path_, result);
       std::vector<size_t> trajectory_start_indices;
       auto trajectory = po.computeTimedTrajectory(result, trajectory_start_indices);
       po.publishTrajectory(trajectory);

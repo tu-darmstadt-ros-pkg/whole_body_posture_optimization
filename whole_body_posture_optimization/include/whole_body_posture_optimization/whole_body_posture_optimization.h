@@ -3,6 +3,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <nav_msgs/msg/path.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 #include <moveit_msgs/msg/display_trajectory.hpp>
 #include <voxblox_msgs/msg/layer.hpp>
 
@@ -11,6 +12,7 @@
 
 #include <hector_pose_prediction_interface/pose_predictor.h>
 #include <sdf_contact_estimation/sdf/sdf_model.h>
+#include <sdf_contact_estimation/sdf/terrain_surface.h>
 #include <whole_body_posture_optimization/arm/arm_optimization.h>
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
 #include <whole_body_posture_optimization/robot_model.h>
@@ -34,6 +36,7 @@ struct PostureOptimizationResult {
   moveit::core::RobotStatePtr result_state;
 
   hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
+  hector_pose_prediction_interface::ContactInformation<double> contact_information;
 
   Eigen::Vector3d init_com;
   Eigen::Vector3d result_com;
@@ -106,6 +109,17 @@ public:
                                                       const std::vector<Eigen::Isometry3d>& trajectory_world_poses);
 
   void publishTrajectory(const robot_trajectory::RobotTrajectory &robot_trajectory, const rclcpp::Time& start_time=rclcpp::Time(0, 0u, RCL_ROS_TIME));
+  /// Publishes the debug markers of the optimized waypoints in results (without a start state) and the terrain
+  /// surface on ~/markers, with a status label above robot_position when status is not empty
+  void publishMarkers(const nav_msgs::msg::Path& path, const std::vector<PostureOptimizationResult>& results,
+                      const sdf_contact_estimation::SurfaceBand& terrain = {}, const std::string& status = "",
+                      const Eigen::Vector3d& robot_position = Eigen::Vector3d::Zero());
+  /// Replaces the debug markers with goalEndMarkers, also without subscribers so a late subscriber gets no stale
+  /// markers. Callers pass a status only when markersSubscribed
+  void publishGoalEnd(const std::string& status, const Eigen::Vector3d& robot_position);
+  /// False when the parameter publish_markers is false
+  bool markersEnabled() const { return markers_pub_ != nullptr; }
+  bool markersSubscribed() const { return markers_pub_ && markers_pub_->get_subscription_count() > 0; }
 
   static void printResultInfo(const std::vector<PostureOptimizationResult>& results);
   static bool saveTrajectoryStatistics(const std::vector<PostureOptimizationResult>& results, robot_trajectory::RobotTrajectory& trajectory, const std::vector<size_t>& trajectory_start_indices, const std::string& save_path, rclcpp::Time start_time=rclcpp::Time(0, 0u, RCL_ROS_TIME));
@@ -150,6 +164,7 @@ private:
   rclcpp::Publisher<moveit_msgs::msg::DisplayTrajectory>::SharedPtr trajectory_pub_;
   rclcpp::Publisher<voxblox_msgs::msg::Layer>::SharedPtr sdf_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
 
   std::string sdf_save_folder_;
 };

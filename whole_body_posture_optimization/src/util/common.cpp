@@ -9,16 +9,6 @@ namespace whole_body_posture_optimization {
 
 static const rclcpp::Logger kLogger = rclcpp::get_logger("whole_body_posture_optimization");
 
-void deleteAllMarkers(const rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr& pub)
-{
-  visualization_msgs::msg::MarkerArray array;
-  visualization_msgs::msg::Marker marker;
-  marker.action = visualization_msgs::msg::Marker::DELETEALL;
-  marker.header.frame_id = "world"; // this has to be set correctly for the deletion to work
-  array.markers.push_back(marker);
-  pub->publish(array);
-}
-
 void updateMoveitRobotState(moveit::core::RobotState &state, const Eigen::Isometry3d &pose)
 {
   sensor_msgs::msg::JointState virtual_link_joint_states;

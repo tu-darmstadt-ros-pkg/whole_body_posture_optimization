@@ -6,7 +6,6 @@
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <whole_body_planning_plotting_utils/data_log.h>
-#include <hector_pose_prediction_ros/visualization.h>
 
 
 namespace whole_body_posture_optimization {
@@ -31,9 +30,6 @@ FlipperOptimization::FlipperOptimization(const rclcpp::Node::SharedPtr& node, co
     coupled_idx_to_jnt_idx_.push_back(joint.empty() ? robot_model_->getActiveJointNames().size()
                                                     : getIndexMap(robot_model_->getActiveJointNames(), std::vector<std::string>{joint}).front());
   }
-
-  // Publisher
-  support_polygon_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>("support_polygon", rclcpp::QoS(10).transient_local());
 
   // Create nlopt optimizer
   parameter_count_ = static_cast<unsigned int>(free_joints_.size());
@@ -264,12 +260,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
     (*objective)(parameters, gradient);
   }
   flipper_multi_objective_cost_parameters_.verbose = cost_function_verbosity;
-
-  // Publish support polygon and contact information
-  visualization_msgs::msg::MarkerArray support_polygon_marker_array;
-  deleteAllMarkers(support_polygon_pub_);
-  visualization::addSupportPolygonWithContactInformationToMarkerArray(support_polygon_marker_array, result.support_polygon, result.contact_information, "world");
-  support_polygon_pub_->publish(support_polygon_marker_array);
 
   return result;
 }

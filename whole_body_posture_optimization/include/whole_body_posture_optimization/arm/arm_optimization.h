@@ -10,9 +10,7 @@
 #include <ceres_nlopt_wrapper/ceres_nlopt_wrapper.h>
 #include <ceres_nlopt_wrapper/nlopt_parameter_server.h>
 
-#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>
 
 #include <sdf_contact_estimation/sdf/sdf_model.h>
 #include <whole_body_posture_optimization/arm/stability_cost.h>
@@ -83,8 +81,6 @@ private:
   double self_collision_tsdf_voxel_size_;
   collision_detection::AllowedCollisionMatrix acm_;
 
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr result_com_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr support_polygon_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr robot_tsdf_pub_;
 };
 

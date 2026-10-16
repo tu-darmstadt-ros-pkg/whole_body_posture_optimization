@@ -45,7 +45,7 @@ Visualization Manager:
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: FlipperSupportPolygon
+      Name: Markers
       Namespaces:
         {}
       Topic:
@@ -53,42 +53,7 @@ Visualization Manager:
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /flipper_optimization/support_polygon
-      Value: true
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: ArmSupportPolygon
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Transient Local
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /arm_optimization/support_polygon
-      Value: true
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: false
-      Name: CollisionSpheres
-      Namespaces:
-        {}
-      Topic:
-        Depth: 5
-        Durability Policy: Transient Local
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /collision_spheres
-      Value: false
-    - Class: rviz_default_plugins/Pose
-      Enabled: true
-      Name: ResultCoM
-      Shape: Axes
-      Topic:
-        Depth: 5
-        Durability Policy: Transient Local
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /arm_optimization/result_com
+        Value: /whole_body_posture_optimization/markers
       Value: true
     - Class: voxblox_rviz_plugin/VoxbloxMesh
       Enabled: true
