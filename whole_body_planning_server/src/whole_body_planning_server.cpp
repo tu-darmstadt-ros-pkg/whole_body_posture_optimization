@@ -61,9 +61,6 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const rclcpp::Node::SharedPtr& 
   sdf_model_ = std::make_shared<sdf_contact_estimation::SdfModel>(node_);
   sdf_model_->loadEsdf(esdf_server_->getEsdfMapPtr(), esdf_server_->getEsdfMaxDistance(), true);
 
-  map_update_thread = std::make_unique<std::thread>(&WholeBodyPlanningServer::spinMapUpdate, this);
-
-
   // Create pose predictor
   // ShapeModel and SDFContactEstimation read their parameters from the node root
   auto shape_model = std::make_shared<sdf_contact_estimation::ShapeModel>(node_);
@@ -83,30 +80,38 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const rclcpp::Node::SharedPtr& 
     track_offsets_ = sdf_contact_estimation::trackOffsets(main_track_points, 3);
   }
 
-  joint_trajectory_client_ = rclcpp_action::create_client<FollowJointTrajectory>(
-      node_, param_utils::param(*node_, "joint_trajectory_action", std::string("flipper_trajectory_controller/follow_joint_trajectory")));
+  // After the robot model, so a throw while loading it cannot destroy a running thread.
+  map_update_thread = std::make_unique<std::thread>(&WholeBodyPlanningServer::spinMapUpdate, this);
 
-  // Connect vehicle controller action client
-  RCLCPP_INFO_STREAM(node_->get_logger(), "Waiting for vehicle controller client..");
-  driving_client_ = rclcpp_action::create_client<FollowPath>(node_, "/controller/follow_path");
-  if (!driving_client_->wait_for_action_server(std::chrono::seconds(5))) {
-    RCLCPP_ERROR_STREAM(node_->get_logger(), "Timed out waiting for driving action server.");
+  try {
+    joint_trajectory_client_ = rclcpp_action::create_client<FollowJointTrajectory>(
+        node_, param_utils::param(*node_, "joint_trajectory_action", std::string("flipper_trajectory_controller/follow_joint_trajectory")));
+
+    // Connect vehicle controller action client
+    RCLCPP_INFO_STREAM(node_->get_logger(), "Waiting for vehicle controller client..");
+    driving_client_ = rclcpp_action::create_client<FollowPath>(node_, "/controller/follow_path");
+    if (!driving_client_->wait_for_action_server(std::chrono::seconds(5))) {
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Timed out waiting for driving action server.");
+    }
+
+    // Create FollowPathServer
+    follow_path_server_ = rclcpp_action::create_server<FollowPath>(
+        node_, "follow_path",
+        std::bind(&WholeBodyPlanningServer::followPathGoalCallback, this, std::placeholders::_1, std::placeholders::_2),
+        std::bind(&WholeBodyPlanningServer::followPathCancelCallback, this, std::placeholders::_1),
+        std::bind(&WholeBodyPlanningServer::followPathAcceptedCallback, this, std::placeholders::_1));
+
+    // Start subscribers
+    path_sub_ = node_->create_subscription<nav_msgs::msg::Path>("simple_path_goal", 10,
+        std::bind(&WholeBodyPlanningServer::pathCb, this, std::placeholders::_1));
+    execute_sub_ = node_->create_subscription<std_msgs::msg::Empty>("execute_planned_trajectory", 10,
+        std::bind(&WholeBodyPlanningServer::confirmExecutionCb, this, std::placeholders::_1));
+    joint_state_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>("/joint_states", 10,
+        std::bind(&WholeBodyPlanningServer::jointStateCb, this, std::placeholders::_1));
+  } catch (...) {
+    stopMapUpdateThread();
+    throw;
   }
-
-  // Create FollowPathServer
-  follow_path_server_ = rclcpp_action::create_server<FollowPath>(
-      node_, "follow_path",
-      std::bind(&WholeBodyPlanningServer::followPathGoalCallback, this, std::placeholders::_1, std::placeholders::_2),
-      std::bind(&WholeBodyPlanningServer::followPathCancelCallback, this, std::placeholders::_1),
-      std::bind(&WholeBodyPlanningServer::followPathAcceptedCallback, this, std::placeholders::_1));
-
-  // Start subscribers
-  path_sub_ = node_->create_subscription<nav_msgs::msg::Path>("simple_path_goal", 10,
-      std::bind(&WholeBodyPlanningServer::pathCb, this, std::placeholders::_1));
-  execute_sub_ = node_->create_subscription<std_msgs::msg::Empty>("execute_planned_trajectory", 10,
-      std::bind(&WholeBodyPlanningServer::confirmExecutionCb, this, std::placeholders::_1));
-  joint_state_sub_ = node_->create_subscription<sensor_msgs::msg::JointState>("/joint_states", 10,
-      std::bind(&WholeBodyPlanningServer::jointStateCb, this, std::placeholders::_1));
   RCLCPP_INFO_STREAM(node_->get_logger(), "Initialization finished");
 }
 

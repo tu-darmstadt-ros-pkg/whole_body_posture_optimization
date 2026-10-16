@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cmath>
+#include <thread>
 
 #include <whole_body_planning_server/util.h>
 #include <whole_body_planning_server/path_smoother.h>
+#include <whole_body_planning_server/whole_body_planning_server.h>
 
 using namespace whole_body_planning_server;
 
@@ -153,6 +156,18 @@ TEST(Util, timedPathKeepsTheGoal) {
                                         rclcpp::Time(0, 0), "map");
   ASSERT_EQ(2u, three.poses.size());
   EXPECT_NEAR(0.105, three.poses.back().pose.position.x, 1e-9);
+}
+
+TEST(WholeBodyPlanningServer, shutdownDuringRobotModelLoadThrows) {
+  rclcpp::init(0, nullptr);
+  // Own namespace so no robot_description publisher on the domain answers.
+  auto node = std::make_shared<rclcpp::Node>("planning_server", "planning_server_shutdown_test");
+  std::thread stopper([] {
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    rclcpp::shutdown();
+  });
+  EXPECT_ANY_THROW(WholeBodyPlanningServer server(node));
+  stopper.join();
 }
 
 int main(int argc, char** argv) {

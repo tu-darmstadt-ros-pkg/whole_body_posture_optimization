@@ -180,7 +180,14 @@ int main(int argc, char** argv) {
   if (pose_predictor_name == "sdf_contact_estimation::SDFContactEstimation") {
     // Note: ShapeModel and SDFContactEstimation read their parameters from the node root
     // (same convention as the ported sdf_contact_estimation_node).
-    auto shape_model = std::make_shared<sdf_contact_estimation::ShapeModel>(node);
+    sdf_contact_estimation::ShapeModelPtr shape_model;
+    try {
+      shape_model = std::make_shared<sdf_contact_estimation::ShapeModel>(node);
+    } catch (const std::exception&) {
+      // Shut down while the robot model loaded.
+      if (rclcpp::ok()) throw;
+      return 0;
+    }
     auto sdf_pose_predictor = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(node, shape_model, sdf_model);
     sdf_pose_predictor->enableVisualisation(false);
     pose_predictor = std::static_pointer_cast<hector_pose_prediction_interface::PosePredictor<double>>(sdf_pose_predictor);

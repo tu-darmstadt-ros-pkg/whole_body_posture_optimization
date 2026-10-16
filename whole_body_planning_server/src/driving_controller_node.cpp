@@ -9,12 +9,19 @@ int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("driving_controller_node");
 
-  whole_body_planning_server::WholeBodyPlanningServer driving_controller(node);
+  std::unique_ptr<whole_body_planning_server::WholeBodyPlanningServer> driving_controller;
+  try {
+    driving_controller = std::make_unique<whole_body_planning_server::WholeBodyPlanningServer>(node);
+  } catch (const std::exception&) {
+    // Shut down while the robot model loaded.
+    if (rclcpp::ok()) throw;
+    return 0;
+  }
   RCLCPP_INFO_STREAM(node->get_logger(), "Finished initializing driving controller");
 
   std::string tsdf_load_path = param_utils::param(*node, "tsdf_load_path", std::string(""));
   if (!tsdf_load_path.empty()) {
-    driving_controller.loadTsdfFromPath(tsdf_load_path);
+    driving_controller->loadTsdfFromPath(tsdf_load_path);
   }
 
   // Debug
