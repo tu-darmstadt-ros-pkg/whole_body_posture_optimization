@@ -6,9 +6,10 @@ int main(int argc, char** argv) {
   try {
     whole_body_planning_server::WholeBodyPlanningServer planning_server(node);
     rclcpp::spin(node);
-  } catch (const std::exception&) {
+  } catch (const std::exception& e) {
     // Shut down while the robot model loaded.
     if (rclcpp::ok()) throw;
+    RCLCPP_INFO(node->get_logger(), "Shut down during startup: %s", e.what());
     return 0;
   }
   rclcpp::shutdown();

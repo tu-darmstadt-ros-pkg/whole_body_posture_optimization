@@ -183,9 +183,10 @@ int main(int argc, char** argv) {
     sdf_contact_estimation::ShapeModelPtr shape_model;
     try {
       shape_model = std::make_shared<sdf_contact_estimation::ShapeModel>(node);
-    } catch (const std::exception&) {
+    } catch (const std::exception& e) {
       // Shut down while the robot model loaded.
       if (rclcpp::ok()) throw;
+      RCLCPP_INFO(node->get_logger(), "Shut down during startup: %s", e.what());
       return 0;
     }
     auto sdf_pose_predictor = std::make_shared<sdf_contact_estimation::SDFContactEstimation>(node, shape_model, sdf_model);

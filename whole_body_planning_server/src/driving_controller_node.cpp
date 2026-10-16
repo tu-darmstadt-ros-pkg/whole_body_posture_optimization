@@ -12,9 +12,10 @@ int main(int argc, char** argv) {
   std::unique_ptr<whole_body_planning_server::WholeBodyPlanningServer> driving_controller;
   try {
     driving_controller = std::make_unique<whole_body_planning_server::WholeBodyPlanningServer>(node);
-  } catch (const std::exception&) {
+  } catch (const std::exception& e) {
     // Shut down while the robot model loaded.
     if (rclcpp::ok()) throw;
+    RCLCPP_INFO(node->get_logger(), "Shut down during startup: %s", e.what());
     return 0;
   }
   RCLCPP_INFO_STREAM(node->get_logger(), "Finished initializing driving controller");
