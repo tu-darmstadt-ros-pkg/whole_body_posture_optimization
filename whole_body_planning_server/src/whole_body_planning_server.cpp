@@ -248,6 +248,13 @@ void WholeBodyPlanningServer::abortActiveGoal(const std::string& error_msg, uint
   }
 }
 
+void WholeBodyPlanningServer::abortExecution(const std::string& error_msg, uint16_t error_code, const std::string& status)
+{
+  std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
+  stopExecution();
+  abortActiveGoal(error_msg, error_code, status);
+}
+
 void WholeBodyPlanningServer::publishGoalMarkers(const nav_msgs::msg::Path& path,
                                                  const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results,
                                                  const sdf_contact_estimation::SurfaceBand& terrain, const std::string& status)
@@ -447,10 +454,8 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
       return;
     }
     if (optimization_results.empty() || !optimization_results.back().success) {
-      stopExecution();
-      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Pose optimization failed.", FollowPath::Result::INVALID_PATH,
-                      optimization_results.empty() ? "no posture" : whole_body_posture_optimization::failureReason(optimization_results.back()));
+      abortExecution("Pose optimization failed.", FollowPath::Result::INVALID_PATH,
+                     optimization_results.empty() ? "no posture" : whole_body_posture_optimization::failureReason(optimization_results.back()));
       break;
     }
     results.push_back(optimization_results.back()); // Use only the second (and last) result, first one is the start state
@@ -460,9 +465,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
     std::vector<size_t> trajectory_start_indices_tmp;
     robot_trajectory::RobotTrajectory trajectory_fake_odom_part = optimizer_->computeTrajectory(optimization_results, fake_odom_pose, trajectory_world_poses_tmp, trajectory_start_indices_tmp);
     if (trajectory_fake_odom_part.empty()) {
-      stopExecution();
-      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Trajectory planning failed.", FollowPath::Result::INVALID_PATH, "no trajectory");
+      abortExecution("Trajectory planning failed.", FollowPath::Result::INVALID_PATH, "no trajectory");
       break;
     }
     // Extract current fake odom pose to initialize next trajectory
@@ -517,9 +520,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
     // Compute time parameterization for the slice (outputs a deep copy)
     auto timed_trajectory_slice = optimizer_->addTimeParameterization(trajectory_slice, trajectory_world_poses_slice);
     if (timed_trajectory_slice.empty() || timed_trajectory_slice.getDuration() == 0.0) {
-      stopExecution();
-      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Time parameterization failed.", FollowPath::Result::INVALID_PATH, "no timing");
+      abortExecution("Time parameterization failed.", FollowPath::Result::INVALID_PATH, "no timing");
       break;
     }
     // Mark all waypoints to have a time parameterization
@@ -542,8 +543,7 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
       first_execution = false;
       // Check if there are controllers that can handle the execution before sending the first trajectory
       if (!joint_trajectory_client_->action_server_is_ready()) {
-        std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-        abortActiveGoal("No controllers found that could execute the trajectory.", FollowPath::Result::INVALID_CONTROLLER, "no controller");
+        abortExecution("No controllers found that could execute the trajectory.", FollowPath::Result::INVALID_CONTROLLER, "no controller");
         break;
       }
       if (replanning) {
@@ -563,26 +563,25 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
       RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory end time is in the past by " << (now - trajectory_end).seconds() <<
                       " s. Planning takes too long.");
       // Fail and restart with a new path
-      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Planning time takes too long", FollowPath::Result::CONTROLLER_TIMED_OUT, "too slow");
+      abortExecution("Planning time takes too long", FollowPath::Result::CONTROLLER_TIMED_OUT, "too slow");
       break;
     }
 
     // Send trajectory
     saveTrajectoryStatistics(results, *trajectory, trajectory_start_indices, start_time);
+    bool sent;
     {
       std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_);
       if (execution_completed_) {
         RCLCPP_DEBUG_STREAM(node_->get_logger(), "Stopping execution thread before execution");
         return;
       }
-      if (!executeTrajectory(*trajectory, start_time)) {
-        RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory execution failed");
-        stopExecution();
-        std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-        abortActiveGoal("Trajectory execution failed.", FollowPath::Result::NO_VALID_CONTROL, "exec failed");
-        break;
-      }
+      sent = executeTrajectory(*trajectory, start_time);
+    }
+    if (!sent) {
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Trajectory execution failed");
+      abortExecution("Trajectory execution failed.", FollowPath::Result::NO_VALID_CONTROL, "exec failed");
+      break;
     }
     // Outside trajectory_mutex_, since publishing takes the goal mutex that cancel holds first
     if (!pending_window.empty()) {
@@ -1059,9 +1058,8 @@ void WholeBodyPlanningServer::executionWatchDog()
 
     if (stop_execution) {
       // Stop execution and fail goal (with stuck)
-      stopExecution();
-      std::lock_guard<std::mutex> lock_goal(follow_path_goal_mutex_);
-      abortActiveGoal("Deviation between planned robot pose and current pose exceeds threshold.", FollowPath::Result::FAILED_TO_MAKE_PROGRESS, "deviation");
+      trajectory_lock.unlock();
+      abortExecution("Deviation between planned robot pose and current pose exceeds threshold.", FollowPath::Result::FAILED_TO_MAKE_PROGRESS, "deviation");
       break;
     }
 

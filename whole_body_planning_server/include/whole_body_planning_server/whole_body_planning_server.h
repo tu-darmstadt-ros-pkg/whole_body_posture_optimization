@@ -83,6 +83,8 @@ private:
   bool followPathServerIsActive() const;
   /// status (at most two words) stays on ~/markers to explain the stop, empty clears them
   void abortActiveGoal(const std::string& error_msg, uint16_t error_code, const std::string& status);
+  /// Stops the execution and aborts the active goal. Caller holds neither follow_path_goal_mutex_ nor trajectory_mutex_
+  void abortExecution(const std::string& error_msg, uint16_t error_code, const std::string& status);
   /// Publishes markers only while the request that planned them is active, so a goal end cannot be overwritten
   void publishGoalMarkers(const nav_msgs::msg::Path& path,
                           const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results,
@@ -206,6 +208,7 @@ private:
   // action interface
   rclcpp_action::Server<FollowPath>::SharedPtr follow_path_server_;
   std::shared_ptr<FollowPathServerGoalHandle> follow_path_goal_;
+  /// Lock order esdf_update_mutex_, follow_path_goal_mutex_, trajectory_mutex_, driving_goal_mutex_
   mutable std::mutex follow_path_goal_mutex_;
   bool goal_markers_active_ = false; /// Guarded by follow_path_goal_mutex_
 
