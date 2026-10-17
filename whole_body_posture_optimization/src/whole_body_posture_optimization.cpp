@@ -2,6 +2,7 @@
 
 #include <iomanip>
 #include <filesystem>
+#include <limits>
 
 #include <pluginlib/class_loader.hpp>
 
@@ -209,9 +210,13 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
     result.result_com = arm_result.center_of_mass;
     result.stability_arm_opt = arm_result.stability;
     result.arm_cost = arm_result.final_cost;
-    result.success = result.stability_arm_opt > stability_limit_;
+    // The solver returns an arbitrary posture when every evaluated one failed
+    const bool feasible = !(flipper_result.final_cost >= std::numeric_limits<double>::max());
+    result.success = feasible && result.stability_arm_opt > stability_limit_;
     RCLCPP_INFO_STREAM(kLogger, "Stability: " << result.stability_arm_opt);
-    if (!result.success) {
+    if (!feasible) {
+      RCLCPP_WARN_STREAM(kLogger, "No feasible flipper posture found.");
+    } else if (!result.success) {
       RCLCPP_WARN_STREAM(kLogger, "Robot unstable (" << result.stability_arm_opt << " < " << stability_limit_ << ").");
     }
   } else {
