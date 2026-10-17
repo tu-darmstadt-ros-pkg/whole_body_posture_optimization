@@ -34,8 +34,8 @@
     truncation_distance: 2.0
     # On with the realistic sensors (methods/wbpo_realistic.yaml): unobserved terrain reads as ground, not as a drop
     terrain_fill: false
-    # An infeasible pose aborts the goal once the planned part is driven
-    retry_time: 0.0
+    # [s] An infeasible pose is retried with newer maps until this long after the planned part ends (the first attempt without one)
+    retry_time: 10.0
     publish_visualisation: false
 
     # --- Posture optimization ---
