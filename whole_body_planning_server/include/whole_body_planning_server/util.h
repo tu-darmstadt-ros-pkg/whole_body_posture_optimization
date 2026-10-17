@@ -19,6 +19,9 @@ double euclideanDistance2D(const Vector1& p1, const Vector2& p2) {
   return std::sqrt(x * x + y * y);
 }
 void appendPath(nav_msgs::msg::Path& path1, const nav_msgs::msg::Path& path2);
+/// Removes the poses after the first one that are closer to it than distance, keeping the last pose.
+/// A dense reference path otherwise starts with a sharp turn towards a small offset of the start pose.
+void dropPosesNearStart(nav_msgs::msg::Path& path, double distance);
 
 /// Base path of a trajectory: the poses stamped start_time + times. Poses that neither move nor turn the
 /// base are dropped (the last one replaces the one before), and so are poses not later than the previous one.

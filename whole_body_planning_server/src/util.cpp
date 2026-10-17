@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <iterator>
+
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <whole_body_planning_server/util.h>
 
@@ -88,6 +91,18 @@ void enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_pt
 
 void appendPath(nav_msgs::msg::Path& path1, const nav_msgs::msg::Path& path2) {
   path1.poses.insert(path1.poses.end(), path2.poses.begin(), path2.poses.end());
+}
+
+void dropPosesNearStart(nav_msgs::msg::Path& path, double distance) {
+  if (path.poses.size() < 3) {
+    return;
+  }
+  const geometry_msgs::msg::Point start = path.poses.front().pose.position;
+  auto first_distant = std::find_if(std::next(path.poses.begin()), std::prev(path.poses.end()),
+                                    [&](const geometry_msgs::msg::PoseStamped& pose) {
+    return euclideanDistance2D(start, pose.pose.position) >= distance;
+  });
+  path.poses.erase(std::next(path.poses.begin()), first_distant);
 }
 
 double euclideanDistance2D(const geometry_msgs::msg::Point& p1, const geometry_msgs::msg::Point& p2) {

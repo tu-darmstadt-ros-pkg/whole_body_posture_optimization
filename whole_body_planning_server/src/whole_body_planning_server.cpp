@@ -607,6 +607,7 @@ nav_msgs::msg::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::msg:
     path_copy.poses.front().pose.position.x = base_transform.transform.translation.x;
     path_copy.poses.front().pose.position.y = base_transform.transform.translation.y;
     path_copy.poses.front().pose.position.z = base_transform.transform.translation.z;
+    dropPosesNearStart(path_copy, path_sampling_resolution);
   }
 
   // Re-sample and smooth path

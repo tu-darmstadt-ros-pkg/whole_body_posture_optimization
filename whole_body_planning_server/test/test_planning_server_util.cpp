@@ -158,6 +158,25 @@ TEST(Util, timedPathKeepsTheGoal) {
   EXPECT_NEAR(0.105, three.poses.back().pose.position.x, 1e-9);
 }
 
+TEST(Util, dropPosesNearStartSkipsTheOffsetStart) {
+  // The robot stands 4 cm beside a reference path sampled every 5 cm
+  nav_msgs::msg::Path path = straightPath(1.0, 2.0, 0.05);
+  path.poses.front().pose.position.x = 1.04;
+  path.poses.front().pose.position.y = 0.04;
+  dropPosesNearStart(path, 0.2);
+  ASSERT_GE(path.poses.size(), 2u);
+  EXPECT_DOUBLE_EQ(1.04, path.poses.front().pose.position.x);
+  EXPECT_NEAR(1.25, path.poses[1].pose.position.x, 1e-6);
+  EXPECT_NEAR(2.0, path.poses.back().pose.position.x, 1e-6);
+}
+
+TEST(Util, dropPosesNearStartKeepsTheGoal) {
+  nav_msgs::msg::Path path = straightPath(0.0, 0.1, 0.05);
+  dropPosesNearStart(path, 0.2);
+  ASSERT_EQ(2u, path.poses.size());
+  EXPECT_NEAR(0.1, path.poses.back().pose.position.x, 1e-6);
+}
+
 TEST(WholeBodyPlanningServer, shutdownDuringRobotModelLoadThrows) {
   rclcpp::init(0, nullptr);
   // Own namespace so no robot_description publisher on the domain answers.
