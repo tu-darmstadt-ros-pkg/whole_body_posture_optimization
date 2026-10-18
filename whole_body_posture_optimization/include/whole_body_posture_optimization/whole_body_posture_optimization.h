@@ -155,6 +155,11 @@ private:
   /// [m/s], [rad/s] base limits of the time parameterization, 0 keeps the model limit
   double max_base_velocity_;
   double max_base_yaw_velocity_;
+  /// x, y pairs in the base frame of the columns searched for the surface under the robot, empty disables the search
+  std::vector<double> surface_columns_;
+  /// [m] Search range above and below each column, max_step_up below the clearance the robot needs under overhangs
+  double max_step_up_;
+  double max_step_down_;
   double max_acceleration_scaling_factor_;
 
   bool stepping_;

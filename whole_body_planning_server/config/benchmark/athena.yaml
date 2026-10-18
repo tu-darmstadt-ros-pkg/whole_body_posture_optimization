@@ -46,6 +46,11 @@
     convexity_threshold: 0.2
 
     # --- Posture optimization ---
+    # Each prediction starts on the highest surface under these x, y pairs (base frame, under the main tracks)
+    # within max_step_up above and max_step_down below the previous height
+    surface_columns: [0.25, 0.105, 0.0, 0.105, -0.25, 0.105, 0.25, -0.105, 0.0, -0.105, -0.25, -0.105]
+    max_step_up: 0.3
+    max_step_down: 0.5
     default_joint_state:
       flipper_fl_joint: 1.2
       flipper_fr_joint: 1.2

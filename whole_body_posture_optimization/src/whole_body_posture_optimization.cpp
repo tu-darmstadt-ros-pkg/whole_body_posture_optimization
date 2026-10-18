@@ -96,6 +96,12 @@ bool WholeBodyPostureOptimization::loadParameters(const rclcpp::Node::SharedPtr&
   max_acceleration_scaling_factor_ = param_utils::param(*node, param_prefix_ + "max_acceleration_scaling_factor", 1.0);
   max_base_velocity_ = param_utils::param(*node, param_prefix_ + "max_base_velocity", 0.0);
   max_base_yaw_velocity_ = param_utils::param(*node, param_prefix_ + "max_base_yaw_velocity", 0.0);
+  surface_columns_ = param_utils::param(*node, param_prefix_ + "surface_columns", std::vector<double>());
+  if (surface_columns_.size() % 2 != 0) {
+    throw std::invalid_argument("surface_columns must hold x, y pairs.");
+  }
+  max_step_up_ = param_utils::param(*node, param_prefix_ + "max_step_up", 0.3);
+  max_step_down_ = param_utils::param(*node, param_prefix_ + "max_step_down", 0.5);
 
   return true;
 }
@@ -189,6 +195,26 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
     // Use last estimated pose to update estimate, if available
     estimated_pose = sdf_contact_estimation::updatePoseFromLastResult(pose, previous_state->getJointTransform("world_virtual_joint"), true, false);
   }
+  // A start below a thin plate sees free space and falls through an open stair to the floor, so the prediction
+  // starts with each column on the highest surface under it
+  bool all_columns_on_surface = !surface_columns_.empty();
+  double lowest_surface = std::numeric_limits<double>::infinity();
+  if (sdf_model_ && !sdf_model_->isEmpty() && !surface_columns_.empty()) {
+    double raise = 0.0;
+    for (size_t i = 0; i + 1 < surface_columns_.size(); i += 2) {
+      const Eigen::Vector3d column = estimated_pose * Eigen::Vector3d(surface_columns_[i], surface_columns_[i + 1], 0.0);
+      const double surface = highestSurface(*sdf_model_, column.x(), column.y(), column.z() + max_step_up_, column.z() - max_step_down_);
+      if (std::isfinite(surface)) {
+        raise = std::max(raise, surface - column.z());
+        lowest_surface = std::min(lowest_surface, surface);
+      } else {
+        all_columns_on_surface = false;
+      }
+    }
+    estimated_pose.translation().z() += raise;
+  } else {
+    all_columns_on_surface = false;
+  }
 
   // Optimize flippers
   RCLCPP_INFO_STREAM(kLogger, "Estimated pose before optimization: " << poseToString(estimated_pose));
@@ -212,10 +238,15 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
     result.arm_cost = arm_result.final_cost;
     // The solver returns an arbitrary posture when every evaluated one failed
     const bool feasible = !(flipper_result.final_cost >= std::numeric_limits<double>::max());
-    result.success = feasible && result.stability_arm_opt > stability_limit_;
+    // A settled pose clearly below the surfaces under all columns fell through the terrain
+    constexpr double kFallMargin = 0.1;
+    const bool fell_through = all_columns_on_surface && flipper_result.pose.translation().z() < lowest_surface - kFallMargin;
+    result.success = feasible && !fell_through && result.stability_arm_opt > stability_limit_;
     RCLCPP_INFO_STREAM(kLogger, "Stability: " << result.stability_arm_opt);
     if (!feasible) {
       RCLCPP_WARN_STREAM(kLogger, "No feasible flipper posture found.");
+    } else if (fell_through) {
+      RCLCPP_WARN_STREAM(kLogger, "The predicted pose fell through the terrain.");
     } else if (!result.success) {
       RCLCPP_WARN_STREAM(kLogger, "Robot unstable (" << result.stability_arm_opt << " < " << stability_limit_ << ").");
     }

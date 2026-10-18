@@ -19,3 +19,6 @@
       cost_parameters:
         # Upper bound of the parameter, so chassis contact outweighs the track contact reward
         body_contact_weight: 100.0
+
+    # The flipper pivots, where MARV rests
+    surface_columns: [0.256, 0.248, -0.256, 0.248, 0.256, -0.248, -0.256, -0.248]

@@ -1,6 +1,10 @@
 #include "whole_body_posture_optimization/util/common.h"
 
+#include <algorithm>
+#include <cmath>
 #include <ctime>
+#include <limits>
+#include <stdexcept>
 #include <ceres/gradient_checker.h>
 #include <moveit/robot_state/conversions.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
@@ -179,6 +183,32 @@ std::string rosTimeToString(const rclcpp::Time &time) {
   std::stringstream ss;
   ss << sec << "." << std::setw(9) << std::setfill('0') << nsec;
   return ss.str();
+}
+
+double highestSurface(const sdf_contact_estimation::SdfModel& sdf, double x, double y, double z_top, double z_bottom)
+{
+  if (sdf.getSdfType() != ESDF) {
+    throw std::invalid_argument("highestSurface needs an ESDF for its gradient.");
+  }
+  // A surface is closer than kTouch with the SDF growing upwards. Steps stay below half a voxel because
+  // the map can overstate distances, which would let a march by the distance pass a thin plate
+  constexpr double kTouch = 0.03;
+  constexpr double kMinStep = 0.01;
+  constexpr double kMaxStep = 0.025;
+  bool first = true;
+  for (double z = z_top; z >= z_bottom; first = false) {
+    Eigen::Vector3d gradient;
+    bool unknown = false;
+    const double distance = sdf.getDistanceAndGradient(Eigen::Vector3d(x, y, z), gradient, &unknown);
+    if (unknown || !std::isfinite(distance) || (first && distance < 0.0)) {
+      return std::numeric_limits<double>::quiet_NaN();
+    }
+    if (distance < kTouch && gradient.z() > 0.5 * gradient.norm()) {
+      return z - distance;
+    }
+    z -= std::clamp(std::abs(distance), kMinStep, kMaxStep);
+  }
+  return std::numeric_limits<double>::quiet_NaN();
 }
 
 }

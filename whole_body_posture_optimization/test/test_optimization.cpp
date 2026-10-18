@@ -277,6 +277,11 @@ PostureOptimizationResult findPosture(const std::shared_ptr<BandPredictor>& pred
 
 }
 
+TEST(WholeBodyPostureOptimization, aFeasiblePostureWithoutSurfaceColumnsSucceeds) {
+  auto predictor = std::make_shared<BandPredictor>(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), 0.0);
+  EXPECT_TRUE(findPosture(predictor, Eigen::Isometry3d::Identity()).success);
+}
+
 TEST(WholeBodyPostureOptimization, noFeasiblePostureFails) {
   // Outside the joint limits, so every evaluated posture fails
   auto predictor = std::make_shared<BandPredictor>(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), 5.0);

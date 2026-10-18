@@ -8,6 +8,7 @@
 #include <ceres_nlopt_wrapper/utils.h>
 #include <ceres/cost_function.h>
 #include <sdf_contact_estimation/util/utils.h>
+#include <sdf_contact_estimation/sdf/sdf_model.h>
 #include "types.h"
 
 namespace whole_body_posture_optimization {
@@ -127,6 +128,11 @@ std::vector<T> mapListToSubset(const std::vector<T> &list, const std::vector<std
 Eigen::Vector3d quatToEuler(const Eigen::Quaterniond& quaternion, const std::string& convention = "zyx");
 
 std::string rosTimeToString(const rclcpp::Time& time);
+
+/// Height of the highest upward facing surface in column (x, y) between z_top and z_bottom, NaN when there
+/// is none, z_top lies in solid or the column reaches unknown space. The underside of a plate faces down
+/// and is skipped. Throws std::invalid_argument for an SDF other than an ESDF.
+double highestSurface(const sdf_contact_estimation::SdfModel& sdf, double x, double y, double z_top, double z_bottom);
 
 }
 
