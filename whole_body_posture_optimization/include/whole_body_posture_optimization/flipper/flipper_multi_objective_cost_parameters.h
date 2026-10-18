@@ -26,6 +26,7 @@ public:
   double pose_x_sigma;
   double risk_level;
   double regularization_weight;
+  double max_position_deviation;
 protected:
   bool loadParametersFromNamespaceImpl(const rclcpp::Node::SharedPtr& node) override;
 private:

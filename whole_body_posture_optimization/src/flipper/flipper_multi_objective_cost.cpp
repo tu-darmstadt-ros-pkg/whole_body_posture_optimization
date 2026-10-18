@@ -85,6 +85,24 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
   }
 }
 
+double predictSettledPose(hector_pose_prediction_interface::PosePredictor<double>& pose_predictor,
+                          const FlipperMultiObjectiveCostParameters& parameters, const Eigen::Isometry3d& pose,
+                          hector_math::Pose<double>& result_pose,
+                          hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
+                          hector_pose_prediction_interface::ContactInformation<double>& contact_information)
+{
+  const auto flags = hector_pose_prediction_interface::ContactInformationFlags::All;
+  const auto drift = [&pose](const hector_math::Pose<double>& settled) {
+    return (settled.asTransform().translation() - pose.translation()).head<2>().norm();
+  };
+  result_pose = hector_math::Pose<double>(pose);
+  double stability = pose_predictor.predictPoseAndContactInformation(result_pose, support_polygon, contact_information, flags);
+  if (parameters.max_position_deviation > 0 && drift(result_pose) > parameters.max_position_deviation) {
+    return std::nan("");
+  }
+  return stability;
+}
+
 bool FlipperMultiObjectiveCost::operator()(double const* const* flipper_angles, double* cost) const
 {
   // *** Simulation ** //
@@ -207,8 +225,8 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
   hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
   hector_pose_prediction_interface::ContactInformation<double> contact_information;
 
-  hector_math::Pose<double> result_pose(pose_sample);
-  double stability = pose_predictor_->predictPoseAndContactInformation(result_pose, support_polygon, contact_information, hector_pose_prediction_interface::ContactInformationFlags::All);
+  hector_math::Pose<double> result_pose;
+  double stability = predictSettledPose(*pose_predictor_, parameters_, pose_sample, result_pose, support_polygon, contact_information);
   Eigen::Isometry3d result_pose_eigen = result_pose.asTransform();
 
   // Catch: Estimation failed or robot fell over

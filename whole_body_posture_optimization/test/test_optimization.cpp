@@ -184,6 +184,8 @@ class BandPredictor : public hector_pose_prediction_interface::PosePredictor<dou
 {
 public:
   BandPredictor(hector_math::RobotModel<double>::Ptr model, double feasible) : model_(std::move(model)), feasible_(feasible) {}
+  /// Every predicted pose moves by this in the world
+  Eigen::Vector3d settle = Eigen::Vector3d::Zero();
   hector_math::RobotModel<double>::Ptr robotModel() override { return model_; }
   hector_math::RobotModel<double>::ConstPtr robotModel() const override { return model_; }
   void updateSettings(const hector_pose_prediction_interface::PosePredictorSettings<double>& settings) override { settings_ = settings; }
@@ -196,6 +198,7 @@ private:
                                             hector_pose_prediction_interface::ContactInformationFlags,
                                             const hector_pose_prediction_interface::Wrench<double>&) const override
   {
+    pose = hector_math::Pose<double>(Eigen::Translation3d(settle) * pose.asTransform());
     square(polygon, pose.asTransform());
     return feasible() ? 1.0 : std::nan("");
   }
@@ -278,6 +281,33 @@ TEST(WholeBodyPostureOptimization, noFeasiblePostureFails) {
   // Outside the joint limits, so every evaluated posture fails
   auto predictor = std::make_shared<BandPredictor>(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), 5.0);
   EXPECT_FALSE(findPosture(predictor, Eigen::Isometry3d::Identity()).success);
+}
+
+TEST(FlipperMultiObjectiveCost, predictSettledPoseRejectsAPoseThatMovedTooFar) {
+  BandPredictor predictor(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), 0.0);
+  // 0.2 m in x, y and 0.36 m in 3D
+  predictor.settle = Eigen::Vector3d(0.0, 0.2, -0.3);
+  FlipperMultiObjectiveCostParameters parameters;
+  hector_math::Pose<double> settled;
+  hector_pose_prediction_interface::SupportPolygon<double> polygon;
+  hector_pose_prediction_interface::ContactInformation<double> contacts;
+  EXPECT_TRUE(std::isfinite(predictSettledPose(predictor, parameters, Eigen::Isometry3d::Identity(), settled, polygon, contacts)));
+  parameters.max_position_deviation = 0.25;
+  EXPECT_TRUE(std::isfinite(predictSettledPose(predictor, parameters, Eigen::Isometry3d::Identity(), settled, polygon, contacts)));
+  parameters.max_position_deviation = 0.1;
+  EXPECT_TRUE(std::isnan(predictSettledPose(predictor, parameters, Eigen::Isometry3d::Identity(), settled, polygon, contacts)));
+  EXPECT_NEAR(0.2, settled.asTransform().translation().y(), 1e-9);
+}
+
+TEST(FlipperOptimization, aPostureThatSettlesTooFarAwayIsInfeasible) {
+  rclcpp::NodeOptions options = flipperNodeOptions(true);
+  options.append_parameter_override("flipper_optimization.cost_parameters.max_position_deviation", 0.1);
+  auto node = std::make_shared<rclcpp::Node>("flipper_drift_test", options);
+  auto robot_model = std::make_shared<RobotModel>(node);
+  auto predictor = std::make_shared<BandPredictor>(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), 0.0);
+  predictor->settle = Eigen::Vector3d(0.0, 0.2, 0.0);
+  FlipperOptimization optimization(node->create_sub_node("flipper_optimization"), robot_model, predictor);
+  EXPECT_EQ(std::numeric_limits<double>::max(), optimization.optimize(Eigen::Isometry3d::Identity(), {0.0}, nullptr).final_cost);
 }
 
 TEST(FlipperOptimization, localSolverKeepsAFeasiblePreviousPosture) {

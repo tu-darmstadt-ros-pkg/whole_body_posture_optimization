@@ -21,7 +21,8 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
   sample_step_pose_x(0.05),
   pose_x_sigma(0.03),
   risk_level(0.5),
-  regularization_weight(0.0)
+  regularization_weight(0.0),
+  max_position_deviation(0.0)
 {}
 
 bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const rclcpp::Node::SharedPtr& node) {
@@ -45,6 +46,7 @@ bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const 
   registerParameter(node, "pose_x_sigma", pose_x_sigma, 0.03, "Standard deviation of the normal distribution used for sampling the x position", 0, 1);
   registerParameter(node, "risk_level", risk_level, 0.5, "Risk level for CVaR (Conditional Value at Risk) computation", 0, 1);
   registerParameter(node, "regularization_weight", regularization_weight, 0.0, "Cost to keep the next solution close to the previous solution (if provided)", 0.0, 100);
+  registerParameter(node, "max_position_deviation", max_position_deviation, 0.0, "Largest x, y move of the settled pose of each pose sample (in m), 0 disables", 0.0, 10);
   return true;
 }
 

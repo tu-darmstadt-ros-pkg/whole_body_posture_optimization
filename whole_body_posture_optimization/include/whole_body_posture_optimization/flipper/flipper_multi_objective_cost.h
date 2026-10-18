@@ -17,6 +17,14 @@ namespace whole_body_posture_optimization {
 
 const std::string PROBABILITY_DISTRIBUTION_TABLE_NAME = "probability_distribution";
 
+/// Predicts the settled pose from pose and returns its stability, NaN when the settled pose moved more than
+/// max_position_deviation in x, y from pose. 0 disables the check.
+double predictSettledPose(hector_pose_prediction_interface::PosePredictor<double>& pose_predictor,
+                          const FlipperMultiObjectiveCostParameters& parameters, const Eigen::Isometry3d& pose,
+                          hector_math::Pose<double>& result_pose,
+                          hector_pose_prediction_interface::SupportPolygon<double>& support_polygon,
+                          hector_pose_prediction_interface::ContactInformation<double>& contact_information);
+
 class FlipperMultiObjectiveCost
 {
 public:
