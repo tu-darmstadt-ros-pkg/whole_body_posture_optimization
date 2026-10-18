@@ -2,7 +2,7 @@
 # sdf_contact_estimation::ShapeModel. Shapes are picked by their index in
 # the link's collisions (athena_description xacro).
 #
-# Flippers use the `oval_collision_shape` macro, three shapes:
+# The chassis and the flippers use the `oval_collision_shape` macro, three shapes:
 #   0 = rear wheel cylinder (at the -x end), 1 = belt box, 2 = front wheel cylinder
 #
 # Main tracks (athena_base.xacro, main_track_link) have eleven shapes:
@@ -29,6 +29,24 @@ joints:
 - flipper_br_joint
 
 collision_links:
+  # --- Chassis: belly and lower arcs, its contacts count as chassis contacts. ---
+- link: chassis_link
+  type: body
+  resolution: 0.06
+  include_indices: [1]
+- link: chassis_link
+  type: body
+  resolution: 0.02
+  cylinder_angle_min: 4.712   # 3/2 pi, down
+  cylinder_angle_max: 6.2832  # 2 pi, front
+  include_indices: [2]
+- link: chassis_link
+  type: body
+  resolution: 0.02
+  cylinder_angle_min: 3.1416  # pi, rear
+  cylinder_angle_max: 4.712   # 3/2 pi, down
+  include_indices: [0]
+
   # --- Main tracks: front arcs and bottom, then rear arcs. ---
 - link: main_track_left_link
   type: main_track

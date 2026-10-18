@@ -38,6 +38,13 @@
     retry_time: 10.0
     publish_visualisation: false
 
+    # --- Pose prediction (sdf_contact_estimation) ---
+    max_iterations: 5
+    iteration_contact_threshold: 0.025
+    final_contact_threshold: 0.05
+    chassis_contact_threshold: 0.05
+    convexity_threshold: 0.2
+
     # --- Posture optimization ---
     default_joint_state:
       flipper_fl_joint: 1.2
