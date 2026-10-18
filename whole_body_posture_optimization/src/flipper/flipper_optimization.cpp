@@ -98,10 +98,6 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
 
   // Construct solver
   nlopt::opt& opt = opt_server_->getOptimizer();
-  if (local_opt_server_) {
-    nlopt::opt& local_opt = local_opt_server_->getOptimizer();
-    opt.set_local_optimizer(local_opt); // makes a copy
-  }
 
   // Define parameter bounds
   opt.set_lower_bounds(lower_bounds_);
@@ -137,6 +133,7 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
 
   std::vector<double> parameters = mapListToSubset(*full_state, param_idx_to_jnt_idx_);
   ceres_nlopt_wrapper::applyBounds(lower_bounds_, upper_bounds_, parameters);
+  const std::vector<double> previous_parameters = parameters;
   START_TIMING("Flipper optimization")
   auto start = std::chrono::high_resolution_clock::now();
 
@@ -165,6 +162,28 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   }
   catch (const std::runtime_error& e) {
     RCLCPP_ERROR_STREAM(node_->get_logger(), "Flipper optimization failed (runtime error): " << e.what());
+  }
+
+  // The global grid rarely samples near the previous posture, so refine from both
+  if (local_opt_server_) {
+    nlopt::opt local_opt = local_opt_server_->getOptimizer();
+    local_opt.set_lower_bounds(lower_bounds_);
+    local_opt.set_upper_bounds(upper_bounds_);
+    local_opt.set_min_objective(ceres_nlopt_wrapper::CeresCostFunctionWrapper::wrap, objective.get());
+    for (std::vector<double> seed : {parameters, previous_parameters}) {
+      double local_minf;
+      try {
+        local_opt.optimize(seed, local_minf);
+      }
+      catch (const std::exception& e) {
+        RCLCPP_ERROR_STREAM(node_->get_logger(), "Local flipper optimization failed: " << e.what());
+        continue;
+      }
+      if (std::isnan(minf) || local_minf < minf) {
+        minf = local_minf;
+        parameters = seed;
+      }
+    }
   }
   STOP_TIMING_AVG
 

@@ -71,9 +71,11 @@
         enabled: true
         algorithm: GN_DIRECT
         maxeval: 120
+      # Refines the global optimum and the previous posture
       local_solver:
-        enabled: false
-        maxeval: 10
+        enabled: true
+        algorithm: LN_SBPLX
+        maxeval: 40
       joints:
         - flipper_fl_joint
         - flipper_fr_joint
