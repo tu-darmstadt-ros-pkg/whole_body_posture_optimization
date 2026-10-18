@@ -26,6 +26,8 @@
     tsdf_voxels_per_side: 16
     esdf_max_distance_m: 2.0
     update_esdf_every_n_sec: 0.0
+    # A ground truth layer arrives in one message per 64 blocks, about 24 for a 20 m course
+    layer_queue_size: 100
     publish_esdf_map: false
     publish_tsdf_map: false
     publish_pointclouds: false
