@@ -93,6 +93,10 @@ void appendPath(nav_msgs::msg::Path& path1, const nav_msgs::msg::Path& path2) {
   path1.poses.insert(path1.poses.end(), path2.poses.begin(), path2.poses.end());
 }
 
+rclcpp::Time startTimeAfterWait(const robot_trajectory::RobotTrajectory& trajectory, size_t waited_index, const rclcpp::Time& now) {
+  return now - rclcpp::Duration::from_seconds(trajectory.getWayPointDurationFromStart(waited_index));
+}
+
 void dropPosesNearStart(nav_msgs::msg::Path& path, double distance) {
   if (path.poses.size() < 3) {
     return;

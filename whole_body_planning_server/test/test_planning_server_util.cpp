@@ -8,6 +8,10 @@
 #include <whole_body_planning_server/path_smoother.h>
 #include <whole_body_planning_server/whole_body_planning_server.h>
 
+#include <moveit/robot_model/robot_model.hpp>
+#include <srdfdom/model.h>
+#include <urdf_parser/urdf_parser.h>
+
 using namespace whole_body_planning_server;
 
 namespace {
@@ -175,6 +179,22 @@ TEST(Util, dropPosesNearStartKeepsTheGoal) {
   dropPosesNearStart(path, 0.2);
   ASSERT_EQ(2u, path.poses.size());
   EXPECT_NEAR(0.1, path.poses.back().pose.position.x, 1e-6);
+}
+
+TEST(Util, startTimeAfterWaitPutsTheWaitedWaypointAtNow) {
+  auto urdf = urdf::parseURDF(R"(<robot name="r"><link name="base"/><link name="tip"/>
+    <joint name="j" type="revolute"><parent link="base"/><child link="tip"/><axis xyz="0 0 1"/>
+    <limit lower="-3" upper="3" velocity="1" effort="1"/></joint></robot>)");
+  auto srdf = std::make_shared<srdf::Model>();
+  srdf->initString(*urdf, R"(<robot name="r"><group name="g"><joint name="j"/></group></robot>)");
+  auto model = std::make_shared<moveit::core::RobotModel>(urdf, srdf);
+  robot_trajectory::RobotTrajectory trajectory(model, "g");
+  for (double duration : {0.0, 1.0, 2.0, 0.5}) {
+    trajectory.addSuffixWayPoint(moveit::core::RobotState(model), duration);
+  }
+  const rclcpp::Time now(100, 0, RCL_ROS_TIME);
+  const rclcpp::Time start = startTimeAfterWait(trajectory, 2, now);
+  EXPECT_DOUBLE_EQ(97.0, start.seconds());
 }
 
 TEST(WholeBodyPlanningServer, shutdownDuringRobotModelLoadThrows) {

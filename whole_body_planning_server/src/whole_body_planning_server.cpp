@@ -535,9 +535,15 @@ void WholeBodyPlanningServer::planAndExecutePathContinuous(const nav_msgs::msg::
                                                                         timed_trajectory_slice.getGroup());
     }
     robot_trajectory::RobotTrajectory trajectory_copy(*trajectory); // shallow copy
+    // A late waypoint (retries or slow planning) finds the robot waiting at the end of the trajectory sent last
+    const bool waited = !first_execution &&
+        node_->now() > start_time + rclcpp::Duration::from_seconds(trajectory_copy.getDuration());
     trajectory->clear(); // Unfortunately, we can not delete waypoints, so we have to rebuild the trajectory
     trajectory->append(trajectory_copy, 0.0, 0, time_parameterization_start_index); // old part
     trajectory->append(timed_trajectory_slice, trajectory_copy.getWayPointDurationFromPrevious(time_parameterization_start_index)); // new part
+    if (waited) {
+      start_time = startTimeAfterWait(*trajectory, trajectory_copy.getWayPointCount() - 1, node_->now());
+    }
 
     RCLCPP_DEBUG_STREAM(node_->get_logger(), "Total trajectory duration: " << trajectory->getDuration() << " s");
 
@@ -765,7 +771,7 @@ bool WholeBodyPlanningServer::executeJointTrajectory(const robot_trajectory::Rob
     RCLCPP_ERROR_STREAM(node_->get_logger(), "Execution failed! No joint trajectory controller is serving the joint trajectory action.");
     return false;
   }
-  // A replan resends the grown trajectory with the original start stamp; the controller replaces the running one
+  // A replan resends the grown trajectory, which replaces the running one in the controller
   moveit_msgs::msg::RobotTrajectory robot_trajectory_msg;
   trajectory.getRobotTrajectoryMsg(robot_trajectory_msg);
   FollowJointTrajectory::Goal goal;

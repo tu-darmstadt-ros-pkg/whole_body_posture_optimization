@@ -3,6 +3,7 @@
 
 #include <nav_msgs/msg/path.hpp>
 #include <moveit/robot_state/robot_state.hpp>
+#include <moveit/robot_trajectory/robot_trajectory.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 #include <rclcpp/time.hpp>
 #include <Eigen/Geometry>
@@ -27,6 +28,9 @@ void dropPosesNearStart(nav_msgs::msg::Path& path, double distance);
 /// base are dropped (the last one replaces the one before), and so are poses not later than the previous one.
 nav_msgs::msg::Path timedPath(const std::vector<Eigen::Isometry3d>& poses, const std::vector<double>& times,
                               const rclcpp::Time& start_time, const std::string& frame_id);
+
+/// Start time that puts the waypoint the robot waits at, waited_index of trajectory, at now.
+rclcpp::Time startTimeAfterWait(const robot_trajectory::RobotTrajectory& trajectory, size_t waited_index, const rclcpp::Time& now);
 
 void enforceAccelerationBounds(const moveit::core::RobotStatePtr& robot_state_ptr);
 
