@@ -20,5 +20,8 @@
         # Upper bound of the parameter, so chassis contact outweighs the track contact reward
         body_contact_weight: 100.0
 
+    # athena.yaml's 0.025 m is below Athena's belly, MARV's belly clearance is not measured
+    chassis_contact_threshold: 0.05
+
     # The flipper pivots, where MARV rests
     surface_columns: [0.256, 0.248, -0.256, 0.248, 0.256, -0.248, -0.256, -0.248]

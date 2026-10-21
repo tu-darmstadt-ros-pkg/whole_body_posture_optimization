@@ -33,14 +33,15 @@ static const rclcpp::Logger kLogger = rclcpp::get_logger("whole_body_posture_opt
 
 WholeBodyPostureOptimization::WholeBodyPostureOptimization(const rclcpp::Node::SharedPtr& node,
                                                            const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
-                                                           const sdf_contact_estimation::SdfModelPtr& sdf_model)
+                                                           const sdf_contact_estimation::SdfModelPtr& sdf_model,
+                                                           const sdf_contact_estimation::PredictionDiagnostics* prediction_diagnostics)
   : node_(node), pose_predictor_(pose_predictor), sdf_model_(sdf_model), stability_limit_(0.0)
 {
   param_prefix_ = param_utils::paramPrefix(*node_);
   robot_model_ = std::make_shared<RobotModel>(node_);
   loadParameters(node_);
 
-  flipper_optimization_ = std::make_shared<FlipperOptimization>(node_->create_sub_node("flipper_optimization"), robot_model_, pose_predictor_);
+  flipper_optimization_ = std::make_shared<FlipperOptimization>(node_->create_sub_node("flipper_optimization"), robot_model_, pose_predictor_, prediction_diagnostics);
   arm_optimization_ = std::make_shared<ArmOptimization>(node_->create_sub_node("arm_optimization"), robot_model_, sdf_model_);
 
   // Publishers
@@ -245,14 +246,18 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
     RCLCPP_INFO_STREAM(kLogger, "Stability: " << result.stability_arm_opt);
     if (!feasible) {
       RCLCPP_WARN_STREAM(kLogger, "No feasible flipper posture found.");
+      result.failure_reason = "infeasible";
     } else if (fell_through) {
       RCLCPP_WARN_STREAM(kLogger, "The predicted pose fell through the terrain.");
+      result.failure_reason = "fell through";
     } else if (!result.success) {
       RCLCPP_WARN_STREAM(kLogger, "Robot unstable (" << result.stability_arm_opt << " < " << stability_limit_ << ").");
+      result.failure_reason = "unstable";
     }
   } else {
     RCLCPP_ERROR_STREAM(kLogger, "No convex hull found.");
     result.success = false;
+    result.failure_reason = "no posture";
   }
 
   // Save to full state

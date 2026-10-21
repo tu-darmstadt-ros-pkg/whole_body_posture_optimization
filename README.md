@@ -8,6 +8,11 @@
 | Parameter | Default | Description |
 | --- | --- | --- |
 | `publish_markers` | `true` | build and publish the debug markers on `~/markers` |
+| `flipper_optimization.mirrored_joints` | `[]` | the left-right partner of each joint (or `""`), for `symmetry_weight` |
+| `flipper_optimization.cost_parameters.movement_temperature` | `0.0` | soft maximum over the joints of the movement and regularization costs, 0 is the maximum |
+| `flipper_optimization.cost_parameters.stability_temperature` | `inf` | soft maximum over the support polygon edge costs, 0 is the weakest edge, inf the mean |
+| `flipper_optimization.cost_parameters.symmetry_weight` | `0.0` | pull of mirrored flippers toward the same angle |
+| `flipper_optimization.cost_parameters.transition_weight` | `0.0` | cost per unit of force angle stability the previous centre of mass lacks in the new support polygon, 0 rejects such postures |
 
 ## Debug markers
 
@@ -31,6 +36,7 @@ naming why the robot stopped.
 - `terrain_no_surface` (planning server only): red points 0.5 m below the base height where the known SDF has no
   surface that close, above it when the base lies in solid
 - `status`: red sphere above the robot with the hold reason, `no map` (waiting for the first map),
-  `no posture` (no support polygon) or `unstable` (stability below the limit) while an infeasible waypoint is retried.
-  After an abort the same two, or `no plan`, `no trajectory`, `no timing`, `no controller`, `too slow`, `exec failed`,
+  `no posture` (no support polygon), `infeasible` (every evaluated posture failed), `fell through` (the predicted pose
+  fell through the terrain) or `unstable` (stability below the limit) while an infeasible waypoint is retried.
+  After an abort the same four, or `no plan`, `no trajectory`, `no timing`, `no controller`, `too slow`, `exec failed`,
   `follow failed` or `deviation`

@@ -1,6 +1,9 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_WHOLE_BODY_POSTURE_OPTIMIZATION_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_WHOLE_BODY_POSTURE_OPTIMIZATION_H
 
+#include <limits>
+#include <string>
+
 #include <rclcpp/rclcpp.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -27,8 +30,8 @@ enum OptimizationType {
 };
 
 struct PostureOptimizationResult {
-  Eigen::Isometry3d requested_pose;
-  Eigen::Isometry3d result_pose;
+  Eigen::Isometry3d requested_pose = Eigen::Isometry3d::Identity();
+  Eigen::Isometry3d result_pose = Eigen::Isometry3d::Identity();
 
   std::vector<double> init_joint_angles;
   std::vector<double> result_joint_angles;
@@ -38,24 +41,27 @@ struct PostureOptimizationResult {
   hector_pose_prediction_interface::SupportPolygon<double> support_polygon;
   hector_pose_prediction_interface::ContactInformation<double> contact_information;
 
-  Eigen::Vector3d init_com;
-  Eigen::Vector3d result_com;
+  Eigen::Vector3d init_com = Eigen::Vector3d::Zero();
+  Eigen::Vector3d result_com = Eigen::Vector3d::Zero();
 
-  double initial_stability;
-  double stability_flipper_opt;
-  double stability_arm_opt;
+  double initial_stability = std::numeric_limits<double>::quiet_NaN();
+  double stability_flipper_opt = std::numeric_limits<double>::quiet_NaN();
+  double stability_arm_opt = std::numeric_limits<double>::quiet_NaN();
 
-  double flipper_cost;
-  double arm_cost;
+  double flipper_cost = std::numeric_limits<double>::quiet_NaN();
+  double arm_cost = std::numeric_limits<double>::quiet_NaN();
 
-  bool success;
+  bool success = false;
+  /// Why the posture failed, as the markers' status shows it
+  std::string failure_reason;
 };
 
 class WholeBodyPostureOptimization {
 public:
   WholeBodyPostureOptimization(const rclcpp::Node::SharedPtr& node,
                                const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
-                               const sdf_contact_estimation::SdfModelPtr& sdf_model);
+                               const sdf_contact_estimation::SdfModelPtr& sdf_model,
+                               const sdf_contact_estimation::PredictionDiagnostics* prediction_diagnostics=nullptr);
   bool loadParameters(const rclcpp::Node::SharedPtr& node); // set free parameters, etc
 
   std::shared_ptr<RobotModel> getRobotModel() const;

@@ -29,6 +29,14 @@ void dropPosesNearStart(nav_msgs::msg::Path& path, double distance);
 nav_msgs::msg::Path timedPath(const std::vector<Eigen::Isometry3d>& poses, const std::vector<double>& times,
                               const rclcpp::Time& start_time, const std::string& frame_id);
 
+/// Inserts poses every spacing between consecutive poses on the cubic Hermite curve through their positions and
+/// headings, so a follower interpolating straight between poses stays on a curved path. Times are interpolated by
+/// curve parameter. Pose pairs whose headings point away from their chord (a turn on the spot, reversing) stay as they are.
+void densifyPoses(std::vector<Eigen::Isometry3d>& poses, std::vector<double>& times, double spacing);
+
+/// path stamped from start_time on, each segment as fast as velocity [m/s] and yaw_velocity [rad/s, 0 unlimited] allow
+nav_msgs::msg::Path timedAtLimits(const nav_msgs::msg::Path& path, double velocity, double yaw_velocity, const rclcpp::Time& start_time);
+
 /// Start time that puts the waypoint the robot waits at, waited_index of trajectory, at now.
 rclcpp::Time startTimeAfterWait(const robot_trajectory::RobotTrajectory& trajectory, size_t waited_index, const rclcpp::Time& now);
 

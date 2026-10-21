@@ -34,8 +34,8 @@
     publish_slices: false
     update_mesh_every_n_sec: 0.0
     truncation_distance: 2.0
-    # On with the realistic sensors (methods/wbpo_realistic.yaml): unobserved terrain reads as ground, not as a drop
-    terrain_fill: false
+    # Unobserved terrain reads as ground, not as a drop
+    terrain_fill: true
     # [s] An infeasible pose is retried with newer maps until this long after the planned part ends (the first attempt without one)
     retry_time: 10.0
     publish_visualisation: false
@@ -44,7 +44,8 @@
     max_iterations: 5
     iteration_contact_threshold: 0.025
     final_contact_threshold: 0.05
-    chassis_contact_threshold: 0.05
+    # Below the belly's 3.6 cm above the track bottom, so flat ground is no chassis contact
+    chassis_contact_threshold: 0.025
     convexity_threshold: 0.2
 
     # --- Posture optimization ---
@@ -53,11 +54,12 @@
     surface_columns: [0.25, 0.105, 0.0, 0.105, -0.25, 0.105, 0.25, -0.105, 0.0, -0.105, -0.25, -0.105]
     max_step_up: 0.3
     max_step_down: 0.5
+    # Stowed, the benchmark's start posture
     default_joint_state:
-      flipper_fl_joint: 1.2
-      flipper_fr_joint: 1.2
-      flipper_bl_joint: 1.2
-      flipper_br_joint: 1.2
+      flipper_fl_joint: 1.5708
+      flipper_fr_joint: 1.5708
+      flipper_bl_joint: 1.5708
+      flipper_br_joint: 1.5708
     optimization_type: split
     stability_limit: 0.0
     front_tip_support_area_limit: 0.0
@@ -95,10 +97,14 @@
         - flipper_fr_joint
         - flipper_bl_joint
         - flipper_br_joint
+      # The left-right partner of each joint, for symmetry_weight
+      mirrored_joints: [flipper_fr_joint, flipper_fl_joint, flipper_br_joint, flipper_bl_joint]
       cost_parameters:
         verbose: false
         stability_weight: 5.0
         stability_nominal_value: 2.0
+        # Close to the weakest support polygon edge
+        stability_temperature: 0.01
         stability_exp_parameters_a: 14.0
         stability_exp_parameters_b: -2.6
         stability_exp_parameters_c: 0.3
@@ -112,6 +118,8 @@
         max_position_deviation: 0.1
         lorentzian_sigma: 0.2
         movement_cost_weight: 1.0
+        # Close to the largest joint move
+        movement_temperature: 0.05
         turning_resistance_weight: 10.0
         impact_weight: 3.0
         num_pose_x_samples: 1.0
@@ -119,6 +127,9 @@
         pose_x_sigma: 0.03
         risk_level: 0.8
         regularization_weight: 0.5
+        symmetry_weight: 0.5
+        # Tipping between waypoints costs instead of making the posture infeasible
+        transition_weight: 15.0
 
     arm_optimization:
       enabled: false

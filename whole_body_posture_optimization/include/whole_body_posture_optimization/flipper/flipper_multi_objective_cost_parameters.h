@@ -10,6 +10,7 @@ public:
   FlipperMultiObjectiveCostParameters();
   double support_area_weight;
   double movement_cost_weight;
+  double movement_temperature;
   double lorentzian_sigma;
   double track_contact_weight;
   double track_contact_nominal_value;
@@ -19,6 +20,7 @@ public:
   double roll_cost_weight;
   double stability_weight;
   double stability_nominal_value;
+  double stability_temperature;
   double stability_exp_parameters[3];
   double impact_weight;
   double num_pose_x_samples;
@@ -27,6 +29,8 @@ public:
   double risk_level;
   double regularization_weight;
   double max_position_deviation;
+  double transition_weight;
+  double symmetry_weight;
 protected:
   bool loadParametersFromNamespaceImpl(const rclcpp::Node::SharedPtr& node) override;
 private:

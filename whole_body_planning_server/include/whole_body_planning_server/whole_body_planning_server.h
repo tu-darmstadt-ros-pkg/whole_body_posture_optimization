@@ -53,11 +53,16 @@ public:
    * @brief planAndExecutePathFull Plan and execute a whole-body plan along the given path
    * @param path_msg Path to drive
    */
-  bool planAndExecutePath(nav_msgs::msg::Path path_msg, bool replanning= false);
-  bool planAndExecutePathFull(const nav_msgs::msg::Path& path_msg, bool replanning= false);
+  /// goal: the action goal the execution serves, null for a path without a goal
+  bool planAndExecutePath(nav_msgs::msg::Path path_msg, bool replanning= false,
+                          const std::shared_ptr<FollowPathServerGoalHandle>& goal = nullptr);
+  bool planAndExecutePathFull(const nav_msgs::msg::Path& path_msg, bool replanning= false,
+                              const std::shared_ptr<FollowPathServerGoalHandle>& goal = nullptr);
   void planAndExecutePathContinuous(const nav_msgs::msg::Path& path_msg, bool replanning=false);
 private:
   void loadParameters();
+  /// The path stamped at the base's velocity limits from now, for a path driven without a whole-body plan
+  nav_msgs::msg::Path timedAtBaseLimits(const nav_msgs::msg::Path& path) const;
   void updateRobotPose(const nav_msgs::msg::Path& path);
   bool getRobotPose(const rclcpp::Time& stamp, geometry_msgs::msg::TransformStamped& transform) const;
   nav_msgs::msg::Path preprocessPath(const nav_msgs::msg::Path& path, double path_sampling_resolution) const;
@@ -78,13 +83,18 @@ private:
   void executionWatchDog();
 
   /// Util
-  bool updatePath(nav_msgs::msg::Path& old_path, const nav_msgs::msg::Path& new_path) const;
+  /// Stitches new_path onto old_path and sets path_updated_, both under path_update_mutex_
+  bool updatePath(nav_msgs::msg::Path& old_path, const nav_msgs::msg::Path& new_path);
   nav_msgs::msg::Path extractPathFromTrajectory(const robot_trajectory::RobotTrajectory& trajectory, const rclcpp::Time& start_time) const;
   bool followPathServerIsActive() const;
   /// status (at most two words) stays on ~/markers to explain the stop, empty clears them
   void abortActiveGoal(const std::string& error_msg, uint16_t error_code, const std::string& status);
   /// Stops the execution and aborts the active goal. Caller holds neither follow_path_goal_mutex_ nor trajectory_mutex_
-  void abortExecution(const std::string& error_msg, uint16_t error_code, const std::string& status);
+  /// goal: the goal to end, by default the one the running execution serves
+  void abortExecution(const std::string& error_msg, uint16_t error_code, const std::string& status,
+                      const std::shared_ptr<FollowPathServerGoalHandle>& goal = nullptr);
+  /// Drives path without a whole-body plan, or succeeds the served goal when there is nothing to drive
+  void driveWithoutPlan(const nav_msgs::msg::Path& path);
   /// Publishes markers only while the request that planned them is active, so a goal end cannot be overwritten
   void publishGoalMarkers(const nav_msgs::msg::Path& path,
                           const std::vector<whole_body_posture_optimization::PostureOptimizationResult>& results,
@@ -100,7 +110,7 @@ private:
       const std::vector<whole_body_posture_optimization::PostureOptimizationResult> &results,
       robot_trajectory::RobotTrajectory &trajectory,
       const std::vector<size_t> &trajectory_start_indices,
-      const rclcpp::Time &start_time);
+      const rclcpp::Time &start_time, bool last_part);
   void waitUntilPlanningHorizonReached(const geometry_msgs::msg::Point& planning_point);
 
   /// Callbacks
@@ -141,6 +151,8 @@ private:
   nav_msgs::msg::Path goal_path_;
   mutable std::mutex path_update_mutex_;
   std::atomic<bool> path_updated_;
+  /// The execution planned the last waypoint, so a path update cannot be stitched on any more. Guarded by path_update_mutex_
+  bool last_waypoint_planned_ = false;
   std::atomic<bool> end_of_path_reached_;
   std::atomic<int> current_path_index_;
 
@@ -208,6 +220,11 @@ private:
   // action interface
   rclcpp_action::Server<FollowPath>::SharedPtr follow_path_server_;
   std::shared_ptr<FollowPathServerGoalHandle> follow_path_goal_;
+  /// The goal the running execution serves; its aborts and results end follow_path_goal_ only while both match.
+  /// Guarded by follow_path_goal_mutex_
+  std::shared_ptr<FollowPathServerGoalHandle> served_goal_;
+  /// Set by the destructor, so no goal thread starts an execution afterwards
+  std::atomic<bool> shutting_down_{false};
   /// Lock order esdf_update_mutex_, follow_path_goal_mutex_, trajectory_mutex_, driving_goal_mutex_
   mutable std::mutex follow_path_goal_mutex_;
   bool goal_markers_active_ = false; /// Guarded by follow_path_goal_mutex_
@@ -216,10 +233,16 @@ private:
   rclcpp_action::Client<FollowPath>::SharedPtr driving_client_;
   /// Replanning replaces the driving goal; results of replaced goals are ignored
   rclcpp_action::GoalUUID driving_goal_id_{};
-  int unanswered_driving_goals_ = 0;
-  std::mutex driving_goal_mutex_;
+  /// Counts sends and stops, a goal response from an older generation belongs to a replaced or stopped goal
+  uint64_t driving_generation_ = 0;
+  uint64_t joint_generation_ = 0;
+  std::mutex driving_goal_mutex_; /// Guards driving_goal_id_ and both generations
   rclcpp_action::Client<FollowJointTrajectory>::SharedPtr joint_trajectory_client_;
-  rclcpp::TimerBase::SharedPtr cancel_timer_;
+  /// One per canceled goal until rclcpp moved it to CANCELING. Guarded by follow_path_goal_mutex_
+  std::vector<rclcpp::TimerBase::SharedPtr> cancel_timers_;
+  /// Aborts the execution from the executor outside the action client's callbacks, which may hold the client's locks
+  void abortExecutionLater(const std::string& error_msg, uint16_t error_code, const std::string& status);
+  std::vector<rclcpp::TimerBase::SharedPtr> abort_timers_; /// Guarded by driving_goal_mutex_
 };
 
 }

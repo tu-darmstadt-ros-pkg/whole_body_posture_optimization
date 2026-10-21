@@ -204,6 +204,9 @@ MarkerArray goalEndMarkers(const std::string& status, const Eigen::Vector3d& rob
 
 std::string failureReason(const PostureOptimizationResult& result)
 {
+  if (!result.failure_reason.empty()) {
+    return result.failure_reason;
+  }
   return result.support_polygon.contact_hull_points.size() > 2 ? "unstable" : "no posture";
 }
 
