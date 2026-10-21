@@ -65,6 +65,20 @@ TEST(Common, lorentzian) {
   EXPECT_DOUBLE_EQ(lorentzian(-0.3, 0.2), lorentzian(0.3, 0.2));
 }
 
+TEST(Common, softMaxGoesFromTheMaximumToTheMean) {
+  const std::vector<double> values = {0.1, 0.5, 0.3, 0.5};
+  EXPECT_DOUBLE_EQ(0.5, softMax(values, 0.0));
+  EXPECT_NEAR(0.5, softMax(values, 0.01), 1e-6);
+  EXPECT_LT(softMax(values, 0.2), 0.5);
+  EXPECT_GT(softMax(values, 0.2), 0.35);
+  EXPECT_DOUBLE_EQ(0.35, softMax(values, std::numeric_limits<double>::infinity()));
+  EXPECT_TRUE(std::isnan(softMax(std::vector<double>{}, 0.1)));
+}
+
+TEST(Common, softMaxOfALargeSpreadStaysFinite) {
+  EXPECT_NEAR(1000.0, softMax(std::vector<double>{0.0, 1000.0}, 0.01), 1e-9);
+}
+
 TEST(Common, gaussianDistribution) {
   double peak = gaussianDistribution(0.0, 0.0, 1.0);
   EXPECT_NEAR(1.0 / std::sqrt(2 * M_PI), peak, 1e-9);

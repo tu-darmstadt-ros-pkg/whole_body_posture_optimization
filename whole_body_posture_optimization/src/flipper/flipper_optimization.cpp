@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <whole_body_posture_optimization/flipper/flipper_optimization.h>
 
 #include "whole_body_posture_optimization/util/timing.h"
@@ -15,8 +16,9 @@ using whole_body_planning_plotting_utils::DataLog;
 using namespace hector_pose_prediction_interface;
 
 FlipperOptimization::FlipperOptimization(const rclcpp::Node::SharedPtr& node, const std::shared_ptr<RobotModel> &robot_model,
-                                         const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor)
-  : node_(node), robot_model_(robot_model), pose_predictor_(pose_predictor), enabled_(true)
+                                         const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
+                                         const sdf_contact_estimation::PredictionDiagnostics* prediction_diagnostics)
+  : node_(node), robot_model_(robot_model), pose_predictor_(pose_predictor), prediction_diagnostics_(prediction_diagnostics), enabled_(true)
 {
   param_prefix_ = param_utils::paramPrefix(*node_);
   if (!loadParameters(*node_)) {
@@ -79,6 +81,23 @@ bool FlipperOptimization::loadParameters(rclcpp::Node& node)
     return false;
   }
   param_utils::getParam(node, param_prefix_ + "coupled_joints", coupled_joints_);
+  std::vector<std::string> mirrored_joints;
+  param_utils::getParam(node, param_prefix_ + "mirrored_joints", mirrored_joints);
+  if (!mirrored_joints.empty() && mirrored_joints.size() != free_joints_.size()) {
+    throw std::invalid_argument(param_prefix_ + "mirrored_joints must have one entry (or \"\") per joint.");
+  }
+  for (size_t i = 0; i < mirrored_joints.size(); ++i) {
+    if (mirrored_joints[i].empty()) {
+      continue;
+    }
+    auto it = std::find(free_joints_.begin(), free_joints_.end(), mirrored_joints[i]);
+    if (it == free_joints_.end()) {
+      throw std::invalid_argument(param_prefix_ + "mirrored_joints entry '" + mirrored_joints[i] + "' is not one of the joints.");
+    }
+    if (static_cast<size_t>(it - free_joints_.begin()) > i) {
+      mirrored_pairs_.emplace_back(i, static_cast<size_t>(it - free_joints_.begin()));
+    }
+  }
   if (!coupled_joints_.empty() && coupled_joints_.size() != free_joints_.size()) {
     throw std::invalid_argument(param_prefix_ + "coupled_joints must have one entry (or \"\") per joint.");
   }
@@ -121,10 +140,12 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
 
   // Add objective function
   int verbosity_level = 0;
+  FlipperRejections rejections;
   std::shared_ptr<ceres_nlopt_wrapper::CeresCostFunctionWrapper> objective;
   objective = std::make_shared<ceres_nlopt_wrapper::CeresCostFunctionWrapper>(
       FlipperMultiObjectiveCost::Create(free_joints_, pose_predictor_, robot_pose, previous_state,
-                                        flipper_multi_objective_cost_parameters_, last_solution, coupled_joints_), verbosity_level);
+                                        flipper_multi_objective_cost_parameters_, last_solution, coupled_joints_, &rejections,
+                                        mirrored_pairs_, prediction_diagnostics_), verbosity_level);
 
   objective->setName("flipper_objective");
   objective->enableInfCheck(true);
@@ -175,6 +196,9 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
       try {
         local_opt.optimize(seed, local_minf);
       }
+      catch (const nlopt::roundoff_limited&) {
+        // nlopt returns the best point it reached before throwing
+      }
       catch (const std::exception& e) {
         RCLCPP_ERROR_STREAM(node_->get_logger(), "Local flipper optimization failed: " << e.what());
         continue;
@@ -190,6 +214,13 @@ FlipperOptimizationResult FlipperOptimization::optimize(const Eigen::Isometry3d 
   std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
   RCLCPP_INFO_STREAM(node_->get_logger(), "Flipper optimization took " << objective->getEvaluations() << " evaluations in " << elapsed.count()*1000.0 << " ms. Solution: "
                   << ceres_nlopt_wrapper::vecToString(parameters) << ", Final cost: " << minf << ", " << ceres_nlopt_wrapper::resultToString(nlopt_result));
+
+  if (minf >= std::numeric_limits<double>::max()) {
+    RCLCPP_WARN_STREAM(node_->get_logger(), "Every evaluated flipper posture failed: unsettled " << rejections.unsettled
+                       << " (fell over " << rejections.fell_over << ", no contact " << rejections.no_contact << ", not converged "
+                       << rejections.not_converged << "), drifted " << rejections.drifted << ", transition " << rejections.transition
+                       << ", touched unknown " << rejections.failed_touched_unknown << " of the failed");
+  }
 
   // Compose result
   FlipperOptimizationResult result;

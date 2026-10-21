@@ -14,8 +14,13 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
                                                      const moveit::core::RobotStateConstPtr& previous_state,
                                                      const FlipperMultiObjectiveCostParameters& parameters,
                                                      const moveit::core::RobotStateConstPtr& last_solution,
-                                                     const std::vector<std::string>& coupled_joints)
-  : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose), parameters_(parameters)
+                                                     const std::vector<std::string>& coupled_joints,
+                                                     FlipperRejections* rejections,
+                                                     const std::vector<std::pair<size_t, size_t>>& mirrored_pairs,
+                                                     const sdf_contact_estimation::PredictionDiagnostics* prediction_diagnostics)
+  : free_joints_(free_joints), pose_predictor_(pose_predictor), pose_(pose), pose_math_(pose), rejections_(rejections),
+    prediction_diagnostics_(prediction_diagnostics),
+    mirrored_pairs_(mirrored_pairs), parameters_(parameters)
 {
   param_idx_to_state_idx = getIndexMap<std::string>(pose_predictor_->robotModel()->jointNames(), free_joints_);
   const std::vector<std::string>& state_joints = pose_predictor_->robotModel()->jointNames();
@@ -175,10 +180,13 @@ ceres::CostFunction* FlipperMultiObjectiveCost::Create(const std::vector<std::st
                                                  const moveit::core::RobotStateConstPtr& previous_state,
                                                  const FlipperMultiObjectiveCostParameters& parameters,
                                                  const moveit::core::RobotStateConstPtr& last_solution,
-                                                 const std::vector<std::string>& coupled_joints)
+                                                 const std::vector<std::string>& coupled_joints,
+                                                 FlipperRejections* rejections,
+                                                 const std::vector<std::pair<size_t, size_t>>& mirrored_pairs,
+                                                 const sdf_contact_estimation::PredictionDiagnostics* prediction_diagnostics)
 {
   auto* cost_function = new ceres::DynamicNumericDiffCostFunction<FlipperMultiObjectiveCost>(
-      new FlipperMultiObjectiveCost(free_joints, pose_predictor, pose, previous_state, parameters, last_solution, coupled_joints));
+      new FlipperMultiObjectiveCost(free_joints, pose_predictor, pose, previous_state, parameters, last_solution, coupled_joints, rejections, mirrored_pairs, prediction_diagnostics));
 
   cost_function->AddParameterBlock(static_cast<int>(free_joints.size()));
   cost_function->SetNumResiduals(1);
@@ -230,24 +238,54 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
   Eigen::Isometry3d result_pose_eigen = result_pose.asTransform();
 
   // Catch: Estimation failed or robot fell over
-  if (std::isnan(stability) || stability == -std::numeric_limits<double>::max()) {
+  const bool failed = std::isnan(stability) || stability == -std::numeric_limits<double>::max();
+  // Only with one pose sample, the samples of the CVaR path share the predictor's diagnostics
+  const sdf_contact_estimation::PredictionDiagnostics* diagnostics =
+      parameters_.num_pose_x_samples <= 1 ? prediction_diagnostics_ : nullptr;
+  if (rejections_ && diagnostics && diagnostics->unknown_sampling_points > 0) {
+    ++rejections_->touched_unknown;
+    if (failed) {
+      ++rejections_->failed_touched_unknown;
+    }
+  }
+  if (failed) {
+    if (rejections_) {
+      const double drift = (result_pose_eigen.translation() - pose_sample.translation()).head<2>().norm();
+      const bool drifted = std::isnan(stability) && parameters_.max_position_deviation > 0 && drift > parameters_.max_position_deviation;
+      ++(drifted ? rejections_->drifted : rejections_->unsettled);
+      if (!drifted && diagnostics) {
+        using sdf_contact_estimation::PredictionStatus;
+        switch (diagnostics->status) {
+          case PredictionStatus::FellOver: ++rejections_->fell_over; break;
+          case PredictionStatus::NoHullIteration:
+          case PredictionStatus::NoHullFinal: ++rejections_->no_contact; break;
+          case PredictionStatus::NotConverged: ++rejections_->not_converged; break;
+          default: break;
+        }
+      }
+    }
     return std::numeric_limits<double>::max();
   }
 
   // ** Transition costs ++ //
   double turning_resistance = 0;
+  double transition_cost = 0.0;
   double movement_cost = 0.0;
   double impact_cost = 0.0;
   if (!prev_flipper_param_angles_.empty()) {
-    // Enforce valid transitions from previous to this state
-    // The transition is only considered valid, if the previous (world) COM pose is still inside the new support polygon
-    // This should ensure that no intermediate state between the discretized states is unstable.
-    // Note: This completely prevents tipping between states, even if it would be possible
+    // A new support polygon that holds the previous centre of mass keeps the robot from tipping between the waypoints
     std::vector<double> prev_com_stabilities =
         computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, prev_com_);
     double prev_com_stability = *std::min_element(prev_com_stabilities.begin(), prev_com_stabilities.end());
     if (prev_com_stability < 0) {
-      return std::numeric_limits<double>::max();
+      if (parameters_.transition_weight <= 0.0) {
+        if (rejections_) {
+          ++rejections_->transition;
+        }
+        return std::numeric_limits<double>::max();
+      }
+      // The robot tips between the waypoints, which costs by how far
+      transition_cost = -prev_com_stability;
     }
 
     // Compute rotation difference
@@ -293,20 +331,31 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
 
     if (parameters_.movement_cost_weight != 0) {
       // Joint movement cost
+      std::vector<double> joint_costs;
+      joint_costs.reserve(prev_flipper_param_angles_.size());
       for (unsigned int idx = 0; idx < prev_flipper_param_angles_.size(); idx++) {
         double angle_difference = prev_flipper_param_angles_[idx] - flipper_angles[idx];
-        //          movement_cost += lorentzian<double>(angle_difference, parameters_.lorentzian_sigma);
-        movement_cost = std::max(lorentzian<double>(angle_difference, parameters_.lorentzian_sigma), movement_cost);
+        joint_costs.push_back(lorentzian<double>(angle_difference, parameters_.lorentzian_sigma));
       }
-      //        movement_cost /= static_cast<double>(prev_flipper_param_angles_.size()); // Normalize by number of joints
+      movement_cost = softMax(joint_costs, parameters_.movement_temperature);
     }
   }
 
   double regularization_cost = 0;
   if (!last_solution_.empty() && parameters_.regularization_weight > 0.0) {
+    std::vector<double> joint_costs;
+    joint_costs.reserve(last_solution_.size());
     for (unsigned int idx = 0; idx < last_solution_.size(); idx++) {
       double angle_difference = last_solution_[idx] - flipper_angles[idx];
-      regularization_cost = std::max(lorentzian<double>(angle_difference, parameters_.lorentzian_sigma), regularization_cost);
+      joint_costs.push_back(lorentzian<double>(angle_difference, parameters_.lorentzian_sigma));
+    }
+    regularization_cost = softMax(joint_costs, parameters_.movement_temperature);
+  }
+
+  double symmetry_cost = 0;
+  if (parameters_.symmetry_weight > 0.0) {
+    for (const auto& [left, right] : mirrored_pairs_) {
+      symmetry_cost += lorentzian<double>(flipper_angles[left] - flipper_angles[right], parameters_.lorentzian_sigma);
     }
   }
 
@@ -318,10 +367,7 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
 
   // Penalize chassis roll angle
   // We want the chassis to be upright
-  double chassis_roll_angle = result_pose_eigen.linear().eulerAngles(0, 1, 2)[0];
-  if (chassis_roll_angle > M_PI_2) {
-    chassis_roll_angle = M_PI - chassis_roll_angle;
-  }
+  double chassis_roll_angle = sdf_contact_estimation::rotToNormalizedRpy(result_pose_eigen.linear())[0];
 
   // Stability cost
   double stability_cost = 0;
@@ -338,8 +384,7 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
       return parameters_.stability_exp_parameters[0] * exp(parameters_.stability_exp_parameters[1] * stability+parameters_.stability_exp_parameters[2]);
     });
 
-    stability_cost = std::accumulate(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), 0.0);
-    stability_cost /= static_cast<double>(support_polygon.edge_stabilities.size()); // average cost per axis
+    stability_cost = softMax(transformed_edge_stabilities, parameters_.stability_temperature);
   }
 
   // Traction and fragile contacts costs
@@ -354,6 +399,12 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
       if (point.surface_normal == Eigen::Vector3d::Zero()) continue; // No gradient
       Eigen::Vector3d surface_normal = point.surface_normal.normalized();
       double normal_force = gravity_vector.dot(surface_normal); // Value between 0 (low traction) and 1 (high traction)
+      // Above the track (a flipper under an open stair plate) or beside it (a block next to a flipper), clearly so for thin plates
+      const double lateral = std::abs(result_pose_eigen.linear().col(1).dot(surface_normal));
+      if (normal_force < -0.5 || lateral > 0.7) {
+        body_contact_area += point.surface_area;
+        continue;
+      }
       track_contact_area += normal_force * point.surface_area;
     }
 
@@ -402,7 +453,9 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
                       + parameters_.position_deviation_weight * position_deviation_cost
                       + parameters_.stability_weight * stability_cost
                       + parameters_.impact_weight * impact_cost
-                      + parameters_.regularization_weight * regularization_cost;
+                      + parameters_.regularization_weight * regularization_cost
+                      + parameters_.symmetry_weight * symmetry_cost
+                      + parameters_.transition_weight * transition_cost;
   return local_cost;
 
 //    if (parameters_.verbose) {

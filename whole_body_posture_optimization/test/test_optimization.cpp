@@ -162,6 +162,113 @@ TEST(FlipperMultiObjectiveCost, coupledJointsFollowTheirOptimizedJoint) {
   EXPECT_DOUBLE_EQ(-0.2, predictor->last_joints.at("br"));
 }
 
+double rollCost(double yaw, double pitch, double roll) {
+  auto model = std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"});
+  FlipperMultiObjectiveCostParameters parameters;
+  parameters.impact_weight = 0.0;
+  parameters.roll_cost_weight = 1.0;
+  Eigen::Isometry3d pose(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) * Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
+                         Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX()));
+  const std::vector<std::string> joints = {"f"};
+  FlipperMultiObjectiveCost cost(joints, std::make_shared<RecordingPredictor>(model), pose, nullptr, parameters);
+  const double angle[1] = {0.0};
+  const double* blocks[1] = {angle};
+  double value = 0.0;
+  cost(blocks, &value);
+  return value;
+}
+
+TEST(FlipperMultiObjectiveCost, rollCostPenalizesBodyRollAtAnyHeading) {
+  EXPECT_NEAR(0.0, rollCost(M_PI_2, 0.5, 0.0), 1e-9);
+  EXPECT_NEAR(0.09, rollCost(M_PI_2, 0.0, 0.3), 1e-9);
+  EXPECT_NEAR(0.09, rollCost(0.8, 0.4, -0.3), 1e-9);
+}
+
+TEST(FlipperMultiObjectiveCost, symmetryCostPullsMirroredJointsTogether) {
+  auto model = std::make_shared<FakeRobotModel>(std::vector<std::string>{"fl", "fr", "bl", "br"});
+  FlipperMultiObjectiveCostParameters parameters;
+  parameters.impact_weight = 0.0;
+  parameters.lorentzian_sigma = 0.2;
+  parameters.symmetry_weight = 2.0;
+  const std::vector<std::string> joints = {"fl", "fr", "bl", "br"};
+  FlipperMultiObjectiveCost cost(joints, std::make_shared<RecordingPredictor>(model), Eigen::Isometry3d::Identity(),
+                                 nullptr, parameters, nullptr, {}, nullptr, {{0, 1}, {2, 3}});
+  auto value = [&cost](std::vector<double> angles) {
+    const double* blocks[1] = {angles.data()};
+    double v = 0.0;
+    cost(blocks, &v);
+    return v;
+  };
+  EXPECT_NEAR(0.0, value({0.4, 0.4, -0.3, -0.3}), 1e-9);
+  EXPECT_NEAR(2.0 * (lorentzian(0.5, 0.2) + lorentzian(0.1, 0.2)), value({0.4, -0.1, -0.3, -0.2}), 1e-9);
+}
+
+// Reports one track contact with the given surface normal and a stable square support polygon
+class OneContactPredictor : public hector_pose_prediction_interface::PosePredictor<double>
+{
+public:
+  OneContactPredictor(hector_math::RobotModel<double>::Ptr model, Eigen::Vector3d normal) : model_(std::move(model)), normal_(normal) {}
+  hector_math::RobotModel<double>::Ptr robotModel() override { return model_; }
+  hector_math::RobotModel<double>::ConstPtr robotModel() const override { return model_; }
+  void updateSettings(const hector_pose_prediction_interface::PosePredictorSettings<double>& settings) override { settings_ = settings; }
+  const hector_pose_prediction_interface::PosePredictorSettings<double>& settings() const override { return settings_; }
+
+private:
+  double doPredictPoseAndContactInformation(hector_math::Pose<double>&, hector_pose_prediction_interface::SupportPolygon<double>& polygon,
+                                            hector_pose_prediction_interface::ContactInformation<double>& contacts,
+                                            hector_pose_prediction_interface::ContactInformationFlags,
+                                            const hector_pose_prediction_interface::Wrench<double>&) const override
+  {
+    polygon.contact_hull_points = {{1, 1, 0}, {-1, 1, 0}, {-1, -1, 0}, {1, -1, 0}};
+    polygon.edge_stabilities = {1.0, 1.0, 1.0, 1.0};
+    hector_pose_prediction_interface::ContactPointInformation<double> contact{};
+    contact.link_type = hector_pose_prediction_interface::LinkType::Tracks;
+    contact.surface_area = 0.01;
+    contact.surface_normal = normal_;
+    contacts.contact_points = {contact};
+    return 1.0;
+  }
+  double doPredictPoseAndSupportPolygon(hector_math::Pose<double>&, hector_pose_prediction_interface::SupportPolygon<double>&,
+                                        const hector_pose_prediction_interface::Wrench<double>&) const override { return 1.0; }
+  double doPredictPose(hector_math::Pose<double>&, const hector_pose_prediction_interface::Wrench<double>&) const override { return 1.0; }
+  bool doEstimateSupportPolygon(const hector_math::Pose<double>&, hector_pose_prediction_interface::SupportPolygon<double>&) const override { return true; }
+  bool doEstimateContactInformation(const hector_math::Pose<double>&, hector_pose_prediction_interface::SupportPolygon<double>&,
+                                    hector_pose_prediction_interface::ContactInformation<double>&,
+                                    hector_pose_prediction_interface::ContactInformationFlags) const override { return true; }
+
+  hector_math::RobotModel<double>::Ptr model_;
+  Eigen::Vector3d normal_;
+  hector_pose_prediction_interface::PosePredictorSettings<double> settings_{10, 0.01, 0.5};
+};
+
+double contactCost(const Eigen::Vector3d& normal, double yaw = 0.0) {
+  auto model = std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"});
+  FlipperMultiObjectiveCostParameters parameters;
+  parameters.impact_weight = 0.0;
+  parameters.track_contact_weight = 1.0;
+  parameters.body_contact_weight = 10.0;
+  const std::vector<std::string> joints = {"f"};
+  const Eigen::Isometry3d pose(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
+  FlipperMultiObjectiveCost cost(joints, std::make_shared<OneContactPredictor>(model, normal.normalized()), pose, nullptr, parameters);
+  const double angle[1] = {0.0};
+  const double* blocks[1] = {angle};
+  double value = 0.0;
+  cost(blocks, &value);
+  return value;
+}
+
+TEST(FlipperMultiObjectiveCost, contactsFromAboveOrBesideCostAsBodyContacts) {
+  EXPECT_NEAR(-0.01, contactCost({0, 0, 1}), 1e-9);
+  // A riser ahead is climbed, so it stays a track contact without traction
+  EXPECT_NEAR(0.0, contactCost({-1, 0, 0}), 1e-9);
+  EXPECT_NEAR(0.1, contactCost({0, 0, -1}), 1e-9);
+  EXPECT_NEAR(0.1, contactCost({0, 1, 0}), 1e-9);
+  EXPECT_NEAR(0.1, contactCost({0.2, -1, 0.2}), 1e-9);
+  // Beside the robot in its frame, the normal is in the world frame
+  EXPECT_NEAR(0.1, contactCost({1, 0, 0}, M_PI_2), 1e-9);
+  EXPECT_NEAR(0.0, contactCost({0, 1, 0}, M_PI_2), 1e-9);
+}
+
 namespace {
 
 // One flipper joint and the planner's virtual joint
@@ -277,6 +384,75 @@ PostureOptimizationResult findPosture(const std::shared_ptr<BandPredictor>& pred
 
 }
 
+double costAfterStep(double step, FlipperMultiObjectiveCostParameters parameters, FlipperRejections* rejections = nullptr,
+                     double angle = 0.0)
+{
+  auto node = std::make_shared<rclcpp::Node>("transition_test", flipperNodeOptions(true));
+  auto robot_model = std::make_shared<RobotModel>(node);
+  auto predictor = std::make_shared<BandPredictor>(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), angle);
+  auto previous = std::make_shared<moveit::core::RobotState>(robot_model->getMoveitRobotModel());
+  previous->setToDefaultValues();
+  previous->setVariablePosition("f", angle);
+  previous->update();
+  // The support polygon reaches 1 m around the robot, so a step beyond it leaves the previous centre of mass outside
+  Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+  pose.translation().x() = step;
+  parameters.impact_weight = 0.0;
+  const std::vector<std::string> joints = {"f"};
+  FlipperMultiObjectiveCost cost(joints, predictor, pose, previous, parameters, nullptr, {}, rejections);
+  const double angles[1] = {angle};
+  const double* blocks[1] = {angles};
+  double value = 0.0;
+  cost(blocks, &value);
+  return value;
+}
+
+TEST(FlipperMultiObjectiveCost, transitionRejectsAPolygonThatDropsThePreviousCentreOfMass) {
+  FlipperMultiObjectiveCostParameters parameters;
+  FlipperRejections rejections;
+  EXPECT_EQ(std::numeric_limits<double>::max(), costAfterStep(1.5, parameters, &rejections));
+  EXPECT_EQ(1, rejections.transition);
+  EXPECT_LT(costAfterStep(0.5, parameters), std::numeric_limits<double>::max());
+}
+
+TEST(FlipperMultiObjectiveCost, aFailedPredictionCountsThePredictorStatus) {
+  auto node = std::make_shared<rclcpp::Node>("diagnostics_test", flipperNodeOptions(true));
+  auto robot_model = std::make_shared<RobotModel>(node);
+  auto predictor = std::make_shared<BandPredictor>(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), 0.0);
+  auto previous = std::make_shared<moveit::core::RobotState>(robot_model->getMoveitRobotModel());
+  previous->setToDefaultValues();
+  previous->update();
+  sdf_contact_estimation::PredictionDiagnostics diagnostics;
+  diagnostics.status = sdf_contact_estimation::PredictionStatus::FellOver;
+  diagnostics.unknown_sampling_points = 3;
+  FlipperRejections rejections;
+  const std::vector<std::string> joints = {"f"};
+  FlipperMultiObjectiveCost cost(joints, predictor, Eigen::Isometry3d::Identity(), previous, FlipperMultiObjectiveCostParameters(),
+                                 nullptr, {}, &rejections, {}, &diagnostics);
+  double value = 0.0;
+  for (const double angle : {1.0, 0.0}) {
+    const double angles[1] = {angle};
+    const double* blocks[1] = {angles};
+    cost(blocks, &value);
+  }
+  EXPECT_EQ(1, rejections.unsettled);
+  EXPECT_EQ(1, rejections.fell_over);
+  EXPECT_EQ(0, rejections.no_contact);
+  EXPECT_EQ(2, rejections.touched_unknown);
+  EXPECT_EQ(1, rejections.failed_touched_unknown);
+}
+
+TEST(FlipperMultiObjectiveCost, transitionWeightCostsATipInsteadOfRejectingIt) {
+  FlipperMultiObjectiveCostParameters parameters;
+  parameters.transition_weight = 2.0;
+  const double small_tip = costAfterStep(1.5, parameters);
+  const double large_tip = costAfterStep(2.5, parameters);
+  EXPECT_LT(0.0, small_tip);
+  EXPECT_LT(small_tip, large_tip);
+  EXPECT_LT(large_tip, std::numeric_limits<double>::max());
+  EXPECT_DOUBLE_EQ(0.0, costAfterStep(0.5, parameters));
+}
+
 TEST(WholeBodyPostureOptimization, aFeasiblePostureWithoutSurfaceColumnsSucceeds) {
   auto predictor = std::make_shared<BandPredictor>(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), 0.0);
   EXPECT_TRUE(findPosture(predictor, Eigen::Isometry3d::Identity()).success);
@@ -313,6 +489,17 @@ TEST(FlipperOptimization, aPostureThatSettlesTooFarAwayIsInfeasible) {
   predictor->settle = Eigen::Vector3d(0.0, 0.2, 0.0);
   FlipperOptimization optimization(node->create_sub_node("flipper_optimization"), robot_model, predictor);
   EXPECT_EQ(std::numeric_limits<double>::max(), optimization.optimize(Eigen::Isometry3d::Identity(), {0.0}, nullptr).final_cost);
+}
+
+TEST(FlipperOptimization, mirroredJointsNeedOneKnownPartnerPerJoint) {
+  for (const std::vector<std::string>& mirrored : {std::vector<std::string>{"f", "f"}, std::vector<std::string>{"g"}}) {
+    rclcpp::NodeOptions options = flipperNodeOptions(true);
+    options.append_parameter_override("flipper_optimization.mirrored_joints", mirrored);
+    auto node = std::make_shared<rclcpp::Node>("mirrored_joints_test", options);
+    auto robot_model = std::make_shared<RobotModel>(node);
+    auto predictor = std::make_shared<BandPredictor>(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), 0.0);
+    EXPECT_THROW(FlipperOptimization(node->create_sub_node("flipper_optimization"), robot_model, predictor), std::invalid_argument);
+  }
 }
 
 TEST(FlipperOptimization, localSolverKeepsAFeasiblePreviousPosture) {

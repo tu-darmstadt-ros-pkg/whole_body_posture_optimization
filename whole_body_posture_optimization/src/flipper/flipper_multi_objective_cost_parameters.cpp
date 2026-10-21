@@ -1,11 +1,14 @@
 #include <whole_body_posture_optimization/flipper/flipper_multi_objective_cost_parameters.h>
 
+#include <limits>
+
 namespace whole_body_posture_optimization {
 
 FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
 : OptimizationParametersBase(),
   support_area_weight(0.0),
   movement_cost_weight(0.0),
+  movement_temperature(0.0),
   lorentzian_sigma(0.0),
   track_contact_weight(0.0),
   track_contact_nominal_value(0.0),
@@ -15,6 +18,7 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
   roll_cost_weight(0.0),
   stability_weight(0.0),
   stability_nominal_value(0.0),
+  stability_temperature(std::numeric_limits<double>::infinity()),
   stability_exp_parameters{0, 0, 0},
   impact_weight(1.0),
   num_pose_x_samples(0.0),
@@ -22,12 +26,15 @@ FlipperMultiObjectiveCostParameters::FlipperMultiObjectiveCostParameters()
   pose_x_sigma(0.03),
   risk_level(0.5),
   regularization_weight(0.0),
-  max_position_deviation(0.0)
+  max_position_deviation(0.0),
+  transition_weight(0.0),
+  symmetry_weight(0.0)
 {}
 
 bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const rclcpp::Node::SharedPtr& node) {
   registerParameter(node, "support_area_weight", support_area_weight, 0.0, "Support area weight", 0.0, 100);
   registerParameter(node, "movement_cost_weight", movement_cost_weight, 0.0, "Movement cost weight", 0.0, 100);
+  registerParameter(node, "movement_temperature", movement_temperature, 0.0, "Soft maximum temperature over the joints of the movement and regularization costs, 0 is the maximum", 0.0, 100);
   registerParameter(node, "lorentzian_sigma", lorentzian_sigma, 0.2, "Lorentzian sigma", 0.0, 10);
   registerParameter(node, "track_contact_weight", track_contact_weight, 0.0, "Track contact weight", 0.0, 100);
   registerParameter(node, "track_contact_nominal_value", track_contact_nominal_value, 0.0, "Track contact nominal value", 0.0, 10);
@@ -38,6 +45,7 @@ bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const 
   registerParameter(node, "roll_cost_weight", roll_cost_weight, 0.0, "Roll cost weight", 0.0, 10);
   registerParameter(node, "stability_weight", stability_weight, 0.0, "Stability cost weight", 0.0, 100);
   registerParameter(node, "stability_nominal_value", stability_nominal_value, 0.0, "Stability nominal value", 0.0, 10);
+  registerParameter(node, "stability_temperature", stability_temperature, std::numeric_limits<double>::infinity(), "Soft maximum temperature over the support polygon edge costs, 0 is the weakest edge, infinite the mean", 0.0, std::numeric_limits<double>::infinity());
   registerParameter(node, "stability_exp_parameters_a", stability_exp_parameters[0], 1.6, "Stability EXP parameter (a)", 0.0, 100);
   registerParameter(node, "stability_exp_parameters_b", stability_exp_parameters[1], -1.7, "Stability EXP parameter (b)", -100.0, 0);
   registerParameter(node, "stability_exp_parameters_c", stability_exp_parameters[2], 0.0, "Stability EXP parameter (c)", 0.0, 10);
@@ -47,6 +55,8 @@ bool FlipperMultiObjectiveCostParameters::loadParametersFromNamespaceImpl(const 
   registerParameter(node, "risk_level", risk_level, 0.5, "Risk level for CVaR (Conditional Value at Risk) computation", 0, 1);
   registerParameter(node, "regularization_weight", regularization_weight, 0.0, "Cost to keep the next solution close to the previous solution (if provided)", 0.0, 100);
   registerParameter(node, "max_position_deviation", max_position_deviation, 0.0, "Largest x, y move of the settled pose of each pose sample (in m), 0 disables", 0.0, 10);
+  registerParameter(node, "symmetry_weight", symmetry_weight, 0.0, "Pull of mirrored flippers toward the same angle", 0.0, 100);
+  registerParameter(node, "transition_weight", transition_weight, 0.0, "Cost per unit of force angle stability the previous centre of mass lacks in the new support polygon, 0 rejects such postures", 0.0, 100);
   return true;
 }
 

@@ -69,7 +69,9 @@ collision_links:
   cylinder_angle_min: *main_tracks_angle_min
   cylinder_angle_max: *main_tracks_angle_max
   include_indices: *main_track_front
-  invert_z: [2]
+  # Flushes the shapes narrower than the resolution to the same edge as the left track does, mirrored
+  invert_y: [3]
+  invert_z: [2, 5, 6, 7]
 
 - link: main_track_right_link
   type: main_track
@@ -77,7 +79,7 @@ collision_links:
   cylinder_angle_min: *main_tracks_rear_angle_min
   cylinder_angle_max: *main_tracks_rear_angle_max
   include_indices: *main_track_rear
-  invert_z: [0]
+  invert_z: [0, 8, 9, 10]
 
 
   # --- Flippers: sample both wheels (pivot + tip) bottom arc + belt box. ---

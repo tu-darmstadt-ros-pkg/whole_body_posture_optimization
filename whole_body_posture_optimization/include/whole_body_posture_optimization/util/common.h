@@ -1,6 +1,10 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_COMMON_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_COMMON_H
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
 #include <rclcpp/rclcpp.hpp>
 #include <moveit/collision_distance_field/collision_distance_field_types.hpp>
 #include <moveit/robot_state/robot_state.hpp>
@@ -31,6 +35,25 @@ std::string poseToString(const Eigen::Isometry3d& pose);
 
 template <typename T> T lorentzian(const T& x, const T& sigma) {
   return log(T(1) + (x*x)/(T(2) * sigma * sigma));
+}
+
+/// Mean of values weighted by exp(value / temperature). The maximum for temperature 0, the mean for an infinite one.
+template <typename T> T softMax(const std::vector<T>& values, const T& temperature) {
+  if (values.empty()) {
+    return std::numeric_limits<T>::quiet_NaN();
+  }
+  const T max = *std::max_element(values.begin(), values.end());
+  if (temperature <= T(0)) {
+    return max;
+  }
+  T weighted_sum = 0;
+  T weight_sum = 0;
+  for (const T& value : values) {
+    const T weight = std::exp((value - max) / temperature);
+    weighted_sum += weight * value;
+    weight_sum += weight;
+  }
+  return weighted_sum / weight_sum;
 }
 
 template <typename T> T gaussianDistribution(T x, T mean, T s) {

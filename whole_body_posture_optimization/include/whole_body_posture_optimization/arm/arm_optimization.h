@@ -1,6 +1,8 @@
 #ifndef WHOLE_BODY_POSTURE_OPTIMIZATION_ARM_OPTIMIZATION_H
 #define WHOLE_BODY_POSTURE_OPTIMIZATION_ARM_OPTIMIZATION_H
 
+#include <limits>
+
 #include <rclcpp/rclcpp.hpp>
 #include <Eigen/Eigen>
 
@@ -19,11 +21,11 @@ namespace whole_body_posture_optimization {
 
 struct ArmOptimizationResult {
   std::vector<double> joint_angles; // optimal joint angles
-  Eigen::Vector3d center_of_mass; // optimal center of mass relative to base frame
-  double stability;
-  int iterations;
-  double optimization_time;
-  double final_cost;
+  Eigen::Vector3d center_of_mass = Eigen::Vector3d::Zero(); // optimal center of mass relative to base frame
+  double stability = std::numeric_limits<double>::quiet_NaN();
+  int iterations = 0;
+  double optimization_time = 0.0;
+  double final_cost = std::numeric_limits<double>::quiet_NaN();
 };
 
 class ArmOptimization {

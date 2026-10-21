@@ -69,6 +69,65 @@ TEST(Util, euclideanDistance2D) {
   EXPECT_DOUBLE_EQ(5.0, euclideanDistance2D(p1, p2)); // z is ignored
 }
 
+TEST(Util, timedAtLimitsStampsEverySegmentAtItsLimit) {
+  nav_msgs::msg::Path path = straightPath(0.0, 0.6, 0.2);
+  // A quarter turn on the spot at the end
+  geometry_msgs::msg::PoseStamped turned = path.poses.back();
+  turned.pose.orientation.z = std::sin(M_PI / 4);
+  turned.pose.orientation.w = std::cos(M_PI / 4);
+  path.poses.push_back(turned);
+  const rclcpp::Time start(10, 0, RCL_ROS_TIME);
+  const nav_msgs::msg::Path timed = timedAtLimits(path, 0.2, 0.5, start);
+  ASSERT_EQ(5u, timed.poses.size());
+  EXPECT_NEAR(10.0, rclcpp::Time(timed.poses[0].header.stamp).seconds(), 1e-6);
+  EXPECT_NEAR(13.0, rclcpp::Time(timed.poses[3].header.stamp).seconds(), 1e-6);
+  EXPECT_NEAR(13.0 + M_PI_2 / 0.5, rclcpp::Time(timed.poses[4].header.stamp).seconds(), 1e-6);
+}
+
+TEST(Util, densifyPosesStaysOnAnArc) {
+  // Waypoints 0.2 m apart on a quarter circle of radius 0.15 m with tangent headings
+  const double radius = 0.15;
+  std::vector<Eigen::Isometry3d> poses;
+  std::vector<double> times;
+  for (int i = 0; i <= 2; ++i) {
+    const double a = i * M_PI / 4;
+    Eigen::Isometry3d pose(Eigen::AngleAxisd(a + M_PI_2, Eigen::Vector3d::UnitZ()));
+    pose.translation() << radius * std::cos(a), radius * std::sin(a), 0.0;
+    poses.push_back(pose);
+    times.push_back(i);
+  }
+  densifyPoses(poses, times, 0.03);
+  ASSERT_GT(poses.size(), 3u);
+  for (size_t i = 0; i < poses.size(); ++i) {
+    EXPECT_NEAR(radius, poses[i].translation().head<2>().norm(), 0.002);
+    const Eigen::Vector2d radial = poses[i].translation().head<2>().normalized();
+    EXPECT_NEAR(0.0, radial.dot(poses[i].linear().col(0).head<2>()), 0.05);
+    if (i > 0) {
+      EXPECT_GT(times[i], times[i - 1]);
+    }
+  }
+}
+
+TEST(Util, densifyPosesHeadsAlongTheCurve) {
+  // Headings 0 and 50 deg: the slerped heading at a third of the way is 17 deg, the curve's tangent there is less
+  std::vector<Eigen::Isometry3d> poses = {Eigen::Isometry3d::Identity(), Eigen::Isometry3d(Eigen::AngleAxisd(0.87, Eigen::Vector3d::UnitZ()))};
+  poses[1].translation() << 0.2, 0.06, 0.0;
+  std::vector<double> times = {0.0, 1.0};
+  densifyPoses(poses, times, 0.05);
+  ASSERT_GT(poses.size(), 3u);
+  for (size_t i = 1; i + 1 < poses.size(); ++i) {
+    const Eigen::Vector2d chord = (poses[i + 1].translation() - poses[i - 1].translation()).head<2>().normalized();
+    EXPECT_NEAR(0.0, std::asin(chord.x() * poses[i].linear()(1, 0) - chord.y() * poses[i].linear()(0, 0)), 0.03);
+  }
+}
+
+TEST(Util, densifyPosesKeepsATurnOnTheSpot) {
+  std::vector<Eigen::Isometry3d> poses = {Eigen::Isometry3d::Identity(), Eigen::Isometry3d(Eigen::AngleAxisd(M_PI_2, Eigen::Vector3d::UnitZ()))};
+  std::vector<double> times = {0.0, 1.0};
+  densifyPoses(poses, times, 0.05);
+  EXPECT_EQ(2u, poses.size());
+}
+
 TEST(PathSmoother, smoothedPathKeepsEndpointsAndResolution) {
   // L-shaped path
   nav_msgs::msg::Path path;

@@ -94,6 +94,16 @@ protected:
 
 }
 
+TEST(Markers, failureReasonNamesTheCause) {
+  PostureOptimizationResult result;
+  EXPECT_FALSE(result.success);
+  EXPECT_EQ("no posture", failureReason(result));
+  result.failure_reason = "infeasible";
+  // A support polygon of the last prediction must not turn an infeasible posture into an unstable one
+  result.support_polygon.contact_hull_points = {{1, 1, 0}, {-1, 1, 0}, {-1, -1, 0}};
+  EXPECT_EQ("infeasible", failureReason(result));
+}
+
 TEST_F(HorizonMarkers, startsWithDeleteAllAndUsesTheModelFrame) {
   ASSERT_FALSE(markers_.markers.empty());
   EXPECT_EQ(Marker::DELETEALL, markers_.markers.front().action);

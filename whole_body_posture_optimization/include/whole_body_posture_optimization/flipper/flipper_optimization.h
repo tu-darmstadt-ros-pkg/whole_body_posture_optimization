@@ -27,7 +27,8 @@ struct FlipperOptimizationResult {
 class FlipperOptimization {
 public:
   FlipperOptimization(const rclcpp::Node::SharedPtr& node, const std::shared_ptr<RobotModel>& robot_model,
-                      const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor);
+                      const hector_pose_prediction_interface::PosePredictor<double>::Ptr& pose_predictor,
+                      const sdf_contact_estimation::PredictionDiagnostics* prediction_diagnostics=nullptr);
   FlipperOptimizationResult optimize(const Eigen::Isometry3d& robot_pose,
                                      const std::vector<double> &init_joint_angles,
                                      const moveit::core::RobotStateConstPtr& previous_state,
@@ -46,6 +47,7 @@ private:
   std::shared_ptr<RobotModel> robot_model_;
   std::vector<std::size_t> param_idx_to_jnt_idx_;
   hector_pose_prediction_interface::PosePredictor<double>::Ptr pose_predictor_;
+  const sdf_contact_estimation::PredictionDiagnostics* prediction_diagnostics_;
 
   std::shared_ptr<ceres_nlopt_wrapper::NloptParameterServer> opt_server_;
   std::shared_ptr<ceres_nlopt_wrapper::NloptParameterServer> local_opt_server_;
@@ -55,6 +57,8 @@ private:
   std::vector<std::string> free_joints_;
   /// coupled_joints_[i] follows free_joints_[i]; empty entries follow nothing
   std::vector<std::string> coupled_joints_;
+  /// Free joint indices of mirrored flippers (mirrored_joints), each pair once
+  std::vector<std::pair<size_t, size_t>> mirrored_pairs_;
   std::vector<std::size_t> coupled_idx_to_jnt_idx_;
   std::vector<double> upper_bounds_;
   std::vector<double> lower_bounds_;
