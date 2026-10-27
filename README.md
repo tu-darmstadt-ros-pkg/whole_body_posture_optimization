@@ -10,6 +10,7 @@
 | `publish_markers` | `true` | build and publish the debug markers on `~/markers` |
 | `flipper_optimization.mirrored_joints` | `[]` | the left-right partner of each joint (or `""`), for `symmetry_weight` |
 | `flipper_optimization.cost_parameters.movement_temperature` | `0.0` | soft maximum over the joints of the movement and regularization costs, 0 is the maximum |
+| `flipper_optimization.cost_parameters.regularization_weight` | `0.0` | pull toward the `last_solution` passed to `findOptimalPosture`, no effect without one (the planning server passes none) |
 | `flipper_optimization.cost_parameters.stability_temperature` | `inf` | soft maximum over the support polygon edge costs, 0 is the weakest edge, inf the mean |
 | `flipper_optimization.cost_parameters.symmetry_weight` | `0.0` | pull of mirrored flippers toward the same angle |
 | `flipper_optimization.cost_parameters.transition_weight` | `0.0` | cost per unit of force angle stability the previous centre of mass lacks in the new support polygon, 0 rejects such postures |
