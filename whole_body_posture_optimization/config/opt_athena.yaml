@@ -56,8 +56,6 @@
         enabled: false
         maxeval: 10
 
-      # Note: all four flippers are optimized independently; there is no
-      # left/right mirroring constraint (unlike sdf_dp_flipper_planner's DOF pairs).
       joints:
         - flipper_fl_joint
         - flipper_fr_joint

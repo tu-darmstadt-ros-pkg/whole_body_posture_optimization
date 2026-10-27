@@ -3,6 +3,9 @@
 `whole_body_posture_optimization` optimizes flipper and arm postures along a path.
 `whole_body_planning_server` plans and executes them as a `follow_path` action server.
 
+Based on M. Oehler, S. Kohlbrecher and O. von Stryk, "Whole-body planning for obstacle traversal with autonomous
+mobile ground robots", International Conference on Robotics in Alpe-Adria Danube Region, Springer, 2019, pp. 250-258.
+
 ## Parameters
 
 | Parameter | Default | Description |
