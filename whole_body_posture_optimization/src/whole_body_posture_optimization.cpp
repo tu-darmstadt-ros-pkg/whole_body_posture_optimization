@@ -193,8 +193,8 @@ PostureOptimizationResult WholeBodyPostureOptimization::findOptimalPosture(const
 
   Eigen::Isometry3d estimated_pose = pose; // Estimated pose of the robot at the requested position
   if (previous_state) {
-    // Use last estimated pose to update estimate, if available
-    estimated_pose = sdf_contact_estimation::updatePoseFromLastResult(pose, previous_state->getJointTransform("world_virtual_joint"), true, false);
+    // A level start raised onto the highest column settles perched on a tall block, the previous attitude settles climbing
+    estimated_pose = sdf_contact_estimation::updatePoseFromLastResult(pose, previous_state->getJointTransform("world_virtual_joint"), true, true);
   }
   // A start below a thin plate sees free space and falls through an open stair to the floor, so the prediction
   // starts with each column on the highest surface under it
