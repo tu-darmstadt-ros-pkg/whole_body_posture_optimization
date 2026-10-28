@@ -6,6 +6,10 @@
 Based on M. Oehler, S. Kohlbrecher and O. von Stryk, "Whole-body planning for obstacle traversal with autonomous
 mobile ground robots", International Conference on Robotics in Alpe-Adria Danube Region, Springer, 2019, pp. 250-258.
 
+The paper estimates height, roll and pitch from the ground geometry and leaves the start of that estimate open.
+Each pose prediction here starts with the roll and pitch of the previous waypoint's result. A level start raised
+onto the highest surface under the robot settles perched on a thin block, the previous attitude settles climbing.
+
 ## Parameters
 
 | Parameter | Default | Description |
