@@ -1,5 +1,5 @@
-# MARV overlay on athena.yaml (benchmark.launch.py). marv_shape_config.yaml
-# samples the chassis, so body_contact_weight prices its contacts.
+# MARV overlay on athena.yaml (launch/wbpo.launch.py overlays:=).
+# marv_shape_config.yaml samples the chassis, so body_contact_weight prices its contacts.
 /**:
   ros__parameters:
     # fixed_flipper's pose on MARV, where each optimization starts
