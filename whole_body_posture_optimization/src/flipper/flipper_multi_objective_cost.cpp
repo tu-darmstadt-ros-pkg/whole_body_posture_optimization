@@ -37,7 +37,6 @@ FlipperMultiObjectiveCost::FlipperMultiObjectiveCost(const std::vector<std::stri
   if (previous_state) {
     prev_flipper_param_angles_ = getVariablePositions(previous_state, free_joints_);
     prev_pose_ = previous_state->getJointTransform("world_virtual_joint");
-    // TODO: use these values from previous iteration
     // Compute previous COM in world
     setJointPositions(prev_flipper_param_angles_);
     prev_com_ = prev_pose_ * pose_predictor->robotModel()->centerOfMass();
@@ -372,8 +371,6 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
   // Stability cost
   double stability_cost = 0;
   if (parameters_.stability_weight != 0) {
-    //    Eigen::Vector3d com_pos = result_pose_eigen * pose_predictor_->robotModel()->centerOfMass();
-    //    std::vector<double> stabilities = computeForceAngleStabilitiesWithGravity<double>(support_polygon.contact_hull_points, com_pos);
     std::vector<double> transformed_edge_stabilities =  support_polygon.edge_stabilities;
     if (parameters_.stability_nominal_value != 0) {
       std::transform(transformed_edge_stabilities.begin(), transformed_edge_stabilities.end(), transformed_edge_stabilities.begin(), [this](double stability) -> double {
@@ -418,23 +415,6 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
   }
   track_contact_area *= -1; // Negative cost (reward)
 
-  // Penalize contact normals that point against the moving direction
-  // For now, the moving direction is hard-coded to x+
-  //  Eigen::Vector3d moving_direction = Eigen::Vector3d::UnitX();
-  //  Eigen::Vector3d neg_moving_direction = -moving_direction;
-  //  double contact_against_moving_penalty_weight = 0.0;
-  //  double contact_against_moving_penalty_sum = 0;
-  //  for (Eigen::Vector3d& contact_point: result.contact_points) {
-  //    Eigen::Vector3d normal;
-  //    contact_estimation_->getSdf().getDistanceAndGradient(contact_point, normal);
-  //    double angle = std::acos(neg_moving_direction.dot(normal)/(neg_moving_direction.norm() * normal.norm()));
-  //    double a = 1.85;
-  //    double c = -0.85;
-  //    double penalty = std::max(a * std::exp(-angle) + c, 0.0);
-  //    contact_against_moving_penalty_sum += penalty;
-  //  }
-
-  // Compute support area TODO move to hector math
   double support_area = 0;
   for (unsigned int i = 0; i < support_polygon.contact_hull_points.size(); ++i) {
     unsigned int j = (i+1) % support_polygon.contact_hull_points.size();
@@ -457,52 +437,6 @@ double FlipperMultiObjectiveCost::evaluateCost(const Eigen::Isometry3d& pose_sam
                       + parameters_.symmetry_weight * symmetry_cost
                       + parameters_.transition_weight * transition_cost;
   return local_cost;
-
-//    if (parameters_.verbose) {
-//      RCLCPP_INFO_STREAM(rclcpp::get_logger("flipper_multi_objective_cost"), "Flipper cost function (weighted value in brackets): " << std::endl <<
-//                      "Support area: " << support_area << " (" << parameters_.support_area_weight * support_area << ")" << std::endl <<
-//                      "Track contact: " << track_contact_area << " (" << parameters_.track_contact_weight * track_contact_area << ")" << std::endl <<
-//                      "Body contact: " << body_contact_area << " (" << parameters_.body_contact_weight * body_contact_area << ")" << std::endl <<
-//                      "Impact: " << impact_cost << " (" << parameters_.impact_weight * impact_cost << ")" << std::endl <<
-//                      "Turning resistance: " << turning_resistance << " (" << parameters_.turning_resistance_weight * turning_resistance << ")" << std::endl <<
-//                      "Movement penalty: " << movement_cost << " (" << parameters_.movement_cost_weight * movement_cost << ")" << std::endl <<
-//                      "Position deviation cost: " << position_deviation_cost << " (" << parameters_.position_deviation_weight * position_deviation_cost << ")" << std::endl <<
-//                      "Chassis roll angle: " << chassis_roll_angle << " (" << parameters_.roll_cost_weight * chassis_roll_angle << ")" << std::endl <<
-//                      "Stability cost: " << stability_cost << " (" << parameters_.stability_weight * stability_cost << ")" << std::endl <<
-//                      "Total cost: " << local_cost);
-//    }
-//
-//    if (DataLog::getInstance().getTable("flipper_multi_objective_cost").enabled()) {
-//      Eigen::VectorXd data(DataLog::getInstance().getTable("flipper_multi_objective_cost").getDataSize());
-//      for (unsigned int i = 0; i < free_joints_.size(); ++i) {
-//        data[i] = flipper_angles[0][i];
-//      }
-//      Eigen::Index index = static_cast<Eigen::Index>(free_joints_.size()) - 1;
-//      data[++index] = offset_counter;
-//      data[++index] = parameters_.support_area_weight * support_area;
-//      data[++index] = parameters_.track_contact_weight * track_contact_area;
-//      data[++index] = parameters_.body_contact_weight * body_contact_area;
-//      data[++index] = parameters_.turning_resistance_weight * turning_resistance;
-//      data[++index] = parameters_.movement_cost_weight * movement_cost;
-//      data[++index] = parameters_.roll_cost_weight * chassis_roll_angle * chassis_roll_angle;
-//      data[++index] = parameters_.position_deviation_weight * position_deviation_cost;
-//      data[++index] = parameters_.stability_weight * stability_cost;
-//      data[++index] = parameters_.impact_weight * impact_cost;
-//      data[++index] = local_cost;
-//      DataLog::getInstance().getTable("flipper_multi_objective_cost").addData(data);
-//    }
-//
-//    if (DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).enabled()) {
-//
-//      Eigen::VectorXd data(DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).getDataSize());
-//      data <<
-//          pose_sample.translation().x(),
-//          pose_sample.translation().y(),
-//          0.0,
-//          local_cost,
-//          rel_prob;
-//      DataLog::getInstance().getTable(PROBABILITY_DISTRIBUTION_TABLE_NAME).addData(data);
-//    }
 }
 
 void FlipperMultiObjectiveCost::evaluateCostAsync(const Eigen::Isometry3d& pose_sample,

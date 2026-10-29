@@ -55,7 +55,6 @@ WholeBodyPlanningServer::WholeBodyPlanningServer(const rclcpp::Node::SharedPtr& 
 
   // Create SDF Model
   // The esdf server runs on its own node which is spun by the map update thread
-  // (replaces the ROS 1 custom callback queue)
   esdf_node_ = std::make_shared<rclcpp::Node>(std::string(node_->get_name()) + "_esdf_server", node_->get_namespace());
   esdf_server_ = std::make_shared<voxblox::EsdfServer>(esdf_node_);
   sdf_model_ = std::make_shared<sdf_contact_estimation::SdfModel>(node_);
@@ -697,8 +696,6 @@ nav_msgs::msg::Path WholeBodyPlanningServer::preprocessPath(const nav_msgs::msg:
   }
 
   // Re-sample and smooth path
-  // Note: In ROS 1, these options were part of the move_base_lite FollowPath goal.
-  // nav2_msgs/FollowPath has no comparable options, so they are parameters now.
   Pathsmoother3D path_smoother(reverse_allowed_, ignore_goal_orientation_);
   path_smoother.setSmoothedPathDiscretization(path_sampling_resolution);
   path_copy = path_smoother.smooth(path_copy, true);
@@ -908,9 +905,6 @@ void WholeBodyPlanningServer::executeBaseTrajectory(const robot_trajectory::Robo
 void WholeBodyPlanningServer::executeBaseTrajectory(const nav_msgs::msg::Path& path) {
   FollowPath::Goal follow_path_goal;
   follow_path_goal.path = path;
-  // Note: The former move_base_lite follow_path_options (desired_speed, use_path_orientation,
-  // is_fixed, goal tolerances, ...) have no equivalent in nav2_msgs/FollowPath.
-  // These options have to be configured on the receiving controller instead.
   follow_path_goal.controller_id = "";
   follow_path_goal.goal_checker_id = "";
 

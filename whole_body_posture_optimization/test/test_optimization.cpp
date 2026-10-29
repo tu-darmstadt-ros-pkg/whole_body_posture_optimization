@@ -6,6 +6,7 @@
 #include <whole_body_posture_optimization/whole_body_posture_optimization.h>
 #include <sdf_contact_estimation/sdf/sdf_model.h>
 #include <whole_body_posture_optimization/util/iterative_spline_parameterization.h>
+#include "open_step_model.h"
 
 #include <moveit/robot_model/robot_model.hpp>
 #include <moveit/robot_trajectory/robot_trajectory.hpp>
@@ -462,6 +463,58 @@ TEST(WholeBodyPostureOptimization, noFeasiblePostureFails) {
   // Outside the joint limits, so every evaluated posture fails
   auto predictor = std::make_shared<BandPredictor>(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), 5.0);
   EXPECT_FALSE(findPosture(predictor, Eigen::Isometry3d::Identity()).success);
+}
+
+namespace {
+
+// Athena's columns under the main tracks
+const std::vector<double> kSurfaceColumns = {0.25, 0.105, 0.0, 0.105, -0.25, 0.105, 0.25, -0.105, 0.0, -0.105, -0.25, -0.105};
+
+/// Solves at x = -0.1 in front of the plate of openStepModel, so only the front columns lie under the plate,
+/// after a previous pose at x = -0.3 with the given pitch and height. The predictor keeps the start pose.
+PostureOptimizationResult findPostureBeforeThePlate(double previous_pitch, double previous_z)
+{
+  rclcpp::NodeOptions options = flipperNodeOptions(true);
+  options.append_parameter_override("surface_columns", kSurfaceColumns);
+  auto node = std::make_shared<rclcpp::Node>("open_step_test", options);
+  auto predictor = std::make_shared<BandPredictor>(std::make_shared<FakeRobotModel>(std::vector<std::string>{"f"}), 0.0);
+  WholeBodyPostureOptimization optimization(node, predictor, std::make_shared<sdf_contact_estimation::SdfModel>(openStepModel()));
+  auto previous = std::make_shared<moveit::core::RobotState>(optimization.getRobotModel()->getMoveitRobotModel());
+  previous->setToDefaultValues();
+  Eigen::Isometry3d previous_pose(Eigen::AngleAxisd(previous_pitch, Eigen::Vector3d::UnitY()));
+  previous_pose.translation() = Eigen::Vector3d(-0.3, 0.0, previous_z);
+  previous->setJointPositions("world_virtual_joint", previous_pose);
+  previous->update();
+  Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+  pose.translation().x() = -0.1;
+  return optimization.findOptimalPosture(pose, {0.0}, previous);
+}
+
+void expectEveryColumnOnOrAboveTheSurface(const Eigen::Isometry3d& start)
+{
+  for (size_t i = 0; i < kSurfaceColumns.size(); i += 2) {
+    const Eigen::Vector3d column = start * Eigen::Vector3d(kSurfaceColumns[i], kSurfaceColumns[i + 1], 0.0);
+    EXPECT_GE(column.z(), (column.x() >= 0.0 ? 0.2 : 0.0) - 0.03) << "column " << i / 2;
+  }
+}
+
+}
+
+TEST(WholeBodyPostureOptimization, aLevelStartRisesOntoAnOpenPlateUnderTheFrontColumns) {
+  const PostureOptimizationResult result = findPostureBeforeThePlate(0.0, 0.0);
+  ASSERT_TRUE(result.success);
+  EXPECT_NEAR(0.2, result.result_pose.translation().z(), 0.03);
+  expectEveryColumnOnOrAboveTheSurface(result.result_pose);
+}
+
+TEST(WholeBodyPostureOptimization, aPlateUnderTheFrontColumnsKeepsThePreviousPitch) {
+  // Nose up with the rear on the floor, as after climbing onto a lower plate
+  const PostureOptimizationResult result = findPostureBeforeThePlate(-0.3, 0.08);
+  ASSERT_TRUE(result.success);
+  EXPECT_NEAR(-0.3, sdf_contact_estimation::rotToNormalizedRpy(result.result_pose.linear())[1], 1e-6);
+  // Level on the plate height the centre would start 0.2 up
+  EXPECT_NEAR(0.13, result.result_pose.translation().z(), 0.03);
+  expectEveryColumnOnOrAboveTheSurface(result.result_pose);
 }
 
 TEST(FlipperMultiObjectiveCost, predictSettledPoseRejectsAPoseThatMovedTooFar) {

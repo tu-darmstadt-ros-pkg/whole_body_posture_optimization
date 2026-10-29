@@ -126,9 +126,8 @@
         sample_step_pose_x: 0.01
         pose_x_sigma: 0.03
         risk_level: 0.8
-        regularization_weight: 0.5
         symmetry_weight: 0.5
-        # Tipping between waypoints costs instead of making the posture infeasible
+        # Tipping between waypoints costs by how far
         transition_weight: 15.0
 
     arm_optimization:
