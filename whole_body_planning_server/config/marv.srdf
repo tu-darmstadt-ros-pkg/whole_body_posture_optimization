@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Planning groups of the benchmark's MARV (ctu_marv_description in benchmark_robot): four flippers. -->
+<!-- Planning groups of MARV (ctu_marv_description): four flippers. -->
 <robot name="marv">
   <virtual_joint name="world_virtual_joint" type="floating" parent_frame="map" child_link="base_footprint_link"/>
   <group name="flipper_group">

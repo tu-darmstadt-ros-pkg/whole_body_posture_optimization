@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Planning groups of the benchmark's Athena (athena_description in benchmark_robot): four flippers, no arm. -->
+<!-- Planning groups of Athena with four flippers and no arm. -->
 <robot name="athena">
   <virtual_joint name="world_virtual_joint" type="floating" parent_frame="map" child_link="base_footprint_link"/>
   <group name="flipper_group">

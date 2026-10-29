@@ -73,7 +73,6 @@ target_link_libraries(driving_controller_node PRIVATE ${PROJECT_NAME})
 install(DIRECTORY
   config
   launch
-  methods
   rviz
   DESTINATION share/${PROJECT_NAME}
   PATTERN "ros1_legacy" EXCLUDE

@@ -1,10 +1,8 @@
-# Whole-body planning server on the benchmark's Athena (four flippers, no arm).
+# Whole-body planning server on Athena with four flippers and no arm.
 # One file for every node of the process: the server, its voxblox ESDF node
 # and its MoveItCpp node.
 /**:
   ros__parameters:
-    use_sim_time: true
-
     # --- Planning server ---
     base_frame: base_footprint_link
     auto_start: true
@@ -16,11 +14,10 @@
     path_stitching_tolerance: 0.3
     reverse_allowed: false
     ignore_goal_orientation: false
-    # The benchmark judges deviations itself
     execution_position_tolerance: 0.0
     execution_orientation_tolerance: 0.0
 
-    # --- ESDF: the benchmark's voxblox layer on /maps/voxblox/esdf ---
+    # --- ESDF: a voxblox layer on esdf_map_in ---
     world_frame: map
     tsdf_voxel_size: 0.05
     tsdf_voxels_per_side: 16
@@ -54,7 +51,7 @@
     surface_columns: [0.25, 0.105, 0.0, 0.105, -0.25, 0.105, 0.25, -0.105, 0.0, -0.105, -0.25, -0.105]
     max_step_up: 0.3
     max_step_down: 0.5
-    # Stowed, the benchmark's start posture
+    # Stowed
     default_joint_state:
       flipper_fl_joint: 1.5708
       flipper_fr_joint: 1.5708
@@ -68,7 +65,7 @@
     trajectory_planner: linear
     max_velocity_scaling_factor: 1.0
     max_acceleration_scaling_factor: 1.0
-    # The reference path's 0.3 m/s outer track speed and 0.6 rad/s yaw rate
+    # 0.3 m/s outer track speed and 0.6 rad/s yaw rate
     max_base_velocity: 0.3
     max_base_yaw_velocity: 0.6
     # The arc sdf_dp_flipper_planner uses on this robot; 1.5708 is stowed
